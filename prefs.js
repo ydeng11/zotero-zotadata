@@ -12,3 +12,11 @@ pref("extensions.attachment-finder.autoDownloadOnAdd", false);
 
 // Debug and logging
 pref("extensions.attachment-finder.debug", false);
+
+// Default preferences for Attachment Finder plugin
+pref("extensions.attachment-finder.email", "");
+pref("extensions.attachment-finder.autoretrieve", "none");
+pref("extensions.attachment-finder.tag_nopdf", "No PDF");
+pref("extensions.attachment-finder.tag_haspdf", "Has PDF");
+pref("extensions.attachment-finder.downloadTimeout", 30000);
+pref("extensions.attachment-finder.maxRetries", 3);

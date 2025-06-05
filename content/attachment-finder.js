@@ -3,49 +3,145 @@
  * Handles attachment validation, DOI extraction, metadata updates, and file downloads
  */
 
+// Add immediate logging to see if script is loaded
+Zotero.log("AttachmentFinder: Script loading started");
+
 class AttachmentChecker {
     /**
-     * Checks a single Zotero item for the status of its attachments.
+     * Processes attachments for a single Zotero item.
+     * It checks file-type attachments for existence and removes those that are invalid
+     * (missing path or file not found on disk).
      * @param {Object} item - The Zotero item object.
-     *                         Expected to have an async method `getAttachmentsObjects()`
-     *                         which returns an array of attachment objects.
-     *                         Each attachment object is expected to have a `path` property.
-     * @returns {Promise<string>} Status: 'valid', 'missing', 'broken', or 'error'.
+     * @returns {Promise<Object>} An object containing the finalStatus for the item
+     *                            and details of processed attachments.
      */
-    async getAttachmentStatus(item) {
+    async processItemAttachments(item) {
+        Zotero.log(`AttachmentFinder: Processing attachments for item ID ${item.id}`);
         if (!item || typeof item.getAttachmentsObjects !== 'function') {
-            return 'error';
+            Zotero.log(`AttachmentFinder: Invalid item or getAttachmentsObjects not found for item ID ${item.id}`);
+            return { finalStatus: 'error', details: [{ error: 'Invalid item object' }] };
         }
 
-        const attachments = await item.getAttachmentsObjects();
+        let attachments;
+        try {
+            attachments = await item.getAttachmentsObjects();
+        } catch (e) {
+            Zotero.log(`AttachmentFinder: Error getting attachment objects for item ID ${item.id}: ${e}`);
+            return { finalStatus: 'error', details: [{ error: `Failed to get attachments: ${e.toString()}` }] };
+        }
+
+        const details = [];
+        let hasValidFileAttachment = false;
+        let hadFileAttachments = false; // To track if item was supposed to have files
 
         if (!attachments || attachments.length === 0) {
-            return 'missing';
+            Zotero.log(`AttachmentFinder: No attachments found for item ID ${item.id}`);
+            return { finalStatus: 'missing', details: [] };
         }
 
-        const firstAttachment = attachments[0];
-
-        if (!firstAttachment || !firstAttachment.path) {
-            return 'broken';
-        }
-
-        try {
-            const fileExists = await OS.File.exists(firstAttachment.path);
-            if (fileExists) {
-                return 'valid';
-            } else {
-                return 'broken';
+        for (const attachment of attachments) {
+            if (!attachment || !attachment.id) {
+                Zotero.log(`AttachmentFinder: Invalid attachment object found for item ID ${item.id}`);
+                details.push({ attachmentID: 'unknown', path: 'unknown', filename: 'N/A', status: 'invalid_object', action: 'skipped' });
+                continue;
             }
-        } catch (e) {
-            return 'error';
+
+            let fn = 'N/A';
+            if (attachment.path) {
+                let p = attachment.path;
+                let slashIdx = p.lastIndexOf('/');
+                let backslashIdx = p.lastIndexOf('\\'); // Escaped backslash for string literal
+                let idx = Math.max(slashIdx, backslashIdx);
+                if (idx === -1 && p.length > 0) { // Handles case where path is just a filename
+                    fn = p;
+                } else if (idx > -1) {
+                    fn = p.substring(idx + 1);
+                }
+            }
+            const filename = fn;
+
+            Zotero.log(`AttachmentFinder: Checking attachment ID ${attachment.id} for item ID ${item.id}. LinkMode: ${attachment.attachmentLinkMode}, Path: ${attachment.path}`);
+
+            const isImportedFile = attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE;
+            const isLinkedFile = attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE;
+
+            if (isImportedFile || isLinkedFile) {
+                hadFileAttachments = true;
+                if (!attachment.path) {
+                    Zotero.log(`AttachmentFinder: Attachment ID ${attachment.id} (file type) has no path. Removing.`);
+                    try {
+                        await attachment.eraseTx();
+                        details.push({ attachmentID: attachment.id, path: null, filename, status: 'no_path', action: 'removed' });
+                    } catch (e) {
+                        Zotero.log(`AttachmentFinder: Error removing attachment ID ${attachment.id} (no path): ${e}`);
+                        details.push({ attachmentID: attachment.id, path: null, filename, status: 'no_path', action: 'remove_failed', error: e.toString() });
+                    }
+                } else {
+                    try {
+                        const fileExists = await OS.File.exists(attachment.path);
+                        if (fileExists) {
+                            Zotero.log(`AttachmentFinder: File exists for attachment ID ${attachment.id} at path ${attachment.path}.`);
+                            hasValidFileAttachment = true;
+                            details.push({ attachmentID: attachment.id, path: attachment.path, filename, status: 'valid_file', action: 'kept' });
+                        } else {
+                            Zotero.log(`AttachmentFinder: File does not exist for attachment ID ${attachment.id} at path ${attachment.path}. Removing.`);
+                            await attachment.eraseTx();
+                            details.push({ attachmentID: attachment.id, path: attachment.path, filename, status: 'file_not_found', action: 'removed' });
+                        }
+                    } catch (e) {
+                        Zotero.log(`AttachmentFinder: Error checking/removing attachment ID ${attachment.id} for path ${attachment.path}: ${e}`);
+                        details.push({ attachmentID: attachment.id, path: attachment.path, filename, status: 'check_error', action: 'skipped', error: e.toString() });
+                    }
+                }
+            } else {
+                Zotero.log(`AttachmentFinder: Attachment ID ${attachment.id} is not an imported/linked file (LinkMode: ${attachment.attachmentLinkMode}). Skipping file check.`);
+                details.push({ attachmentID: attachment.id, path: attachment.path, filename, status: 'non_file_type', action: 'skipped' });
+            }
         }
+
+        let finalStatus;
+        if (hasValidFileAttachment) {
+            finalStatus = 'valid';
+        } else {
+            let remainingAttachmentsAfterProcessing;
+            try {
+                remainingAttachmentsAfterProcessing = await item.getAttachmentsObjects();
+            } catch (e) {
+                Zotero.log(`AttachmentFinder: Could not re-fetch attachments for item ${item.id} to determine final status precisely: ${e}`);
+                // Base status on initial assessment if re-fetch fails
+                finalStatus = hadFileAttachments ? 'broken_or_missing_files' : 'missing';
+            }
+
+            if (remainingAttachmentsAfterProcessing) {
+                if (remainingAttachmentsAfterProcessing.length === 0) {
+                    finalStatus = 'missing'; // All attachments removed or none to begin with
+                } else {
+                    // Check if any remaining are non-file types (e.g. URL, snapshot)
+                    const hasNonFileAttachments = remainingAttachmentsAfterProcessing.some(att =>
+                        !(att.attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
+                          att.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE)
+                    );
+                    if (hasNonFileAttachments) {
+                        finalStatus = 'no_valid_files_but_other_attachments_present';
+                    } else {
+                        // Remaining are file types, but none were valid (implies errors or all broken)
+                        finalStatus = 'broken_files_remaining_or_errors';
+                    }
+                }
+            } else if (!finalStatus) { // if remainingAttachmentsAfterProcessing is null and finalStatus not set
+                 finalStatus = hadFileAttachments ? 'broken_or_missing_files' : 'missing';
+            }
+        }
+
+        Zotero.log(`AttachmentFinder: Finished processing item ID ${item.id}. Final status: ${finalStatus}. Details: ` + JSON.stringify(details));
+        return { finalStatus, details };
     }
 
     /**
-     * Checks a list of Zotero items and returns their attachment statuses.
+     * Checks a list of Zotero items and returns their attachment statuses after processing.
      * @param {Array<Object>} items - An array of Zotero item objects.
-     * @returns {Promise<Array<Object>>} An array of objects, each containing the itemID
-     *                                   and its attachment status.
+     * @returns {Promise<Array<Object>>} An array of objects, each containing the itemID,
+     *                                   its attachment status, original item, and processing details.
      */
     async checkItems(items) {
         if (!Array.isArray(items)) {
@@ -54,13 +150,131 @@ class AttachmentChecker {
 
         const results = [];
         for (const item of items) {
-            const status = await this.getAttachmentStatus(item);
+            const processingReport = await this.processItemAttachments(item);
             results.push({
                 itemID: item.id || item.key || null,
-                status: status
+                status: processingReport.finalStatus,
+                item: item, // Keep reference to original item
+                details: processingReport.details
             });
         }
         return results;
+    }
+
+    /**
+     * Checks items and displays results to the user.
+     * This is the method called from the UI.
+     * @param {Array<Object>} items - Array of Zotero item objects
+     */
+    async checkItemsAndDisplay(items) {
+        try {
+            const results = await this.checkItems(items);
+            this.displayResults(results);
+            return results;
+        } catch (error) {
+            Zotero.log(`Error checking attachments: ${error}`);
+            alert(`Error checking attachments: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Displays attachment check results to the user.
+     * @param {Array<Object>} results - Results from checkItems()
+     */
+    displayResults(results) {
+        if (!results || results.length === 0) {
+            alert('No items to check or process.');
+            return;
+        }
+
+        let message = "Attachment Processing Report:\n\n";
+        const summaryCounts = {
+            valid: 0,
+            missing: 0,
+            no_valid_files: 0,
+            broken_or_errors: 0,
+            error_item: 0,
+            attachments_removed: 0,
+            attachments_kept: 0,
+            attachments_skipped_type: 0,
+            attachments_skipped_errors: 0
+        };
+
+        for (const result of results) {
+            const item = result.item;
+            const title = item.getDisplayTitle ? item.getDisplayTitle() :
+                         (item.getField ? item.getField('title') : 'Unknown Item');
+            const itemStatus = result.status;
+
+            let itemSymbol = '?';
+            switch (itemStatus) {
+                case 'valid':
+                    itemSymbol = '✅';
+                    summaryCounts.valid++;
+                    break;
+                case 'missing':
+                    itemSymbol = '🗑️';
+                    summaryCounts.missing++;
+                    break;
+                case 'no_valid_files_but_other_attachments_present':
+                    itemSymbol = '🔗';
+                    summaryCounts.no_valid_files++;
+                    break;
+                case 'broken_files_remaining_or_errors':
+                case 'broken_or_missing_files': // Grouping these as generally problematic
+                    itemSymbol = '⚠️';
+                    summaryCounts.broken_or_errors++;
+                    break;
+                case 'error': // Error processing the item itself
+                    itemSymbol = '🚫';
+                    summaryCounts.error_item++;
+                    break;
+                default:
+                    itemSymbol = '❔';
+                    Zotero.log(`AttachmentFinder: Unknown item status in displayResults: ${itemStatus}`);
+                    summaryCounts.broken_or_errors++; // Add to a general problematic category
+                    break;
+            }
+            message += `${itemSymbol} ${title}: ${itemStatus.replace(/_/g, ' ').toUpperCase()}\n`;
+
+            if (result.details && result.details.length > 0) {
+                for (const detail of result.details) {
+                    message += `  Attachment ID: ${detail.attachmentID || 'N/A'}`;
+                    if (detail.filename && detail.filename !== 'N/A') message += `, File: ${detail.filename}`;
+                    else if (detail.path) message += `, Path: ${detail.path}`;
+                    message += `, Status: ${detail.status.replace(/_/g, ' ')}`;
+                    if (detail.action) message += `, Action: ${detail.action.replace(/_/g, ' ')}`;
+                    if (detail.error) message += `, Error: ${detail.error}`;
+                    message += `\n`;
+
+                    if (detail.action === 'removed') summaryCounts.attachments_removed++;
+                    else if (detail.action === 'kept') summaryCounts.attachments_kept++;
+                    else if (detail.action === 'skipped' && detail.status === 'non_file_type') summaryCounts.attachments_skipped_type++;
+                    else if (detail.action === 'skipped' && (detail.status === 'check_error' || detail.status === 'invalid_object')) summaryCounts.attachments_skipped_errors++;
+                }
+            }
+            message += `\n`;
+        }
+
+        message += `\n--- Summary ---\n`;
+        message += `Total items processed: ${results.length}\n`;
+        message += `✅ Items with valid file attachments: ${summaryCounts.valid}\n`;
+        message += `🗑️ Items with no attachments (or all problematic files removed): ${summaryCounts.missing}\n`;
+        message += `🔗 Items with non-file attachments but no valid files: ${summaryCounts.no_valid_files}\n`;
+        message += `⚠️ Items with broken/missing files or processing issues: ${summaryCounts.broken_or_errors}\n`;
+        if (summaryCounts.error_item > 0) {
+            message += `🚫 Items with critical processing errors: ${summaryCounts.error_item}\n`;
+        }
+        message += `\n--- Attachment Actions ---\n`;
+        message += `Attachments removed: ${summaryCounts.attachments_removed}\n`;
+        message += `Attachments kept (valid files): ${summaryCounts.attachments_kept}\n`;
+        message += `Attachments skipped (non-file types): ${summaryCounts.attachments_skipped_type}\n`;
+        if (summaryCounts.attachments_skipped_errors > 0) {
+            message += `Attachments skipped due to errors/issues: ${summaryCounts.attachments_skipped_errors}\n`;
+        }
+
+        alert(message);
     }
 }
 
@@ -68,7 +282,11 @@ AttachmentFinder = {
     initialized: false,
 
     init: function () {
-        if (this.initialized) return;
+        Zotero.log("AttachmentFinder: init() called");
+        if (this.initialized) {
+            Zotero.log("AttachmentFinder: Already initialized, skipping");
+            return;
+        }
 
         // Initialize components
         this.attachmentChecker = new AttachmentChecker();
@@ -77,35 +295,39 @@ AttachmentFinder = {
         this.fileDownloader = new FileDownloader();
 
         this.initialized = true;
-        Zotero.debug("Attachment Finder: Initialized");
+        Zotero.log("Attachment Finder: Initialized successfully");
     },
 
     shutdown: function () {
         // Cleanup logic
         this.initialized = false;
-        Zotero.debug("Attachment Finder: Shutdown");
+        Zotero.log("Attachment Finder: Shutdown");
     },
 
     onMainWindowLoad: function (window) {
         // Setup UI for this window
         this.setupEventListeners(window);
-        Zotero.debug("Attachment Finder: Window loaded");
+        Zotero.log("Attachment Finder: Window loaded");
     },
 
     onMainWindowUnload: function (window) {
         // Cleanup for this window
         this.removeEventListeners(window);
-        Zotero.debug("Attachment Finder: Window unloaded");
+        Zotero.log("Attachment Finder: Window unloaded");
     },
 
     setupEventListeners: function (window) {
+        Zotero.log("AttachmentFinder: setupEventListeners called for window");
         // Add context menu items dynamically
         var doc = window.document;
         var popup = doc.getElementById('zotero-itemmenu');
         if (popup) {
+            Zotero.log("AttachmentFinder: Found zotero-itemmenu, adding event listener");
             popup.addEventListener('popupshowing', (event) => {
                 this.onPopupShowing(event, window);
             });
+        } else {
+            Zotero.log("AttachmentFinder: ERROR - Could not find zotero-itemmenu popup");
         }
     },
 
@@ -117,6 +339,7 @@ AttachmentFinder = {
     },
 
     onPopupShowing: function (event, window) {
+        Zotero.log("AttachmentFinder: onPopupShowing called, target ID: " + event.target.id);
         if (event.target.id !== 'zotero-itemmenu') return;
 
         // Add menu items dynamically
@@ -124,55 +347,78 @@ AttachmentFinder = {
     },
 
     addContextMenuItems: function (popup, window) {
+        Zotero.log("AttachmentFinder: addContextMenuItems called");
         var doc = window.document;
 
         // Remove existing items
         let existingItems = popup.querySelectorAll('[id^="attachment-finder-"]');
+        Zotero.log("AttachmentFinder: Removing " + existingItems.length + " existing menu items");
         existingItems.forEach(item => item.remove());
 
         // Create separator
         let separator = doc.createXULElement('menuseparator');
         separator.id = 'attachment-finder-separator';
         popup.appendChild(separator);
+        Zotero.log("AttachmentFinder: Added separator");
 
         // Check Attachments
         let checkItem = doc.createXULElement('menuitem');
         checkItem.id = 'attachment-finder-check';
         checkItem.setAttribute('label', 'Check Attachments');
-        checkItem.addEventListener('command', () => this.checkAttachments(window));
+        checkItem.addEventListener('command', () => {
+            Zotero.log("AttachmentFinder: Check Attachments menu item clicked");
+            this.checkAttachments(window);
+        });
         popup.appendChild(checkItem);
+        Zotero.log("AttachmentFinder: Added Check Attachments menu item");
 
         // Update Metadata
         let updateItem = doc.createXULElement('menuitem');
         updateItem.id = 'attachment-finder-update';
         updateItem.setAttribute('label', 'Update Metadata from DOI');
-        updateItem.addEventListener('command', () => this.updateMetadata(window));
+        updateItem.addEventListener('command', () => {
+            Zotero.log("AttachmentFinder: Update Metadata menu item clicked");
+            this.updateMetadata(window);
+        });
         popup.appendChild(updateItem);
 
         // Find Missing Files
         let downloadItem = doc.createXULElement('menuitem');
         downloadItem.id = 'attachment-finder-download';
         downloadItem.setAttribute('label', 'Find Missing Files');
-        downloadItem.addEventListener('command', () => this.findMissingFiles(window));
+        downloadItem.addEventListener('command', () => {
+            Zotero.log("AttachmentFinder: Find Missing Files menu item clicked");
+            this.findMissingFiles(window);
+        });
         popup.appendChild(downloadItem);
 
         // Settings
         let settingsItem = doc.createXULElement('menuitem');
         settingsItem.id = 'attachment-finder-settings';
         settingsItem.setAttribute('label', 'Attachment Finder Settings');
-        settingsItem.addEventListener('command', () => this.openSettings(window));
+        settingsItem.addEventListener('command', () => {
+            Zotero.log("AttachmentFinder: Settings menu item clicked");
+            this.openSettings(window);
+        });
         popup.appendChild(settingsItem);
+
+        Zotero.log("AttachmentFinder: All menu items added successfully");
     },
 
     // Main functionality methods
-    checkAttachments: function (window) {
+    checkAttachments: async function (window) {
+        Zotero.log("AttachmentFinder: checkAttachments function called");
         let selectedItems = window.ZoteroPane.getSelectedItems();
+        Zotero.log("AttachmentFinder: Selected items count: " + selectedItems.length);
         if (!selectedItems.length) {
+            Zotero.log("AttachmentFinder: No items selected");
             alert('Please select items to check attachments.');
             return;
         }
 
-        this.attachmentChecker.checkItems(selectedItems);
+        Zotero.log("AttachmentFinder: Starting attachment check for " + selectedItems.length + " items");
+        await this.attachmentChecker.checkItemsAndDisplay(selectedItems);
+        Zotero.log("AttachmentFinder: Attachment check completed");
     },
 
     updateMetadata: function (window) {
@@ -210,7 +456,7 @@ AttachmentFinder = {
                     await this.metadataUpdater.updateFromDOI(item, doi);
                 }
             } catch (error) {
-                Zotero.debug("Error updating metadata for item: " + error);
+                Zotero.log("Error updating metadata for item: " + error);
             }
         }
     },
@@ -227,7 +473,7 @@ AttachmentFinder = {
                     }
                 }
             } catch (error) {
-                Zotero.debug("Error downloading file for item: " + error);
+                Zotero.log("Error downloading file for item: " + error);
             }
         }
     }
@@ -305,10 +551,10 @@ function MetadataUpdater() {
             let metadata = await this.fetchCrossRefMetadata(doi);
             if (metadata) {
                 this.updateItemMetadata(item, metadata);
-                Zotero.debug(`Updated metadata for item: ${item.getDisplayTitle()}`);
+                Zotero.log(`Updated metadata for item: ${item.getDisplayTitle()}`);
             }
         } catch (error) {
-            Zotero.debug(`Failed to update metadata: ${error}`);
+            Zotero.log(`Failed to update metadata: ${error}`);
             throw error;
         }
     };
@@ -333,7 +579,7 @@ function MetadataUpdater() {
                 return data.message;
             }
         } catch (error) {
-            Zotero.debug(`CrossRef API error: ${error}`);
+            Zotero.log(`CrossRef API error: ${error}`);
         }
 
         return null;
@@ -410,9 +656,9 @@ function FileDownloader() {
                 return;
             }
 
-            Zotero.debug(`No open access files found for DOI: ${doi}`);
+            Zotero.log(`No open access files found for DOI: ${doi}`);
         } catch (error) {
-            Zotero.debug(`Error in file download: ${error}`);
+            Zotero.log(`Error in file download: ${error}`);
             throw error;
         }
     };
@@ -430,7 +676,7 @@ function FileDownloader() {
                 }
             }
         } catch (error) {
-            Zotero.debug(`Unpaywall API error: ${error}`);
+            Zotero.log(`Unpaywall API error: ${error}`);
         }
 
         return null;
@@ -460,7 +706,7 @@ function FileDownloader() {
                 }
             }
         } catch (error) {
-            Zotero.debug(`arXiv API error: ${error}`);
+            Zotero.log(`arXiv API error: ${error}`);
         }
 
         return null;
@@ -468,7 +714,7 @@ function FileDownloader() {
 
     this.downloadFile = async function (item, url, source) {
         try {
-            Zotero.debug(`Downloading file from ${source}: ${url}`);
+            Zotero.log(`Downloading file from ${source}: ${url}`);
 
             // Create attachment
             let attachment = await Zotero.Attachments.importFromURL({
@@ -479,10 +725,10 @@ function FileDownloader() {
             });
 
             if (attachment) {
-                Zotero.debug(`Successfully downloaded attachment from ${source}`);
+                Zotero.log(`Successfully downloaded attachment from ${source}`);
             }
         } catch (error) {
-            Zotero.debug(`Failed to download from ${source}: ${error}`);
+            Zotero.log(`Failed to download from ${source}: ${error}`);
             throw error;
         }
     };
@@ -492,7 +738,6 @@ function FileDownloader() {
 // For testing, these would be mocked or polyfilled.
 if (typeof Zotero === 'undefined') {
   var Zotero = { // Basic mock for structure
-    debug: function(msg) { console.log(msg); },
     log: function(msg) { console.log(msg); }
   };
 }

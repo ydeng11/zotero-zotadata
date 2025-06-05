@@ -1,0 +1,6 @@
+content attachment-finder content/
+
+locale  attachment-finder en-US locale/en-US/
+locale  attachment-finder zh-CN locale/zh-CN/
+
+skin    attachment-finder default skin/
