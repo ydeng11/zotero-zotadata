@@ -1,0 +1,28 @@
+<!-- Menu items -->
+<!ENTITY attachmentfinder.checkAttachments "Check Attachments">
+<!ENTITY attachmentfinder.updateMetadata "Update Metadata from DOI">
+<!ENTITY attachmentfinder.findMissingFiles "Find Missing Files">
+<!ENTITY attachmentfinder.settings "Attachment Finder Settings">
+
+<!-- Toolbar -->
+<!ENTITY attachmentfinder.button.tooltip "Find missing attachments for selected items">
+
+<!-- Preferences -->
+<!ENTITY attachmentfinder.preferences.title "Attachment Finder Preferences">
+<!ENTITY attachmentfinder.preferences.api "API Configuration">
+<!ENTITY attachmentfinder.preferences.email "Email Address:">
+<!ENTITY attachmentfinder.preferences.coreApiKey "CORE API Key:">
+<!ENTITY attachmentfinder.preferences.emailDescription "Email address is required for Unpaywall API. CORE API key is optional but increases rate limits.">
+<!ENTITY attachmentfinder.preferences.behavior "Behavior">
+<!ENTITY attachmentfinder.preferences.updateExisting "Update existing metadata">
+<!ENTITY attachmentfinder.preferences.autoDownload "Automatically download when items are added">
+<!ENTITY attachmentfinder.preferences.about "About">
+<!ENTITY attachmentfinder.preferences.description "Automatically find and download missing attachments for Zotero items using DOI and open access sources.">
+<!ENTITY attachmentfinder.preferences.homepage "Project Homepage">
+
+<!-- Progress Dialog -->
+<!ENTITY attachmentfinder.progress.title "Attachment Finder Progress">
+<!ENTITY attachmentfinder.progress.items "Items">
+<!ENTITY attachmentfinder.progress.item "Item">
+<!ENTITY attachmentfinder.progress.status "Status">
+<!ENTITY attachmentfinder.progress.cancel "Cancel">

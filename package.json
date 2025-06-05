@@ -1,0 +1,24 @@
+{
+  "name": "zotero-attachment-finder",
+  "version": "1.0.0",
+  "description": "A Zotero plugin that automatically finds and downloads missing attachments for your library items using DOI and open access sources.",
+  "main": "bootstrap.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"],
+    "collectCoverageFrom": [
+      "content/**/*.js",
+      "!content/**/*.test.js"
+    ]
+  },
+  "keywords": ["zotero", "plugin", "attachments", "doi", "pdf", "open-access"],
+  "author": "",
+  "license": "ISC"
+}

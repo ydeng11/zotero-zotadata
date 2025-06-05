@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+
+<dialog id="attachment-finder-progress"
+        title="&attachmentfinder.progress.title;"
+        xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+        buttons="cancel"
+        width="500"
+        height="300">
+
+  <script>
+    <![CDATA[
+      var AttachmentFinderProgress = {
+        canceled: false,
+
+        init: function() {
+          this.updateProgress(0, "Initializing...");
+        },
+
+        updateProgress: function(percent, message) {
+          document.getElementById('progress-meter').value = percent;
+          document.getElementById('progress-description').value = message;
+        },
+
+        setItemStatus: function(itemTitle, status) {
+          let listbox = document.getElementById('items-listbox');
+          let listitem = document.createElement('listitem');
+          let cell1 = document.createElement('listcell');
+          let cell2 = document.createElement('listcell');
+
+          cell1.setAttribute('label', itemTitle);
+          cell2.setAttribute('label', status);
+
+          listitem.appendChild(cell1);
+          listitem.appendChild(cell2);
+          listbox.appendChild(listitem);
+
+          // Scroll to bottom
+          listbox.scrollTop = listbox.scrollHeight;
+        },
+
+        cancel: function() {
+          this.canceled = true;
+          document.getElementById('progress-description').value = "Canceling...";
+        }
+      };
+
+      window.addEventListener('load', function() {
+        AttachmentFinderProgress.init();
+      });
+    ]]>
+  </script>
+
+  <vbox flex="1">
+    <description id="progress-description" value="Starting..."/>
+
+    <progressmeter id="progress-meter"
+                   mode="determined"
+                   value="0"
+                   style="margin: 10px 0;"/>
+
+    <groupbox flex="1">
+      <caption label="&attachmentfinder.progress.items;"/>
+
+      <listbox id="items-listbox" flex="1">
+        <listhead>
+          <listheader label="&attachmentfinder.progress.item;"/>
+          <listheader label="&attachmentfinder.progress.status;"/>
+        </listhead>
+      </listbox>
+    </groupbox>
+
+    <hbox pack="end">
+      <button label="&attachmentfinder.progress.cancel;"
+              oncommand="AttachmentFinderProgress.cancel(); window.close();"/>
+    </hbox>
+  </vbox>
+
+</dialog>

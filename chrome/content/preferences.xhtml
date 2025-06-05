@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml"
+      onload="AttachmentFinderPreferences.init();">
+
+  <script>
+    <![CDATA[
+      var AttachmentFinderPreferences = {
+        init: function() {
+          // Load current preferences
+          document.getElementById('email-textbox').value =
+            Zotero.Prefs.get('extensions.attachment-finder.unpaywallEmail') || '';
+          document.getElementById('core-api-key-textbox').value =
+            Zotero.Prefs.get('extensions.attachment-finder.coreApiKey') || '';
+          document.getElementById('update-existing-checkbox').checked =
+            Zotero.Prefs.get('extensions.attachment-finder.updateExistingMetadata') || false;
+          document.getElementById('auto-download-checkbox').checked =
+            Zotero.Prefs.get('extensions.attachment-finder.autoDownloadOnAdd') || false;
+        },
+
+        save: function() {
+          // Save preferences
+          Zotero.Prefs.set('extensions.attachment-finder.unpaywallEmail',
+            document.getElementById('email-textbox').value);
+          Zotero.Prefs.set('extensions.attachment-finder.coreApiKey',
+            document.getElementById('core-api-key-textbox').value);
+          Zotero.Prefs.set('extensions.attachment-finder.updateExistingMetadata',
+            document.getElementById('update-existing-checkbox').checked);
+          Zotero.Prefs.set('extensions.attachment-finder.autoDownloadOnAdd',
+            document.getElementById('auto-download-checkbox').checked);
+          return true;
+        }
+      };
+    ]]>
+  </script>
+
+  <groupbox>
+    <label><html:h2>API Configuration</html:h2></label>
+
+    <grid>
+      <columns>
+        <column/>
+        <column flex="1"/>
+      </columns>
+      <rows>
+        <row align="center">
+          <label value="Email (for Unpaywall):" control="email-textbox"/>
+          <html:input id="email-textbox"
+                      type="email"
+                      placeholder="your@email.com"
+                      preference="extensions.attachment-finder.unpaywallEmail"/>
+        </row>
+        <row align="center">
+          <label value="CORE API Key:" control="core-api-key-textbox"/>
+          <html:input id="core-api-key-textbox"
+                      type="text"
+                      placeholder="Optional: CORE API Key"
+                      preference="extensions.attachment-finder.coreApiKey"/>
+        </row>
+      </rows>
+    </grid>
+
+    <description>Email is required for Unpaywall API access. CORE API key is optional for higher rate limits.</description>
+  </groupbox>
+
+  <groupbox>
+    <label><html:h2>Behavior Settings</html:h2></label>
+
+    <checkbox id="update-existing-checkbox"
+              label="Update existing metadata"
+              preference="extensions.attachment-finder.updateExistingMetadata"/>
+    <checkbox id="auto-download-checkbox"
+              label="Automatically download when items are added"
+              preference="extensions.attachment-finder.autoDownloadOnAdd"/>
+  </groupbox>
+
+  <groupbox>
+    <label><html:h2>About</html:h2></label>
+
+    <description>Automatically find and download missing attachments for Zotero items using DOI and open access sources.</description>
+    <description>
+      <label class="text-link"
+             value="Visit Homepage"
+             href="https://github.com/your-username/zotero-attachment-finder"/>
+    </description>
+  </groupbox>
+
+</vbox>

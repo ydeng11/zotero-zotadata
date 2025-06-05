@@ -1,0 +1,117 @@
+/* Attachment Finder Styles */
+
+/* Toolbar button */
+#attachment-finder-button {
+  list-style-image: url("chrome://attachment-finder/skin/default/attachment-finder-icon.png");
+}
+
+#attachment-finder-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Menu items */
+#attachment-finder-check {
+  list-style-image: url("chrome://zotero/skin/tick.png");
+}
+
+#attachment-finder-update {
+  list-style-image: url("chrome://zotero/skin/page_refresh.png");
+}
+
+#attachment-finder-download {
+  list-style-image: url("chrome://zotero/skin/page_white_get.png");
+}
+
+#attachment-finder-settings {
+  list-style-image: url("chrome://zotero/skin/cog.png");
+}
+
+/* Progress dialog */
+#attachment-finder-progress {
+  min-width: 500px;
+  min-height: 350px;
+}
+
+#attachment-finder-progress progressmeter {
+  margin: 10px 0;
+}
+
+#attachment-finder-progress listbox {
+  border: 1px solid #ccc;
+  background: white;
+}
+
+#attachment-finder-progress listhead {
+  background: #f0f0f0;
+  border-bottom: 1px solid #ccc;
+}
+
+#attachment-finder-progress listheader {
+  font-weight: bold;
+  padding: 4px 8px;
+}
+
+#attachment-finder-progress listitem {
+  border-bottom: 1px solid #eee;
+}
+
+#attachment-finder-progress listcell {
+  padding: 4px 8px;
+}
+
+/* Preferences dialog */
+#attachment-finder-preferences {
+  min-width: 450px;
+  min-height: 400px;
+}
+
+#attachment-finder-preferences groupbox {
+  margin: 10px 0;
+}
+
+#attachment-finder-preferences textbox {
+  min-width: 200px;
+}
+
+#attachment-finder-preferences description {
+  margin: 5px 0;
+  font-size: 0.9em;
+  color: #666;
+}
+
+#attachment-finder-preferences .text-link {
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#attachment-finder-preferences .text-link:hover {
+  color: #0052cc;
+}
+
+/* Status indicators */
+.attachment-status-valid {
+  color: green;
+  font-weight: bold;
+}
+
+.attachment-status-missing {
+  color: red;
+  font-weight: bold;
+}
+
+.attachment-status-broken {
+  color: orange;
+  font-weight: bold;
+}
+
+/* Loading indicators */
+.attachment-finder-loading {
+  opacity: 0.6;
+}
+
+.attachment-finder-loading::after {
+  content: " (Loading...)";
+  font-style: italic;
+  color: #666;
+}
