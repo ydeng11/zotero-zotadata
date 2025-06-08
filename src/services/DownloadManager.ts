@@ -447,7 +447,7 @@ export class DownloadManager {
         const response = await Zotero.HTTP.request(method, url, {
           timeout: options.timeout || 30000,
           headers: {
-            'User-Agent': 'Zotero Attachment Finder/2.0',
+            'User-Agent': 'Zotero Zotadata/1.0',
             ...options.headers,
           },
           responseType: 'arraybuffer',
@@ -467,7 +467,7 @@ export class DownloadManager {
           method,
           signal: options.signal,
           headers: {
-            'User-Agent': 'Zotero Attachment Finder/2.0',
+            'User-Agent': 'Zotero Zotadata/1.0',
             ...options.headers,
           },
         });

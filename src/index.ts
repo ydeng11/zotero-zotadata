@@ -4,9 +4,9 @@ import { CrossRefAPI } from '@/apis/CrossRefAPI';
 import type { AddonData, PluginConfig } from '@/core/types';
 
 /**
- * Main Attachment Finder plugin class
+ * Main Zotadata plugin class
  */
-class AttachmentFinderPlugin {
+class ZotadataPlugin {
   private errorManager: ErrorManager;
   private attachmentChecker: AttachmentChecker;
   private crossRefAPI: CrossRefAPI;
@@ -31,7 +31,7 @@ class AttachmentFinderPlugin {
         SemanticScholar: { requests: 100, window: 1000 },
       },
       cacheSettings: { ttl: 3600000, maxSize: 1000 },
-      userAgent: 'Zotero Attachment Finder/2.0',
+      userAgent: 'Zotero Zotadata/1.0',  
     };
   }
 
@@ -41,13 +41,13 @@ class AttachmentFinderPlugin {
   async init(data: AddonData): Promise<void> {
     return this.errorManager.wrapAsync(
       async () => {
-        this.log('Initializing Attachment Finder plugin...');
+        this.log('Initializing Zotadata plugin...');
         this.addonData = data;
         
         // Add UI elements to all windows
         await this.addToAllWindows();
         
-        this.log('Attachment Finder plugin initialized successfully');
+        this.log('Zotadata plugin initialized successfully');
       },
       ErrorType.ZOTERO_ERROR,
       { operation: 'init', addonId: data.id }
@@ -58,7 +58,7 @@ class AttachmentFinderPlugin {
    * Startup the plugin
    */
   async startup(): Promise<void> {
-    this.log('Attachment Finder plugin started');
+    this.log('Zotadata plugin started');
   }
 
   /**
@@ -67,12 +67,12 @@ class AttachmentFinderPlugin {
   async shutdown(): Promise<void> {
     return this.errorManager.wrapAsync(
       async () => {
-        this.log('Shutting down Attachment Finder plugin...');
+        this.log('Shutting down Zotadata plugin...');
         
         // Remove UI elements from all windows
         await this.removeFromAllWindows();
         
-        this.log('Attachment Finder plugin shut down successfully');
+        this.log('Zotadata plugin shut down successfully');
       },
       ErrorType.ZOTERO_ERROR,
       { operation: 'shutdown' }
@@ -84,7 +84,7 @@ class AttachmentFinderPlugin {
    */
   async uninstall(): Promise<void> {
     await this.shutdown();
-    this.log('Attachment Finder plugin uninstalled');
+    this.log('Zotadata plugin uninstalled');
   }
 
   /**
@@ -118,34 +118,34 @@ class AttachmentFinderPlugin {
       
       // Create main menu
       const menu = this.createElement(doc, 'menu', {
-        id: 'zotero-itemmenu-attachment-finder-menu',
+        id: 'zotero-itemmenu-zotadata-menu',
         class: 'menu-iconic',
-        label: 'Attachment Finder',
+        label: 'Zotadata',
       });
 
       const menuPopup = this.createElement(doc, 'menupopup', {
-        id: 'zotero-itemmenu-attachment-finder-menupopup',
+        id: 'zotero-itemmenu-zotadata-menupopup',
       });
 
       // Create menu items
       const menuItems = [
         {
-          id: 'zotero-itemmenu-attachment-finder-check',
+          id: 'zotero-itemmenu-zotadata-check',
           label: 'Check Attachments',
           handler: () => this.handleCheckAttachments(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-fetch-metadata',
+          id: 'zotero-itemmenu-zotadata-fetch-metadata',
           label: 'Fetch Metadata',
           handler: () => this.handleFetchMetadata(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-process-arxiv',
+          id: 'zotero-itemmenu-zotadata-process-arxiv',
           label: 'Process arXiv Items',
           handler: () => this.handleProcessArxiv(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-find-files',
+          id: 'zotero-itemmenu-zotadata-find-files',
           label: 'Find Missing Files',
           handler: () => this.handleFindFiles(),
         },
@@ -355,33 +355,33 @@ class AttachmentFinderPlugin {
    */
   private log(message: string): void {
     if (typeof Zotero !== 'undefined' && Zotero.log) {
-      Zotero.log(`Attachment Finder: ${message}`);
+      Zotero.log(`Zotadata: ${message}`);
     } else {
-      console.log(`Attachment Finder: ${message}`);
+      console.log(`Zotadata: ${message}`);
     }
   }
 }
 
 // Global plugin instance
-let attachmentFinderPlugin: AttachmentFinderPlugin;
+let zotadataPlugin: ZotadataPlugin;
 
 // Plugin lifecycle functions for Zotero
 export function init(data: AddonData): Promise<void> {
-  attachmentFinderPlugin = new AttachmentFinderPlugin();
-  return attachmentFinderPlugin.init(data);
+  zotadataPlugin = new ZotadataPlugin();
+  return zotadataPlugin.init(data);
 }
 
 export function startup(): Promise<void> {
-  return attachmentFinderPlugin?.startup() || Promise.resolve();
+  return zotadataPlugin?.startup() || Promise.resolve();
 }
 
 export function shutdown(): Promise<void> {
-  return attachmentFinderPlugin?.shutdown() || Promise.resolve();
+  return zotadataPlugin?.shutdown() || Promise.resolve();
 }
 
 export function uninstall(): Promise<void> {
-  return attachmentFinderPlugin?.uninstall() || Promise.resolve();
+  return zotadataPlugin?.uninstall() || Promise.resolve();
 }
 
 // Export for testing
-export { AttachmentFinderPlugin }; 
+export { ZotadataPlugin }; 

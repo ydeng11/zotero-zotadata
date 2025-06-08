@@ -1,4 +1,4 @@
-// Basic Zotero type definitions for the attachment finder
+// Basic Zotero type definitions for the zotadata
 // This extends the zotero-types package with additional definitions
 
 declare namespace Zotero {

@@ -1,8 +1,8 @@
-/* Attachment Finder Styles */
+/* Zotadata Styles */
 
 /* Toolbar button */
 #attachment-finder-button {
-  list-style-image: url("chrome://attachment-finder/skin/attachment-finder-icon.png");
+  list-style-image: url("chrome://zotadata/skin/zotadata-icon.png");
 }
 
 #attachment-finder-button:hover {

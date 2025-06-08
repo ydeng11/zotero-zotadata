@@ -1,4 +1,4 @@
-// Core type definitions for Attachment Finder
+// Core type definitions for Zotadata
 
 export interface AddonData {
   id: string;

@@ -109,7 +109,7 @@ export class ArxivAPI extends APIService {
       const response = await this.request<string>(searchUrl, {
         headers: {
           'Accept': 'application/atom+xml',
-          'User-Agent': 'Zotero Attachment Finder/2.0',
+          'User-Agent': 'Zotero Zotadata/1.0',
         },
       });
 

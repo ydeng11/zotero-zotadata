@@ -174,14 +174,14 @@ export class MenuManager {
       items: [
         {
           id: 'tools-attachment-finder-preferences',
-          label: 'Attachment Finder Preferences...',
+          label: 'Zotadata Preferences...',
           icon: 'chrome://zotero/skin/prefs.png',
-          tooltip: 'Configure Attachment Finder settings',
+          tooltip: 'Configure Zotadata settings',
           action: () => this.handlePreferences(),
         },
         {
           id: 'tools-attachment-finder-status',
-          label: 'Attachment Finder Status',
+          label: 'Zotadata Status',
           icon: 'chrome://zotero/skin/report.png',
           tooltip: 'Show plugin status and statistics',
           action: () => this.handleShowStatus(),
@@ -359,7 +359,7 @@ export class MenuManager {
    * Menu action handlers
    */
   private async handleFindAttachments(): Promise<void> {
-    // This would call the main attachment finder functionality
+    // This would call the main zotadata functionality
     const attachmentFinder = (globalThis as any).Zotero.AttachmentFinder;
     if (attachmentFinder) {
       await attachmentFinder.findSelectedFiles();
@@ -407,7 +407,7 @@ export class MenuManager {
 
   private async handleShowStatus(): Promise<void> {
     // Show status dialog
-    console.log('Show attachment finder status');
+    console.log('Show zotadata status');
   }
 
   /**

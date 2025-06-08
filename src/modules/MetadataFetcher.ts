@@ -625,7 +625,7 @@ export class MetadataFetcher {
 
       if (attachment) {
         // Add note about source
-        attachment.setNote(`Downloaded from ${source} by Attachment Finder`);
+        attachment.setNote(`Downloaded from ${source} by Zotadata`);
         await attachment.saveTx();
       }
 

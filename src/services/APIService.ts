@@ -30,7 +30,7 @@ export abstract class APIService {
     baseUrl: string,
     rateLimitConfig: RateLimitConfig,
     cacheConfig: CacheConfig = { ttl: 300000, maxSize: 1000 }, // 5 min default TTL
-    userAgent = 'Zotero Attachment Finder/2.0'
+    userAgent = 'Zotero Zotadata/1.0'
   ) {
     this.baseUrl = baseUrl;
     this.rateLimitConfig = rateLimitConfig;

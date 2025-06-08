@@ -2,13 +2,13 @@
 <!ENTITY attachmentfinder.checkAttachments "Check Attachments">
 <!ENTITY attachmentfinder.updateMetadata "Update Metadata from DOI">
 <!ENTITY attachmentfinder.findMissingFiles "Find Missing Files">
-<!ENTITY attachmentfinder.settings "Attachment Finder Settings">
+<!ENTITY attachmentfinder.settings "Zotadata Settings">
 
 <!-- Toolbar -->
 <!ENTITY attachmentfinder.button.tooltip "Find missing attachments for selected items">
 
 <!-- Preferences -->
-<!ENTITY attachmentfinder.preferences.title "Attachment Finder Preferences">
+<!ENTITY attachmentfinder.preferences.title "Zotadata Preferences">
 <!ENTITY attachmentfinder.preferences.api "API Configuration">
 <!ENTITY attachmentfinder.preferences.email "Email Address:">
 <!ENTITY attachmentfinder.preferences.coreApiKey "CORE API Key:">
@@ -21,7 +21,7 @@
 <!ENTITY attachmentfinder.preferences.homepage "Project Homepage">
 
 <!-- Progress Dialog -->
-<!ENTITY attachmentfinder.progress.title "Attachment Finder Progress">
+<!ENTITY attachmentfinder.progress.title "Zotadata Progress">
 <!ENTITY attachmentfinder.progress.items "Items">
 <!ENTITY attachmentfinder.progress.item "Item">
 <!ENTITY attachmentfinder.progress.status "Status">

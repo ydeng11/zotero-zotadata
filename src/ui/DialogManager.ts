@@ -57,7 +57,7 @@ export class DialogManager {
   /**
    * Show information dialog
    */
-  async showInfo(message: string, title = 'Attachment Finder'): Promise<void> {
+  async showInfo(message: string, title = 'Zotadata'): Promise<void> {
     await this.showDialog({
       message,
       title,
@@ -230,7 +230,7 @@ export class DialogManager {
     try {
       const result = Services.prompt.confirmEx(
         mainWindow,
-        options.title || 'Attachment Finder',
+        options.title || 'Zotadata',
         options.message + (options.details ? '\n\nDetails: ' + options.details : ''),
         flags,
         options.buttons?.[0] || 'OK',

@@ -157,7 +157,7 @@ export class PreferencesManager {
       'ui.confirmDownloads': this.getPreference('ui.confirmDownloads', false),
       'advanced.debug': this.getPreference('advanced.debug', false),
       'advanced.logLevel': this.getPreference('advanced.logLevel', 'info'),
-      'advanced.userAgent': this.getPreference('advanced.userAgent', 'Zotero Attachment Finder/2.0'),
+      'advanced.userAgent': this.getPreference('advanced.userAgent', 'Zotero Zotadata/1.0'),
     };
     return preferences;
   }
@@ -419,7 +419,7 @@ export class PreferencesManager {
             type: 'string',
             label: 'User Agent',
             description: 'User agent string for API requests',
-            defaultValue: 'Zotero Attachment Finder/2.0',
+            defaultValue: 'Zotero Zotadata/1.0',
           },
         ],
       },

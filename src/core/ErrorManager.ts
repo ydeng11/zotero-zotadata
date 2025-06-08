@@ -150,9 +150,9 @@ export class ErrorManager {
     const message = `[${error.type}] ${error.message}${contextStr}`;
     
     if (typeof Zotero !== 'undefined' && Zotero.log) {
-      Zotero.log(`Attachment Finder Error: ${message}`, this.getZoteroLogLevel(logLevel));
+      Zotero.log(`Zotadata Error: ${message}`, this.getZoteroLogLevel(logLevel));
     } else {
-      console.error(`Attachment Finder Error: ${message}`);
+      console.error(`Zotadata Error: ${message}`);
     }
   }
 
