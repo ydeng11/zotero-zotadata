@@ -1,10 +1,18 @@
 #!/bin/bash
 
-# Zotero Attachment Finder Build Script
+# Zotero Zotadata Build Script
 # Creates an XPI package for installation in Zotero 7
 
-PLUGIN_NAME="zotero-attachment-finder"
-VERSION="1.0.0"
+PLUGIN_NAME="zotero-zotadata"
+
+# Check if version parameter is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <version>"
+    echo "Example: $0 1.0.0"
+    exit 1
+fi
+
+VERSION="$1"
 XPI_NAME="${PLUGIN_NAME}-${VERSION}.xpi"
 
 echo "Building ${PLUGIN_NAME} v${VERSION} for Zotero 7..."
