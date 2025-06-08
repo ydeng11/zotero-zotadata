@@ -2,15 +2,15 @@ const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 
-var AttachmentFinder;
+var Zotadata;
 
 function startup({ id, version, rootURI }, reason) {
     // Load main plugin logic
-    Services.scriptloader.loadSubScript(rootURI + "attachment-finder.js");
+    Services.scriptloader.loadSubScript(rootURI + "zotadata.js");
 
     // Initialize plugin
-    AttachmentFinder.init({ id, version, rootURI });
-    AttachmentFinder.addToAllWindows();
+    Zotadata.init({ id, version, rootURI });
+    Zotadata.addToAllWindows();
 
     // Listen for new windows
     var wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
@@ -20,7 +20,7 @@ function startup({ id, version, rootURI }, reason) {
                                   .getInterface(Ci.nsIDOMWindow);
             window.addEventListener("load", function() {
                 if (window.ZoteroPane) {
-                    AttachmentFinder.addToWindow(window);
+                    Zotadata.addToWindow(window);
                 }
             }, false);
         },
@@ -30,30 +30,30 @@ function startup({ id, version, rootURI }, reason) {
     wm.addListener(windowListener);
 
     // Store reference to remove later
-    AttachmentFinder.windowListener = windowListener;
+    Zotadata.windowListener = windowListener;
 }
 
 function shutdown(data, reason) {
     if (reason == APP_SHUTDOWN) return;
 
-    if (AttachmentFinder) {
+    if (Zotadata) {
         // Remove from all windows
-        AttachmentFinder.removeFromAllWindows();
+        Zotadata.removeFromAllWindows();
 
         // Unregister notifier
-        if (AttachmentFinder.notifierID) {
-            Zotero.Notifier.unregisterObserver(AttachmentFinder.notifierID);
+        if (Zotadata.notifierID) {
+            Zotero.Notifier.unregisterObserver(Zotadata.notifierID);
         }
 
         // Remove window listener
-        if (AttachmentFinder.windowListener) {
+        if (Zotadata.windowListener) {
             var wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
-            wm.removeListener(AttachmentFinder.windowListener);
+            wm.removeListener(Zotadata.windowListener);
         }
 
         // Close any open progress windows
-        if (AttachmentFinder.progressWindow) {
-            AttachmentFinder.progressWindow.close();
+        if (Zotadata.progressWindow) {
+            Zotadata.progressWindow.close();
         }
     }
 }

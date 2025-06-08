@@ -2,7 +2,7 @@
 
 /* Toolbar button */
 #attachment-finder-button {
-  list-style-image: url("chrome://attachment-finder/skin/default/attachment-finder-icon.png");
+  list-style-image: url("chrome://attachment-finder/skin/attachment-finder-icon.png");
 }
 
 #attachment-finder-button:hover {
@@ -114,4 +114,4 @@
   content: " (Loading...)";
   font-style: italic;
   color: #666;
-}
+} 

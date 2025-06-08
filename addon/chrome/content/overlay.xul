@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<overlay id="attachmentfinder-overlay"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  
+  <script src="chrome://attachmentfinder/content/scripts/attachmentfinder.js"/>
+  
+</overlay> 

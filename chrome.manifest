@@ -1,6 +1,6 @@
-content attachment-finder content/
+content	zotadata	content/
 
-locale  attachment-finder en-US locale/en-US/
-locale  attachment-finder zh-CN locale/zh-CN/
+locale	zotadata	en-US	locale/en-US/
+locale	zotadata	zh-CN	locale/zh-CN/
 
-skin    attachment-finder default skin/
+skin	zotadata	classic/1.0	skin/

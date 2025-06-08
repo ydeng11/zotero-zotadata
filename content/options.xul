@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
 
-<dialog id="attachment-finder-preferences"
-        title="Attachment Finder Preferences"
+<dialog id="zotadata-preferences"
+        title="Zotadata Preferences"
         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-        windowtype="attachment-finder:preferences">
+        windowtype="zotadata:preferences">
 
     <vbox>
         <groupbox>
@@ -18,12 +18,12 @@
                     <row align="center">
                         <label value="Email for Unpaywall API:"/>
                         <textbox id="email-pref"
-                                 preference="extensions.attachment-finder.email"/>
+                                 preference="extensions.zotadata.email"/>
                     </row>
                     <row align="center">
                         <label value="CORE API Key (optional):"/>
                         <textbox id="core-api-key-pref"
-                                 preference="extensions.attachment-finder.coreApiKey"/>
+                                 preference="extensions.zotadata.coreApiKey"/>
                     </row>
                 </rows>
             </grid>
@@ -32,11 +32,11 @@
         <groupbox>
             <caption label="Auto-processing"/>
             <radiogroup id="autoretrieve-pref"
-                        preference="extensions.attachment-finder.autoretrieve">
+                        preference="extensions.zotadata.autoretrieve">
                 <radio label="None" value="none"/>
-                <radio label="Check attachments for new items" value="check"/>
+                <radio label="Validate references for new items" value="check"/>
                 <radio label="Update metadata for new items" value="metadata"/>
-                <radio label="Find files for new items" value="files"/>
+                <radio label="Retrieve files for new items" value="files"/>
             </radiogroup>
         </groupbox>
     </vbox>
@@ -49,22 +49,22 @@
             var autoPref = document.getElementById("autoretrieve-pref");
 
             // Load current values
-            emailPref.value = Zotero.Prefs.get("extensions.attachment-finder.email", true) || "";
-            corePref.value = Zotero.Prefs.get("extensions.attachment-finder.coreApiKey", true) || "";
-            autoPref.value = Zotero.Prefs.get("extensions.attachment-finder.autoretrieve", true) || "none";
+            emailPref.value = Zotero.Prefs.get("extensions.zotadata.email", true) || "";
+            corePref.value = Zotero.Prefs.get("extensions.zotadata.coreApiKey", true) || "";
+            autoPref.value = Zotero.Prefs.get("extensions.zotadata.autoretrieve", true) || "none";
 
             // Save on change
             emailPref.addEventListener("change", function() {
-                Zotero.Prefs.set("extensions.attachment-finder.email", this.value, true);
+                Zotero.Prefs.set("extensions.zotadata.email", this.value, true);
             });
 
             corePref.addEventListener("change", function() {
-                Zotero.Prefs.set("extensions.attachment-finder.coreApiKey", this.value, true);
+                Zotero.Prefs.set("extensions.zotadata.coreApiKey", this.value, true);
             });
 
             autoPref.addEventListener("command", function() {
-                Zotero.Prefs.set("extensions.attachment-finder.autoretrieve", this.value, true);
+                Zotero.Prefs.set("extensions.zotadata.autoretrieve", this.value, true);
             });
         });
     ]]></script>
-</dialog>
+</dialog> 

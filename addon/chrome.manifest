@@ -1,0 +1,5 @@
+content attachmentfinder chrome/content/
+skin attachmentfinder classic/1.0 chrome/skin/
+locale attachmentfinder en-US chrome/locale/en-US/
+
+overlay chrome://zotero/content/zoteroPane.xul chrome://attachmentfinder/content/overlay.xul 

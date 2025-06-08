@@ -1,24 +1,62 @@
 {
-  "name": "zotero-attachment-finder",
-  "version": "1.0.0",
-  "description": "A Zotero plugin that automatically finds and downloads missing attachments for your library items using DOI and open access sources.",
-  "main": "bootstrap.js",
-  "directories": {
-    "test": "tests"
+  "name": "zotero-zotadata",
+  "type": "module",
+  "version": "2.0.0",
+  "description": "Enhanced metadata management for Zotero",
+  "config": {
+    "addonName": "Zotadata",
+    "addonID": "zotadata@zotero.org",
+    "addonRef": "zotadata",
+    "addonInstance": "Zotadata",
+    "prefsPrefix": "extensions.zotero.zotadata"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/zotero-zotadata.git"
+  },
+  "author": "Zotadata Team",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "build:dev": "zotero-plugin build --dev",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "type-check": "tsc --noEmit",
+    "release": "zotero-plugin release",
+    "update-deps": "npm update --save"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
-    "collectCoverageFrom": [
-      "content/**/*.js",
-      "!content/**/*.test.js"
+  "dependencies": {
+    "zotero-plugin-toolkit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^9.28.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.0",
+    "vitest": "^1.0.0",
+    "zotero-plugin-scaffold": "^0.6.0",
+    "zotero-types": "^4.0.0"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
     ]
-  },
-  "keywords": ["zotero", "plugin", "attachments", "doi", "pdf", "open-access"],
-  "author": "",
-  "license": "ISC"
+  }
 }

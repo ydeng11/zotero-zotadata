@@ -2,32 +2,32 @@
 
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml"
-      onload="AttachmentFinderPreferences.init();">
+      onload="ZotadataPreferences.init();">
 
   <script>
     <![CDATA[
-      var AttachmentFinderPreferences = {
+      var ZotadataPreferences = {
         init: function() {
           // Load current preferences
           document.getElementById('email-textbox').value =
-            Zotero.Prefs.get('extensions.attachment-finder.unpaywallEmail') || '';
+            Zotero.Prefs.get('extensions.zotadata.unpaywallEmail') || '';
           document.getElementById('core-api-key-textbox').value =
-            Zotero.Prefs.get('extensions.attachment-finder.coreApiKey') || '';
+            Zotero.Prefs.get('extensions.zotadata.coreApiKey') || '';
           document.getElementById('update-existing-checkbox').checked =
-            Zotero.Prefs.get('extensions.attachment-finder.updateExistingMetadata') || false;
+            Zotero.Prefs.get('extensions.zotadata.updateExistingMetadata') || false;
           document.getElementById('auto-download-checkbox').checked =
-            Zotero.Prefs.get('extensions.attachment-finder.autoDownloadOnAdd') || false;
+            Zotero.Prefs.get('extensions.zotadata.autoDownloadOnAdd') || false;
         },
 
         save: function() {
           // Save preferences
-          Zotero.Prefs.set('extensions.attachment-finder.unpaywallEmail',
+          Zotero.Prefs.set('extensions.zotadata.unpaywallEmail',
             document.getElementById('email-textbox').value);
-          Zotero.Prefs.set('extensions.attachment-finder.coreApiKey',
+          Zotero.Prefs.set('extensions.zotadata.coreApiKey',
             document.getElementById('core-api-key-textbox').value);
-          Zotero.Prefs.set('extensions.attachment-finder.updateExistingMetadata',
+          Zotero.Prefs.set('extensions.zotadata.updateExistingMetadata',
             document.getElementById('update-existing-checkbox').checked);
-          Zotero.Prefs.set('extensions.attachment-finder.autoDownloadOnAdd',
+          Zotero.Prefs.set('extensions.zotadata.autoDownloadOnAdd',
             document.getElementById('auto-download-checkbox').checked);
           return true;
         }
@@ -49,14 +49,14 @@
           <html:input id="email-textbox"
                       type="email"
                       placeholder="your@email.com"
-                      preference="extensions.attachment-finder.unpaywallEmail"/>
+                      preference="extensions.zotadata.unpaywallEmail"/>
         </row>
         <row align="center">
           <label value="CORE API Key:" control="core-api-key-textbox"/>
           <html:input id="core-api-key-textbox"
                       type="text"
                       placeholder="Optional: CORE API Key"
-                      preference="extensions.attachment-finder.coreApiKey"/>
+                      preference="extensions.zotadata.coreApiKey"/>
         </row>
       </rows>
     </grid>
@@ -67,23 +67,19 @@
   <groupbox>
     <label><html:h2>Behavior Settings</html:h2></label>
 
-    <checkbox id="update-existing-checkbox"
-              label="Update existing metadata"
-              preference="extensions.attachment-finder.updateExistingMetadata"/>
-    <checkbox id="auto-download-checkbox"
-              label="Automatically download when items are added"
-              preference="extensions.attachment-finder.autoDownloadOnAdd"/>
+    <checkbox id="update-existing-checkbox" label="Update existing metadata" preference="extensions.zotadata.updateExistingMetadata"/>
+    <checkbox id="auto-download-checkbox" label="Automatically download when items are added" preference="extensions.zotadata.autoDownloadOnAdd"/>
   </groupbox>
 
   <groupbox>
     <label><html:h2>About</html:h2></label>
 
-    <description>Automatically find and download missing attachments for Zotero items using DOI and open access sources.</description>
+    <description>Enhance Zotero with intelligent metadata discovery and automated file management.</description>
     <description>
       <label class="text-link"
              value="Visit Homepage"
-             href="https://github.com/your-username/zotero-attachment-finder"/>
+             href="https://github.com/your-username/zotero-zotadata"/>
     </description>
   </groupbox>
 
-</vbox>
+</vbox> 

@@ -1,12 +1,12 @@
 {
   "manifest_version": 2,
-  "name": "Zotero Attachment Finder",
+  "name": "Zotadata",
   "version": "1.0.0",
-  "description": "Automatically find and download missing attachments for Zotero items using DOI and open access sources",
-  "author": "Zotero Attachment Finder Team",
+  "description": "Enhance Zotero with intelligent metadata discovery and file management",
+  "author": "Zotadata Team",
   "applications": {
     "zotero": {
-      "id": "attachment-finder@zotero.org",
+      "id": "zotadata@zotero.org",
       "strict_min_version": "7.0",
       "strict_max_version": "7.*",
       "update_url": "https://example.com/update.json"

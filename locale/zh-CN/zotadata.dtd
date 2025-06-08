@@ -1,0 +1,29 @@
+<!-- Menu items -->
+<!ENTITY zotadata.validateReferences "验证引用">
+<!ENTITY zotadata.updateMetadata "更新元数据">
+<!ENTITY zotadata.retrieveFiles "检索文件">
+<!ENTITY zotadata.processPreprints "处理预印本">
+<!ENTITY zotadata.settings "Zotadata设置">
+
+<!-- Toolbar -->
+<!ENTITY zotadata.button.tooltip "为选中条目增强元数据和文件管理">
+
+<!-- Preferences -->
+<!ENTITY zotadata.preferences.title "Zotadata首选项">
+<!ENTITY zotadata.preferences.api "API配置">
+<!ENTITY zotadata.preferences.email "电子邮件地址：">
+<!ENTITY zotadata.preferences.coreApiKey "CORE API密钥：">
+<!ENTITY zotadata.preferences.emailDescription "Unpaywall API需要电子邮件地址。CORE API密钥是可选的，但可以提高速率限制。">
+<!ENTITY zotadata.preferences.behavior "行为">
+<!ENTITY zotadata.preferences.updateExisting "更新现有元数据">
+<!ENTITY zotadata.preferences.autoDownload "添加条目时自动下载">
+<!ENTITY zotadata.preferences.about "关于">
+<!ENTITY zotadata.preferences.description "使用智能元数据发现和自动文件管理增强Zotero研究工作流程。">
+<!ENTITY zotadata.preferences.homepage "项目主页">
+
+<!-- Progress Dialog -->
+<!ENTITY zotadata.progress.title "Zotadata进度">
+<!ENTITY zotadata.progress.items "条目">
+<!ENTITY zotadata.progress.item "条目">
+<!ENTITY zotadata.progress.status "状态">
+<!ENTITY zotadata.progress.cancel "取消">
