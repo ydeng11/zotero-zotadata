@@ -69,8 +69,9 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 ### Manual Installation (Development)
 
 1. Clone or download this repository
-2. Run `./build.sh` to create the XPI package
-3. Install as described above
+2. Install dependencies: `npm install`
+3. Run `./build.sh` to create the XPI package
+4. Install as described above
 
 ## Configuration
 
@@ -204,8 +205,15 @@ zotero-zotadata/
 
 ### Requirements
 
+- Node.js (for build tools and dependencies)
 - Zotero 7.0 or later
 - Firefox 115+ based platform
+
+### Setup
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Make your changes to the source files
 
 ### Building
 
