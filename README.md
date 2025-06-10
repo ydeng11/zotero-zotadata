@@ -4,6 +4,10 @@ A Zotero plugin that enhances your research workflow with intelligent metadata d
 
 **⚠️ This version is specifically designed for Zotero 7.x and will not work with Zotero 6.x**
 
+## Demo
+
+![Demo](assets/images/demo.gif)
+
 ## Features
 
 ### 🔍 Intelligent Reference Management
