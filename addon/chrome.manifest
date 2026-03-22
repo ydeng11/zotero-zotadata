@@ -1,5 +1,10 @@
-content attachmentfinder chrome/content/
-skin attachmentfinder classic/1.0 chrome/skin/
-locale attachmentfinder en-US chrome/locale/en-US/
+content zotadata chrome/content/
+skin zotadata classic/1.0 chrome/skin/
+locale zotadata en-US chrome/locale/en-US/
+locale zotadata zh-CN chrome/locale/zh-CN/
 
-overlay chrome://zotero/content/zoteroPane.xul chrome://attachmentfinder/content/overlay.xul 
+# Note: overlays are deprecated in Zotero 8
+# Use the new Menu API instead
+# overlay chrome://zotero/content/zoteroPane.xul chrome://zotadata/content/overlay.xul
+
+resource zotadata modules/
