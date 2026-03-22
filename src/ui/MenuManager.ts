@@ -38,10 +38,14 @@ export class MenuManager {
   private errorManager: ErrorManager;
   private registeredMenus = new Map<string, Element>();
   private eventListeners = new Map<string, () => void>();
+  private menuUnregisterCallbacks: (() => void)[] = [];
+  private useNewMenuAPI = false;
 
   constructor(addonData: AddonData) {
     this.addonData = addonData;
     this.errorManager = new ErrorManager();
+    // Check if new Menu API is available (Zotero 8+)
+    this.useNewMenuAPI = typeof Zotero.MenuManager?.registerMenu === 'function';
   }
 
   /**
@@ -49,10 +53,11 @@ export class MenuManager {
    */
   async init(): Promise<void> {
     try {
-      await this.createItemContextMenu();
-      await this.createCollectionContextMenu();
-      await this.createToolsMenu();
-      await this.createToolbarButtons();
+      if (this.useNewMenuAPI) {
+        await this.initWithNewMenuAPI();
+      } else {
+        await this.initWithLegacyMenus();
+      }
     } catch (error) {
       throw this.errorManager.createFromUnknown(
         error,
@@ -63,10 +68,47 @@ export class MenuManager {
   }
 
   /**
+   * Initialize menus using new Zotero 8 Menu API
+   */
+  private async initWithNewMenuAPI(): Promise<void> {
+    const pluginID = this.addonData.id;
+    const itemMenuItems: MenuItemConfig[] = [
+      { id: 'zotero-itemmenu-attachment-finder-find', label: 'Find Attachments', action: () => this.handleFindAttachments(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-check', label: 'Check Attachments', action: () => this.handleCheckAttachments(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-metadata', label: 'Fetch Metadata', action: () => this.handleFetchMetadata(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-arxiv', label: 'Process arXiv Items', action: () => this.handleProcessArxiv(), condition: () => this.hasArxivItems() },
+    ];
+    for (const item of itemMenuItems) {
+      try {
+        const unregister = Zotero.MenuManager.registerMenu(item.id, { pluginID, label: item.label, callback: item.action });
+        this.menuUnregisterCallbacks.push(unregister);
+      } catch (error) {
+        console.warn(`Failed to register menu ${item.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Initialize menus using legacy XUL-based approach
+   */
+  private async initWithLegacyMenus(): Promise<void> {
+    await this.createItemContextMenu();
+    await this.createCollectionContextMenu();
+    await this.createToolsMenu();
+    await this.createToolbarButtons();
+  }
+
+  /**
    * Clean up all menus and listeners
    */
   async cleanup(): Promise<void> {
     try {
+      // Unregister new Menu API items
+      for (const unregister of this.menuUnregisterCallbacks) {
+        try { unregister(); } catch {}
+      }
+      this.menuUnregisterCallbacks = [];
+
       // Remove all registered menus
       for (const [id, element] of this.registeredMenus) {
         element.remove?.();
