@@ -3,6 +3,14 @@
  * Zotero 8 requires ESM modules and native promises
  */
 
+// Define bootstrap constants
+const APP_SHUTDOWN = 2;
+
+// Ensure Services is available (auto-imported in Firefox 140+)
+if (typeof Services === 'undefined') {
+  var { Services } = ChromeUtils.importESModule("resource://gre/modules/Services.sys.mjs");
+}
+
 // Global reference to the plugin instance
 let Zotadata = null;
 
@@ -24,9 +32,16 @@ async function uninstall(data, reason) {
  * Called when the extension starts up
  */
 async function startup({ id, version, rootURI }, reason) {
-  // Load main plugin logic using the resource URI
-  // In Zotero 8, we use dynamic import for ESM modules
   try {
+    // Load main plugin logic using the resource URI
+    // In Zotero 8, we use scriptloader for the main module
+    Services.scriptloader.loadSubScript(rootURI + "zotadata.js");
+
+    // Initialize the plugin
+    if (Zotadata && Zotadata.init) {
+      Zotadata.init({ id, version, rootURI });
+    }
+
     // Initialize the plugin global
     const windowListener = {
       onOpenWindow: (xulWindow) => {
@@ -63,7 +78,7 @@ async function startup({ id, version, rootURI }, reason) {
     }
 
   } catch (error) {
-    Components.utils.reportError(`Zotadata startup error: ${error}`);
+    console.error(`Zotadata startup error: ${error}`);
   }
 }
 
