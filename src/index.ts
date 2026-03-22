@@ -1,6 +1,8 @@
 import { ErrorManager, ErrorType } from '@/core';
 import { AttachmentChecker } from '@/modules/AttachmentChecker';
 import { CrossRefAPI } from '@/apis/CrossRefAPI';
+import { ZoteroUtils } from '@/utils/ZoteroUtils';
+import { MenuParentID } from '@/constants/Menus';
 import type { AddonData, PluginConfig } from '@/core/types';
 
 /**
@@ -103,7 +105,7 @@ class ZotadataPlugin {
    */
   private async registerMenus(): Promise<void> {
     try {
-      if ((Zotero as any).MenuManager?.registerMenu) {
+      if (ZoteroUtils.hasNewMenuAPI()) {
         await this.registerMenusWithMenuAPI();
       } else {
         await this.registerMenusLegacy();
@@ -180,13 +182,13 @@ class ZotadataPlugin {
       const doc = window.document;
       
       // Create main menu
-      const menu = this.createElement(doc, 'menu', {
+      const menu = ZoteroUtils.createXULElement(doc, 'menu', {
         id: 'zotero-itemmenu-zotadata-menu',
         class: 'menu-iconic',
         label: 'Zotadata',
       });
 
-      const menuPopup = this.createElement(doc, 'menupopup', {
+      const menuPopup = ZoteroUtils.createXULElement(doc, 'menupopup', {
         id: 'zotero-itemmenu-zotadata-menupopup',
       });
 
@@ -215,7 +217,7 @@ class ZotadataPlugin {
       ];
 
       for (const item of menuItems) {
-        const menuItem = this.createElement(doc, 'menuitem', {
+        const menuItem = ZoteroUtils.createXULElement(doc, 'menuitem', {
           id: item.id,
           label: item.label,
         });
@@ -229,7 +231,7 @@ class ZotadataPlugin {
       this.addedElementIDs.push(menu.id);
 
       // Add to parent menu
-      const parentMenu = doc.getElementById('zotero-itemmenu');
+      const parentMenu = doc.getElementById(MenuParentID.ITEM_CONTEXT);
       if (parentMenu) {
         parentMenu.appendChild(menu);
         this.log('Successfully added menu to window');
@@ -287,28 +289,6 @@ class ZotadataPlugin {
         { operation: 'removeFromWindow' }
       );
     }
-  }
-
-  /**
-   * Create XUL element with attributes
-   */
-  private createElement(
-    doc: Document,
-    name: string,
-    attributes: Record<string, string> = {}
-  ): Element {
-    const element = Zotero.platformMajorVersion >= 102
-      ? doc.createXULElement(name)
-      : doc.createElementNS(
-          'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul',
-          name
-        );
-
-    for (const [key, value] of Object.entries(attributes)) {
-      element.setAttribute(key, value);
-    }
-
-    return element;
   }
 
   /**
