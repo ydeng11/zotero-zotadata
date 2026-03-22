@@ -1,4 +1,5 @@
 import { ErrorManager, ErrorType } from '@/core';
+import { XUL_NAMESPACE, PLATFORM_VERSION_CREATE_XUL } from '@/constants/Menus';
 
 /**
  * Zotero item type information
@@ -576,7 +577,7 @@ export class ZoteroUtils {
       const tempDir = Zotero.getTempDirectory();
       const tempFile = tempDir.clone();
       tempFile.append(filename);
-      
+
       // Write data to file (simplified)
       // In practice, you'd use proper file I/O methods
       return tempFile;
@@ -587,5 +588,40 @@ export class ZoteroUtils {
         { filename }
       );
     }
+  }
+
+  /**
+   * Create a XUL element with attributes
+   * Uses createXULElement for Zotero 102+ with fallback to createElementNS
+   */
+  static createXULElement(
+    doc: Document,
+    tagName: string,
+    attributes: Record<string, string | (() => void)> = {}
+  ): Element {
+    // Use createXULElement for newer platforms, fallback to createElementNS
+    // Note: createXULElement requires type assertion as it's not in standard DOM types
+    const element = Zotero.platformMajorVersion >= PLATFORM_VERSION_CREATE_XUL
+      ? (doc as any).createXULElement(tagName)
+      : doc.createElementNS(XUL_NAMESPACE, tagName);
+
+    // Apply attributes
+    for (const [key, value] of Object.entries(attributes)) {
+      if (key === 'oncommand' && typeof value === 'function') {
+        // Handle oncommand as event listener
+        element.addEventListener('command', value);
+      } else {
+        element.setAttribute(key, String(value));
+      }
+    }
+
+    return element;
+  }
+
+  /**
+   * Check if Zotero 8+ MenuManager API is available
+   */
+  static hasNewMenuAPI(): boolean {
+    return typeof Zotero.MenuManager?.registerMenu === 'function';
   }
 } 
