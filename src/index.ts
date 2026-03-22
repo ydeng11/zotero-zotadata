@@ -337,6 +337,8 @@ class ZotadataPlugin {
           .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
           .map(r => r.value);
 
+        const failedCount = results.filter(r => r.status === 'rejected').length;
+
         if (successfulResults.length === 0) {
           this.showMessage('No attachment checks completed successfully');
           return;
@@ -348,10 +350,19 @@ class ZotadataPlugin {
           const message = this.attachmentChecker.generateResultsMessage(stats);
           this.showMessage(message);
         } else {
-          // For multiple items, aggregate and show summary
-          const result = await this.attachmentChecker.checkMultipleItems(selectedItems);
+          // For multiple items, aggregate the already-computed results
+          const totalStats = successfulResults.reduce(
+            (acc, stats) => ({
+              valid: acc.valid + (stats.valid || 0),
+              removed: acc.removed + (stats.removed || 0),
+              weblinks: acc.weblinks + (stats.weblinks || 0),
+              errors: acc.errors + (stats.errors || 0),
+            }),
+            { valid: 0, removed: 0, weblinks: 0, errors: 0 }
+          );
+
           const message = this.attachmentChecker.generateResultsMessage(
-            result.totalStats,
+            totalStats,
             selectedItems.length
           );
           this.showMessage(message);
