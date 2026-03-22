@@ -13,6 +13,7 @@ class ZotadataPlugin {
   private config: PluginConfig;
   private addonData: AddonData | null = null;
   private addedElementIDs: string[] = [];
+  private menuRegistrations: (() => void)[] = [];
 
   constructor() {
     this.errorManager = new ErrorManager();
@@ -43,10 +44,10 @@ class ZotadataPlugin {
       async () => {
         this.log('Initializing Zotadata plugin...');
         this.addonData = data;
-        
-        // Add UI elements to all windows
-        await this.addToAllWindows();
-        
+
+        // Register menus using new API or fallback to legacy
+        await this.registerMenus();
+
         this.log('Zotadata plugin initialized successfully');
       },
       ErrorType.ZOTERO_ERROR,
@@ -68,10 +69,20 @@ class ZotadataPlugin {
     return this.errorManager.wrapAsync(
       async () => {
         this.log('Shutting down Zotadata plugin...');
-        
-        // Remove UI elements from all windows
+
+        // Unregister menus registered with MenuManager
+        for (const unregister of this.menuRegistrations) {
+          try {
+            unregister();
+          } catch {
+            // Ignore errors during cleanup
+          }
+        }
+        this.menuRegistrations = [];
+
+        // Remove UI elements from all windows (legacy XUL elements)
         await this.removeFromAllWindows();
-        
+
         this.log('Zotadata plugin shut down successfully');
       },
       ErrorType.ZOTERO_ERROR,
@@ -85,6 +96,58 @@ class ZotadataPlugin {
   async uninstall(): Promise<void> {
     await this.shutdown();
     this.log('Zotadata plugin uninstalled');
+  }
+
+  /**
+   * Register menus using new MenuManager API or legacy XUL approach
+   */
+  private async registerMenus(): Promise<void> {
+    try {
+      if ((Zotero as any).MenuManager?.registerMenu) {
+        await this.registerMenusWithMenuAPI();
+      } else {
+        await this.registerMenusLegacy();
+      }
+    } catch (error) {
+      this.log(`Failed to register menus: ${error}`);
+    }
+  }
+
+  /**
+   * Register menus using Zotero 8+ MenuManager API
+   */
+  private async registerMenusWithMenuAPI(): Promise<void> {
+    const pluginID = this.addonData?.id || 'zotadata@zotero.org';
+    const menuItems = [
+      { id: 'zotero-itemmenu-zotadata-check', label: 'Check Attachments', callback: () => this.handleCheckAttachments() },
+      { id: 'zotero-itemmenu-zotadata-fetch-metadata', label: 'Fetch Metadata', callback: () => this.handleFetchMetadata() },
+      { id: 'zotero-itemmenu-zotadata-process-arxiv', label: 'Process arXiv Items', callback: () => this.handleProcessArxiv() },
+      { id: 'zotero-itemmenu-zotadata-find-files', label: 'Find Missing Files', callback: () => this.handleFindFiles() },
+    ];
+
+    for (const item of menuItems) {
+      const unregister = (Zotero as any).MenuManager.registerMenu(item.id, {
+        pluginID,
+        label: item.label,
+        callback: item.callback,
+      });
+      this.menuRegistrations.push(unregister);
+    }
+
+    this.log('Registered menus using MenuManager API');
+  }
+
+  /**
+   * Register menus using legacy XUL-based approach (Zotero 6/7 compatibility)
+   */
+  private async registerMenusLegacy(): Promise<void> {
+    const windows = Zotero.getMainWindows();
+    for (const window of windows) {
+      if (window.ZoteroPane) {
+        await this.addToWindow(window);
+      }
+    }
+    this.log('Registered menus using legacy XUL approach');
   }
 
   /**
@@ -255,7 +318,7 @@ class ZotadataPlugin {
     return this.errorManager.wrapAsync(
       async () => {
         this.log('Check Attachments command triggered');
-        
+
         const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
         if (selectedItems.length === 0) {
           this.showMessage('No items selected');
@@ -263,12 +326,29 @@ class ZotadataPlugin {
         }
 
         this.log(`Checking attachments for ${selectedItems.length} items`);
-        
+
+        // Use native Promise.allSettled for batch processing
+        const results = await Promise.allSettled(
+          selectedItems.map(item => this.attachmentChecker.checkItemAttachments(item))
+        );
+
+        // Aggregate results
+        const successfulResults = results
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+          .map(r => r.value);
+
+        if (successfulResults.length === 0) {
+          this.showMessage('No attachment checks completed successfully');
+          return;
+        }
+
+        // For single item, show direct results
         if (selectedItems.length === 1) {
-          const stats = await this.attachmentChecker.checkItemAttachments(selectedItems[0]);
+          const stats = successfulResults[0];
           const message = this.attachmentChecker.generateResultsMessage(stats);
           this.showMessage(message);
         } else {
+          // For multiple items, aggregate and show summary
           const result = await this.attachmentChecker.checkMultipleItems(selectedItems);
           const message = this.attachmentChecker.generateResultsMessage(
             result.totalStats,
