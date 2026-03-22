@@ -1,5 +1,7 @@
 import { ErrorManager, ErrorType } from '@/core';
 import type { AddonData } from '@/core/types';
+import { ZoteroUtils } from '@/utils/ZoteroUtils';
+import { MenuParentID } from '@/constants/Menus';
 
 /**
  * Menu item configuration
@@ -45,7 +47,7 @@ export class MenuManager {
     this.addonData = addonData;
     this.errorManager = new ErrorManager();
     // Check if new Menu API is available (Zotero 8+)
-    this.useNewMenuAPI = typeof Zotero.MenuManager?.registerMenu === 'function';
+    this.useNewMenuAPI = ZoteroUtils.hasNewMenuAPI();
   }
 
   /**
@@ -173,7 +175,7 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('zotero-itemmenu', itemMenuConfig);
+    await this.createMenuSection(MenuParentID.ITEM_CONTEXT, itemMenuConfig);
   }
 
   /**
@@ -203,7 +205,7 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('zotero-collectionmenu', collectionMenuConfig);
+    await this.createMenuSection(MenuParentID.COLLECTION_CONTEXT, collectionMenuConfig);
   }
 
   /**
@@ -231,18 +233,18 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('menu_ToolsPopup', toolsMenuConfig);
+    await this.createMenuSection(MenuParentID.TOOLS_POPUP, toolsMenuConfig);
   }
 
   /**
    * Create toolbar buttons
    */
   private async createToolbarButtons(): Promise<void> {
-    const toolbar = document.getElementById('zotero-toolbar');
+    const toolbar = document.getElementById(MenuParentID.TOOLBAR);
     if (!toolbar) return;
 
     // Main action button
-    const findButton = this.createElement('toolbarbutton', {
+    const findButton = ZoteroUtils.createXULElement(document, 'toolbarbutton', {
       id: 'attachment-finder-find-button',
       label: 'Find Attachments',
       tooltiptext: 'Find attachments for selected items',
@@ -251,7 +253,7 @@ export class MenuManager {
     });
 
     // Add button to toolbar
-    const insertPoint = document.getElementById('zotero-toolbar-separator') || toolbar.lastElementChild;
+    const insertPoint = document.getElementById(MenuParentID.TOOLBAR_SEPARATOR) || toolbar.lastElementChild;
     if (insertPoint) {
       toolbar.insertBefore(findButton, insertPoint);
       this.registeredMenus.set('attachment-finder-find-button', findButton);
@@ -300,7 +302,7 @@ export class MenuManager {
   private async createMenuItem(config: MenuItemConfig): Promise<Element | null> {
     try {
       if (config.separator) {
-        return this.createElement('menuseparator', {
+        return ZoteroUtils.createXULElement(document, 'menuseparator', {
           id: config.id,
         });
       }
@@ -334,7 +336,7 @@ export class MenuManager {
         this.addSelectionListener(config.id, updateVisibility);
       }
 
-      const menuItem = this.createElement('menuitem', attributes);
+      const menuItem = ZoteroUtils.createXULElement(document, 'menuitem', attributes);
 
       // Add click handler
       const handleClick = () => {
@@ -363,26 +365,6 @@ export class MenuManager {
       console.warn(`Failed to create menu item ${config.id}:`, error);
       return null;
     }
-  }
-
-  /**
-   * Create DOM element with attributes
-   */
-  private createElement(tagName: string, attributes: Record<string, any>): Element {
-    const element = document.createElementNS(
-      'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul',
-      tagName
-    );
-
-    for (const [key, value] of Object.entries(attributes)) {
-      if (key === 'oncommand' && typeof value === 'function') {
-        element.addEventListener('command', value);
-      } else {
-        element.setAttribute(key, String(value));
-      }
-    }
-
-    return element;
   }
 
   /**
