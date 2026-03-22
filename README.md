@@ -2,7 +2,7 @@
 
 A Zotero plugin that enhances your research workflow with intelligent metadata discovery and automated file management.
 
-**⚠️ This version is specifically designed for Zotero 7.x and will not work with Zotero 6.x**
+**⚠️ This version is designed for Zotero 8.x and later**
 
 ## Demo
 
@@ -60,15 +60,15 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Installation
 
-### From XPI File (Zotero 7.x)
+### From XPI File (Zotero 8.x)
 
 1. Download the latest release XPI file
-2. In Zotero 7, go to `Tools` → `Add-ons`
+2. In Zotero 8, go to `Tools` → `Add-ons`
 3. Click the gear icon and select "Install Add-on From File..."
 4. Select the downloaded XPI file
 5. Restart Zotero
 
-**Note**: This extension requires Zotero 7.0 or later. For Zotero 6.x compatibility, use an earlier version of this extension.
+**Note**: This extension requires Zotero 8.0 or later. For Zotero 7.x compatibility, use an earlier version of this extension.
 
 ### Manual Installation (Development)
 
@@ -186,8 +186,8 @@ This plugin integrates with several external APIs and services:
 
 ```
 zotero-zotadata/
-├── manifest.json            # Plugin metadata (Zotero 7 format)
-├── bootstrap.js             # Plugin bootstrap for Zotero 7
+├── manifest.json            # Plugin metadata (Zotero 8 format)
+├── bootstrap.js             # Plugin bootstrap for Zotero 8
 ├── prefs.js                 # Default preferences
 ├── assets/                  # Documentation assets
 │   ├── images/             # Screenshots and diagrams
@@ -209,9 +209,8 @@ zotero-zotadata/
 
 ### Requirements
 
-- Node.js (for build tools and dependencies)
-- Zotero 7.0 or later
-- Firefox 115+ based platform
+- Node.js 18+ (for build tools)
+- Zotero 8.0 or later
 
 ### Setup
 
@@ -221,44 +220,33 @@ zotero-zotadata/
 
 ### Building
 
-1. Make changes to the source files
-2. Run `./build.sh` to create XPI package
-3. Test in Zotero 7 development environment
+1. Install dependencies: `npm install`
+2. Build: `npm run build`
+3. Test: `npm test`
 
 ### Testing
 
 - Unit test the API integration functions
 - Test with various item types and DOI formats
 - Verify UI responsiveness and error handling
-- Test with both Zotero 7 stable and beta versions
+- Test with both Zotero 8 stable and beta versions
 
-## Zotero 7 Migration
+## Zotero 8 Migration Notes
 
-This version has been completely rewritten for Zotero 7 compatibility:
+This version has been updated for Zotero 8 compatibility:
 
-- **Extension Format**: Migrated from `install.rdf` to `manifest.json`
-- **Architecture**: Changed from XUL overlays to bootstrapped extension
-- **APIs**: Updated to use Zotero 7 compatible APIs
-- **Window Management**: Adapted to new Zotero 7 window lifecycle
-- **Preferences**: Moved to root-level `prefs.js` file
-
-## Zotero 7 Compatibility Notes
-
-When developing this plugin for Zotero 7, ensure the following in your `manifest.json`:
-
-- **`manifest_version`**: Must be set to `2`. Despite Zotero 7 being based on a newer Firefox core that uses Manifest V3 for web extensions, Zotero's own bootstrapped plugins still expect `manifest_version: 2`.
-- **`applications` key**: Zotero-specific properties (like `id`, `strict_min_version`, `strict_max_version`, and `update_url`) must be within an `applications.zotero` object.
-- **`update_url`**: This field within `applications.zotero` is **mandatory** for Zotero 7.0.15+ (and possibly earlier Zotero 7 versions). Even for local development, a placeholder URL (e.g., `"https://example.com/update.json"`) must be provided, otherwise the plugin installation will fail with an "Extension is invalid" error.
-
-Failure to include `update_url` will result in an error message in the Zotero debug log similar to:
-`ERROR Loading extension 'your-plugin-id@example.org': Reading manifest: applications.zotero.update_url not provided`
+- **Module System**: Migrated from JSM to ESM modules
+- **Promises**: Uses native JavaScript promises (Bluebird removed)
+- **Menu API**: Supports the new Zotero.MenuManager API
+- **Services**: No longer requires manual Services.jsm imports
+- **Target Platform**: Built for Firefox 140+
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly with Zotero 7
+4. Test thoroughly with Zotero 8
 5. Submit a pull request
 
 ## License
