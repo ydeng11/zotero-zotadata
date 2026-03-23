@@ -155,6 +155,7 @@ tests/
 - `updateItemWithBookMetadata(item, metadata)` - Apply book metadata
 - `fetchBookMetadataViaTranslator(isbn, item)` - Zotero translator for books
 - `fetchDOIMetadataViaTranslator(doi, item)` - Zotero translator for DOI
+- `tryAlternativeISBNFormats(originalISBN, item)` - Fallback ISBN format attempts
 
 **Test Cases:**
 
@@ -166,6 +167,7 @@ tests/
 | `updateItemWithBookMetadata` | Title, authors, publisher, date, pages |
 | `fetchBookMetadataViaTranslator` | Translator found, no translator, apply fields |
 | `fetchDOIMetadataViaTranslator` | Translator found, no translator, apply fields |
+| `tryAlternativeISBNFormats` | ISBN-10 to ISBN-13 conversion, ISBN-13 to ISBN-10 conversion, all formats fail |
 
 ### arxiv-processing.test.ts
 
@@ -193,6 +195,7 @@ tests/
 - `itemHasPDF(item)` - Check if item has valid PDF attachment
 - `verifyStoredAttachment(attachment)` - Verify attachment is stored file
 - `findUnpaywallPDF(doi)` - Find PDF via Unpaywall
+- `findCorePDFByDOI(doi)` - Find PDF via CORE API
 - `findArxivPDF(item)` - Find arXiv PDF for item
 - `findPublishedPDF(doi)` - Find published PDF from multiple sources
 
@@ -204,6 +207,7 @@ tests/
 | `itemHasPDF` | Has PDF attachment, has non-PDF, has broken PDF, no attachments |
 | `verifyStoredAttachment` | Stored file, linked file, URL link, invalid attachment |
 | `findUnpaywallPDF` | Open access PDF found, no OA, email required, HTTP error |
+| `findCorePDFByDOI` | PDF found with downloadUrl, no results, HTTP error |
 | `findArxivPDF` | arXiv ID found, search by title, no match |
 | `findPublishedPDF` | Unpaywall found, CORE fallback, none found |
 
@@ -214,6 +218,8 @@ tests/
 **Functions:**
 - `processBatch(items, processFn, options)` - Generic batch processor
 - `simpleAttachmentCheckBatch(item)` - Batch attachment validation
+
+**Note:** `simpleAttachmentCheck(item)` is indirectly tested via `simpleAttachmentCheckBatch`.
 
 **Test Cases:**
 
@@ -252,6 +258,8 @@ Minimal tests for UI code with DOM mocking:
 
 The following functions are excluded from test coverage with rationale:
 
+### Trivial / Thin Wrappers
+
 | Function | Reason |
 |----------|--------|
 | `init()` | Trivial initialization, no logic to test |
@@ -260,6 +268,12 @@ The following functions are excluded from test coverage with rationale:
 | `removeFromAllWindows()` | Thin wrapper |
 | `storeAddedElement()` | Trivial array push |
 | `log()` | Debug output, no business logic |
+| `getNestedProperty()` | Utility, trivial |
+
+### UI / DOM-Dependent
+
+| Function | Reason |
+|----------|--------|
 | `showZoteroPopup()` | UI-only, requires extensive DOM mocking |
 | `showBatchSummary()` | String formatting + showDialog |
 | `showGenericBatchSummary()` | String formatting + showDialog |
@@ -268,27 +282,52 @@ The following functions are excluded from test coverage with rationale:
 | `closeProgressWindow()` | UI-only |
 | `configureEmail()` | UI prompt + Prefs, minimal logic |
 | `getConfiguredEmail()` | Prefs read + UI prompt |
+
+### Filesystem / Attachment Operations
+
+| Function | Reason |
+|----------|--------|
 | `createPublishedVersion()` | Creates new item - integration test only |
 | `updateAttachmentsForPublishedVersion()` | Attachment manipulation - hard to mock |
 | `moveAttachmentsWithPreprintSuffix()` | Attachment manipulation |
 | `downloadPublishedVersion()` | File download + attachment - integration level |
 | `downloadAndAttachFile()` | File download + attachment creation |
+| `downloadFileForItem()` | Thin wrapper around downloadAndAttachFile |
 | `manualDownloadAndImport()` | File download + filesystem |
 | `createAttachmentFromData()` | Filesystem + attachment creation |
 | `createAttachmentFromDataLegacy()` | Legacy filesystem operations |
 | `validateWrittenPDFFile()` | Filesystem operations |
 | `debugDownloadedContent()` | Debug helper, no business logic |
+
+### External Services (Unreliable for Testing)
+
+| Function | Reason |
+|----------|--------|
 | `searchGoogleScholarForDOI()` | Scraping, unreliable, anti-bot measures |
+| `searchDBLPForDOI()` | External API, covered indirectly via discoverDOI tests |
+| `searchOpenLibraryForISBN()` | External API, covered indirectly via discoverISBN tests |
+| `searchGoogleBooksForISBN()` | External API, covered indirectly via discoverISBN tests |
+| `searchOpenAlexForDOI()` | Covered indirectly via discoverDOI tests |
 | `tryCustomResolvers()` | External resolver configuration |
 | `tryCustomResolver()` | External resolver |
 | `getCustomResolvers()` | Configuration retrieval |
-| `getNestedProperty()` | Utility, trivial |
 | `cleanScihubUrl()` | URL cleaning for specific service |
 | `searchLibGen*` functions | External service, unreliable |
 | `findInternetArchiveBook()` | External service |
 | `checkInternetArchivePDF()` | External service |
 | `findOpenLibraryPDF()` | External service |
 | `findGoogleBooksFullText()` | External service |
+
+### Internal Helper Functions
+
+| Function | Reason |
+|----------|--------|
+| `searchSemanticScholarExact()` | Internal helper for S2 search |
+| `searchSemanticScholarRelaxed()` | Internal helper for S2 search |
+| `searchSemanticScholarExactPublished()` | Internal helper for published search |
+| `searchSemanticScholarRelaxedPublished()` | Internal helper for published search |
+| `searchArxiv(title)` | Internal helper for findArxivPDF |
+| `simpleAttachmentCheck(item)` | Indirectly tested via simpleAttachmentCheckBatch |
 
 ## Estimated Coverage
 
@@ -299,12 +338,12 @@ The following functions are excluded from test coverage with rationale:
 | `isbn-convert.test.ts` | 1 | 3 | ~20 |
 | `api-clients.test.ts` | 2 | 7 | ~50 |
 | `discovery.test.ts` | 2 | 2 | ~20 |
-| `metadata.test.ts` | 2 | 6 | ~35 |
+| `metadata.test.ts` | 2 | 7 | ~40 |
 | `arxiv-processing.test.ts` | 2 | 5 | ~35 |
-| `file-operations.test.ts` | 2-3 | 6 | ~40 |
+| `file-operations.test.ts` | 2-3 | 7 | ~45 |
 | `batch-processing.test.ts` | 3 | 2 | ~20 |
 | `integration.test.ts` | 3 | 5 | ~20 |
-| **Total** | | **44** | **~315** |
+| **Total** | | **46** | **~325** |
 
 ## Implementation Notes
 
@@ -315,3 +354,4 @@ The following functions are excluded from test coverage with rationale:
 5. **Coverage target**: Aim for 80%+ on Tier 1-2 functions, 50%+ on Tier 3, minimal on Tier 4
 6. **Mock translators**: `Zotero.Translate.Search` needs custom mock for `fetchBookMetadataViaTranslator` and `fetchDOIMetadataViaTranslator` tests
 7. **File mocking**: For file operations, mock `Zotero.Attachments.importFromURL`, `Zotero.Attachments.importFromFile`
+8. **Utilities mock**: Mock `Zotero.Utilities.cleanDOI` to return input unchanged (or apply minimal cleaning) for DOI tests
