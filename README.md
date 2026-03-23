@@ -74,8 +74,9 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 1. Clone or download this repository
 2. Install dependencies: `npm install`
-3. Run `./build.sh` to create the XPI package
-4. Install as described above
+3. Build the XPI: `npm run build`
+4. The XPI will be created at `.scaffold/dist/zotadata.xpi`
+5. Install as described above
 
 ## Configuration
 
@@ -186,60 +187,83 @@ This plugin integrates with several external APIs and services:
 
 ```
 zotero-zotadata/
-├── manifest.json            # Plugin metadata (Zotero 8 format)
-├── bootstrap.js             # Plugin bootstrap for Zotero 8
-├── prefs.js                 # Default preferences
-├── assets/                  # Documentation assets
-│   ├── images/             # Screenshots and diagrams
-│   └── workflows/          # Workflow diagrams and flowcharts
-├── content/
-│   └── zotadata.js          # Main logic
-├── chrome/content/
-│   ├── preferences.xul      # Settings dialog
-│   └── progress.xul         # Progress window
-├── locale/
-│   ├── en-US/               # English translations
-│   └── zh-CN/               # Chinese translations
-├── skin/default/
-│   └── zotadata.css         # Styles
-└── README.md                # This file
+├── addon/
+│   ├── bootstrap.js             # Plugin bootstrap for Zotero 8
+│   ├── manifest.json            # Plugin metadata (Zotero 8 format)
+│   ├── prefs.js                 # Default preferences
+│   ├── chrome.manifest          # Chrome manifest
+│   ├── chrome/
+│   │   └── content/
+│   │       ├── overlay.xul      # XUL overlay
+│   │       └── scripts/
+│   │           └── zotadata.js  # Main logic (~4300 lines)
+│   └── locale/
+│       ├── en-US/               # English translations
+│       └── zh-CN/               # Chinese translations
+├── src/                         # TypeScript source (for future development)
+├── assets/                      # Documentation assets
+│   ├── images/                  # Screenshots and diagrams
+│   └── workflows/               # Workflow diagrams and flowcharts
+├── zotero-plugin.config.ts      # Build configuration
+├── package.json                 # Node.js package config
+└── README.md                    # This file
 ```
 
 ## Development
 
 ### Requirements
 
-- Node.js 18+ (for build tools)
+- Node.js 22+ (for zotero-plugin-scaffold 0.8.x)
 - Zotero 8.0 or later
 
 ### Setup
 
 1. Clone the repository
 2. Install dependencies: `npm install`
-3. Make your changes to the source files
+3. Make your changes to `addon/chrome/content/scripts/zotadata.js`
 
 ### Building
 
-1. Install dependencies: `npm install`
-2. Build: `npm run build`
-3. Test: `npm test`
+```bash
+npm install        # Install dependencies
+npm run build      # Build the XPI package
+npm run build:dev  # Build in development mode (with source maps)
+npm test           # Run unit tests
+```
+
+The built XPI will be at `.scaffold/dist/zotadata.xpi`.
 
 ### Testing
 
-- Unit test the API integration functions
+- Unit test the API integration functions: `npm test`
 - Test with various item types and DOI formats
 - Verify UI responsiveness and error handling
 - Test with both Zotero 8 stable and beta versions
+
+### Development with Hot Reload
+
+For active development, use the development server:
+
+```bash
+npm start  # Starts Zotero with the plugin and watches for changes
+```
 
 ## Zotero 8 Migration Notes
 
 This version has been updated for Zotero 8 compatibility:
 
-- **Module System**: Migrated from JSM to ESM modules
-- **Promises**: Uses native JavaScript promises (Bluebird removed)
-- **Menu API**: Supports the new Zotero.MenuManager API
-- **Services**: No longer requires manual Services.jsm imports
-- **Target Platform**: Built for Firefox 140+
+- **Module System**: Bootstrap updated to use ESM modules (`ChromeUtils.importESModule`)
+- **Services Import**: Uses `resource://gre/modules/Services.sys.mjs` instead of JSM
+- **Target Platform**: Built for Firefox 140+ (Zotero 8)
+- **Build System**: Uses `zotero-plugin-scaffold` 0.8.x for modern Node.js support
+- **Version Constraints**: Added `strict_min_version: "8.0"` and `strict_max_version: "8.*"`
+
+### Key Changes from Zotero 7
+
+1. **Bootstrap.js**: Updated from JSM to ESM imports
+2. **File Structure**: Plugin files moved to `addon/` directory for scaffold compatibility
+3. **Build Tool**: Replaced `build.sh` with `zotero-plugin-scaffold` npm package
+4. **Node.js Requirement**: Now requires Node.js 22+ (was 18+)
 
 ## Contributing
 
