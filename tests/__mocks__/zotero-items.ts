@@ -42,6 +42,14 @@ export function createMockItem(config: MockItemConfig = {}) {
     }),
 
     getCreators: vi.fn(() => creators),
+    setCreators: vi.fn((newCreators: any[]) => {
+      creators.length = 0;
+      creators.push(...newCreators);
+    }),
+    setCreator: vi.fn((index: number, creator: any) => {
+      creators[index] = creator;
+    }),
+    numCreators: () => creators.length,
     getAttachments: vi.fn(() => []),
 
     hasTag: vi.fn((tagName: string) => tags.some(t => t.tag === tagName)),
