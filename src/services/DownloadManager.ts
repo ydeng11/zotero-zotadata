@@ -1,4 +1,5 @@
 import { ErrorManager, ErrorType } from '@/core';
+import { FileUtils } from '@/utils/FileUtils';
 import type { 
   DownloadOptions, 
   DownloadResult, 
@@ -537,7 +538,7 @@ export class DownloadManager {
           onProgress({
             current: receivedLength,
             total: total || receivedLength,
-            message: `Downloaded ${this.formatBytes(receivedLength)}${total ? ` of ${this.formatBytes(total)}` : ''}`,
+            message: `Downloaded ${FileUtils.formatFileSize(receivedLength)}${total ? ` of ${FileUtils.formatFileSize(total)}` : ''}`,
             cancellable: true,
           });
         }
@@ -625,18 +626,5 @@ export class DownloadManager {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Format bytes for display
-   */
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 } 

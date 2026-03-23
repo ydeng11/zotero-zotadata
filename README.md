@@ -2,7 +2,7 @@
 
 A Zotero plugin that enhances your research workflow with intelligent metadata discovery and automated file management.
 
-**⚠️ This version is specifically designed for Zotero 7.x and will not work with Zotero 6.x**
+**⚠️ This version is designed for Zotero 8.x and later**
 
 ## Demo
 
@@ -60,22 +60,23 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Installation
 
-### From XPI File (Zotero 7.x)
+### From XPI File (Zotero 8.x)
 
 1. Download the latest release XPI file
-2. In Zotero 7, go to `Tools` → `Add-ons`
+2. In Zotero 8, go to `Tools` → `Add-ons`
 3. Click the gear icon and select "Install Add-on From File..."
 4. Select the downloaded XPI file
 5. Restart Zotero
 
-**Note**: This extension requires Zotero 7.0 or later. For Zotero 6.x compatibility, use an earlier version of this extension.
+**Note**: This extension requires Zotero 8.0 or later. For Zotero 7.x compatibility, use an earlier version of this extension.
 
 ### Manual Installation (Development)
 
 1. Clone or download this repository
 2. Install dependencies: `npm install`
-3. Run `./build.sh` to create the XPI package
-4. Install as described above
+3. Build the XPI: `npm run build`
+4. The XPI will be created at `.scaffold/dist/zotadata.xpi`
+5. Install as described above
 
 ## Configuration
 
@@ -186,79 +187,90 @@ This plugin integrates with several external APIs and services:
 
 ```
 zotero-zotadata/
-├── manifest.json            # Plugin metadata (Zotero 7 format)
-├── bootstrap.js             # Plugin bootstrap for Zotero 7
-├── prefs.js                 # Default preferences
-├── assets/                  # Documentation assets
-│   ├── images/             # Screenshots and diagrams
-│   └── workflows/          # Workflow diagrams and flowcharts
-├── content/
-│   └── zotadata.js          # Main logic
-├── chrome/content/
-│   ├── preferences.xul      # Settings dialog
-│   └── progress.xul         # Progress window
-├── locale/
-│   ├── en-US/               # English translations
-│   └── zh-CN/               # Chinese translations
-├── skin/default/
-│   └── zotadata.css         # Styles
-└── README.md                # This file
+├── addon/
+│   ├── bootstrap.js             # Plugin bootstrap for Zotero 8
+│   ├── manifest.json            # Plugin metadata (Zotero 8 format)
+│   ├── prefs.js                 # Default preferences
+│   ├── chrome.manifest          # Chrome manifest
+│   ├── chrome/
+│   │   └── content/
+│   │       ├── overlay.xul      # XUL overlay
+│   │       └── scripts/
+│   │           └── zotadata.js  # Main logic (~4300 lines)
+│   └── locale/
+│       ├── en-US/               # English translations
+│       └── zh-CN/               # Chinese translations
+├── src/                         # TypeScript source (for future development)
+├── assets/                      # Documentation assets
+│   ├── images/                  # Screenshots and diagrams
+│   └── workflows/               # Workflow diagrams and flowcharts
+├── zotero-plugin.config.ts      # Build configuration
+├── package.json                 # Node.js package config
+└── README.md                    # This file
 ```
 
 ## Development
 
 ### Requirements
 
-- Node.js (for build tools and dependencies)
-- Zotero 7.0 or later
-- Firefox 115+ based platform
+- Node.js 22+ (for zotero-plugin-scaffold 0.8.x)
+- Zotero 8.0 or later
 
 ### Setup
 
 1. Clone the repository
 2. Install dependencies: `npm install`
-3. Make your changes to the source files
+3. Make your changes to `addon/chrome/content/scripts/zotadata.js`
 
 ### Building
 
-1. Make changes to the source files
-2. Run `./build.sh` to create XPI package
-3. Test in Zotero 7 development environment
+```bash
+npm install        # Install dependencies
+npm run build      # Build the XPI package
+npm run build:dev  # Build in development mode (with source maps)
+npm test           # Run unit tests
+```
+
+The built XPI will be at `.scaffold/dist/zotadata.xpi`.
 
 ### Testing
 
-- Unit test the API integration functions
+- Unit test the API integration functions: `npm test`
 - Test with various item types and DOI formats
 - Verify UI responsiveness and error handling
-- Test with both Zotero 7 stable and beta versions
+- Test with both Zotero 8 stable and beta versions
 
-## Zotero 7 Migration
+### Development with Hot Reload
 
-This version has been completely rewritten for Zotero 7 compatibility:
+For active development, use the development server:
 
-- **Extension Format**: Migrated from `install.rdf` to `manifest.json`
-- **Architecture**: Changed from XUL overlays to bootstrapped extension
-- **APIs**: Updated to use Zotero 7 compatible APIs
-- **Window Management**: Adapted to new Zotero 7 window lifecycle
-- **Preferences**: Moved to root-level `prefs.js` file
+```bash
+npm start  # Starts Zotero with the plugin and watches for changes
+```
 
-## Zotero 7 Compatibility Notes
+## Zotero 8 Migration Notes
 
-When developing this plugin for Zotero 7, ensure the following in your `manifest.json`:
+This version has been updated for Zotero 8 compatibility:
 
-- **`manifest_version`**: Must be set to `2`. Despite Zotero 7 being based on a newer Firefox core that uses Manifest V3 for web extensions, Zotero's own bootstrapped plugins still expect `manifest_version: 2`.
-- **`applications` key**: Zotero-specific properties (like `id`, `strict_min_version`, `strict_max_version`, and `update_url`) must be within an `applications.zotero` object.
-- **`update_url`**: This field within `applications.zotero` is **mandatory** for Zotero 7.0.15+ (and possibly earlier Zotero 7 versions). Even for local development, a placeholder URL (e.g., `"https://example.com/update.json"`) must be provided, otherwise the plugin installation will fail with an "Extension is invalid" error.
+- **Module System**: Bootstrap updated to use ESM modules (`ChromeUtils.importESModule`)
+- **Services Import**: Uses `resource://gre/modules/Services.sys.mjs` instead of JSM
+- **Target Platform**: Built for Firefox 140+ (Zotero 8)
+- **Build System**: Uses `zotero-plugin-scaffold` 0.8.x for modern Node.js support
+- **Version Constraints**: Added `strict_min_version: "8.0"` and `strict_max_version: "8.*"`
 
-Failure to include `update_url` will result in an error message in the Zotero debug log similar to:
-`ERROR Loading extension 'your-plugin-id@example.org': Reading manifest: applications.zotero.update_url not provided`
+### Key Changes from Zotero 7
+
+1. **Bootstrap.js**: Updated from JSM to ESM imports
+2. **File Structure**: Plugin files moved to `addon/` directory for scaffold compatibility
+3. **Build Tool**: Replaced `build.sh` with `zotero-plugin-scaffold` npm package
+4. **Node.js Requirement**: Now requires Node.js 22+ (was 18+)
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly with Zotero 7
+4. Test thoroughly with Zotero 8
 5. Submit a pull request
 
 ## License

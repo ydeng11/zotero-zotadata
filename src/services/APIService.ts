@@ -30,7 +30,7 @@ export abstract class APIService {
     baseUrl: string,
     rateLimitConfig: RateLimitConfig,
     cacheConfig: CacheConfig = { ttl: 300000, maxSize: 1000 }, // 5 min default TTL
-    userAgent = 'Zotero Zotadata/1.0'
+    userAgent = 'Zotero Zotadata/2.0'
   ) {
     this.baseUrl = baseUrl;
     this.rateLimitConfig = rateLimitConfig;
@@ -112,6 +112,39 @@ export abstract class APIService {
         endpoint,
       }
     );
+  }
+
+  /**
+   * Batch request using native Promise.allSettled
+   * Replaces Bluebird's Promise.map for concurrent requests
+   */
+  protected async batchRequest<T>(
+    endpoints: string[],
+    options: {
+      concurrency?: number;
+      method?: 'GET' | 'POST';
+      headers?: Record<string, string>;
+    } = {}
+  ): Promise<APIResponse<T>[]> {
+    const { concurrency = 3, ...requestOptions } = options;
+
+    // Process in batches for concurrency control
+    const results: APIResponse<T>[] = [];
+
+    for (let i = 0; i < endpoints.length; i += concurrency) {
+      const batch = endpoints.slice(i, i + concurrency);
+      const batchResults = await Promise.allSettled(
+        batch.map(endpoint => this.request<T>(endpoint, requestOptions))
+      );
+
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        }
+      }
+    }
+
+    return results;
   }
 
   /**

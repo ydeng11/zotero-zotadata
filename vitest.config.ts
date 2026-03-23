@@ -3,22 +3,28 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'node',
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    exclude: ['node_modules', 'dist', '.scaffold'],
     coverage: {
+      provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'dist/', '.scaffold/', 'attachment-finder.js']
+      exclude: [
+        'node_modules/',
+        'dist/',
+        '.scaffold/',
+        '**/*.d.ts',
+        '**/*.config.*',
+      ],
     },
-    setupFiles: ['./src/__tests__/setup.ts']
+    setupFiles: ['./src/__tests__/setup.ts'],
   },
   resolve: {
     alias: {
-      '@': './src',
-      '@/core': './src/core',
-      '@/modules': './src/modules',
-      '@/services': './src/services',
-      '@/utils': './src/utils',
-      '@/apis': './src/apis',
-      '@/ui': './src/ui'
-    }
-  }
-}); 
+      '@': '/src',
+    },
+  },
+  define: {
+    __ZOTERO_VERSION__: '"8.0"',
+  },
+});

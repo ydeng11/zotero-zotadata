@@ -1,56 +1,73 @@
-// Test setup for Vitest
-import { vi } from 'vitest';
+// src/__tests__/setup.ts
+// Mock Zotero 8 globals for testing
 
-// Mock Zotero global
-const mockZotero = {
-  log: vi.fn(),
-  getMainWindows: vi.fn(() => []),
-  getActiveZoteroPane: vi.fn(() => ({
-    getSelectedItems: vi.fn(() => []),
-    getSelectedCollection: vi.fn(() => null),
-  })),
-  platformMajorVersion: 102,
+// Mock Zotero object
+(globalThis as any).Zotero = {
+  log: console.log,
+  getMainWindows: () => [],
+  getActiveZoteroPane: () => null,
+  platformMajorVersion: 140,
   Items: {
-    get: vi.fn(),
-    getAll: vi.fn(() => []),
-  },
-  Collections: {
-    get: vi.fn(),
-    getAll: vi.fn(() => []),
+    get: () => null,
+    getAll: () => [],
   },
   Attachments: {
-    importFromURL: vi.fn(),
-    importFromFile: vi.fn(),
+    LINK_MODE_LINKED_URL: 1,
+    LINK_MODE_IMPORTED_FILE: 2,
+    LINK_MODE_LINKED_FILE: 3,
+    importFromURL: async () => null,
+    importFromFile: async () => null,
   },
   HTTP: {
-    request: vi.fn(),
+    request: async () => ({
+      status: 200,
+      responseText: '{}',
+      getResponseHeader: () => null,
+    }),
+  },
+  // Zotero 8 Menu API mock
+  MenuManager: {
+    registerMenu: () => () => {},
+    unregisterMenu: () => {},
+  },
+  Notifier: {
+    registerObserver: () => 'test-id',
+    unregisterObserver: () => {},
   },
   Utilities: {
-    cleanURL: vi.fn((url: string) => url),
-    cleanDOI: vi.fn((doi: string) => doi),
-    cleanISBN: vi.fn((isbn: string) => isbn),
+    cleanURL: (url: string) => url,
+    cleanDOI: (doi: string) => doi,
+    cleanISBN: (isbn: string) => isbn,
   },
 };
 
-// Set up global mocks
-global.Zotero = mockZotero;
-global.Components = {};
-global.Services = {};
-global.ChromeUtils = {};
-
-// Mock DOM APIs
-Object.defineProperty(window, 'alert', {
-  value: vi.fn(),
-  writable: true,
-});
-
-// Mock navigator
-Object.defineProperty(window, 'navigator', {
-  value: {
-    userAgent: 'Test User Agent',
+// Mock Services global (auto-imported in Firefox 128+)
+(globalThis as any).Services = {
+  wm: {
+    addListener: () => {},
+    removeListener: () => {},
+    getEnumerator: () => ({
+      hasMoreElements: () => false,
+      getNext: () => null,
+    }),
   },
-  writable: true,
-});
+  scriptloader: {
+    loadSubScript: () => {},
+  },
+  io: {
+    newURI: (uri: string) => ({ spec: uri }),
+  },
+};
 
-// Export mocks for use in tests
-export { mockZotero }; 
+// Mock ChromeUtils
+(globalThis as any).ChromeUtils = {
+  defineLazyGetter: (obj: any, name: string, getter: () => any) => {
+    Object.defineProperty(obj, name, { get: getter });
+  },
+  defineESModuleGetters: () => {},
+};
+
+// Mock document.createXULElement for DOM tests
+if (typeof document !== 'undefined') {
+  (document as any).createXULElement = document.createElement.bind(document);
+}

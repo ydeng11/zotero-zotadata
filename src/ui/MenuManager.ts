@@ -1,5 +1,7 @@
 import { ErrorManager, ErrorType } from '@/core';
 import type { AddonData } from '@/core/types';
+import { ZoteroUtils } from '@/utils/ZoteroUtils';
+import { MenuParentID } from '@/constants/Menus';
 
 /**
  * Menu item configuration
@@ -36,12 +38,18 @@ type MenuContext = 'item' | 'collection' | 'toolbar' | 'tools';
 export class MenuManager {
   private addonData: AddonData;
   private errorManager: ErrorManager;
-  private registeredMenus = new Map<string, Element>();
+  private registeredMenus = new Map<string, HTMLElement>();
   private eventListeners = new Map<string, () => void>();
+  private menuUnregisterCallbacks: (() => void)[] = [];
+  private useNewMenuAPI = false;
+  private notifierObserverID: string | null = null;
+  private menuConditions = new Map<string, () => boolean>();
 
   constructor(addonData: AddonData) {
     this.addonData = addonData;
     this.errorManager = new ErrorManager();
+    // Check if new Menu API is available (Zotero 8+)
+    this.useNewMenuAPI = ZoteroUtils.hasNewMenuAPI();
   }
 
   /**
@@ -49,10 +57,11 @@ export class MenuManager {
    */
   async init(): Promise<void> {
     try {
-      await this.createItemContextMenu();
-      await this.createCollectionContextMenu();
-      await this.createToolsMenu();
-      await this.createToolbarButtons();
+      if (this.useNewMenuAPI) {
+        await this.initWithNewMenuAPI();
+      } else {
+        await this.initWithLegacyMenus();
+      }
     } catch (error) {
       throw this.errorManager.createFromUnknown(
         error,
@@ -63,10 +72,59 @@ export class MenuManager {
   }
 
   /**
+   * Initialize menus using new Zotero 8 Menu API
+   */
+  private async initWithNewMenuAPI(): Promise<void> {
+    const pluginID = this.addonData.id;
+    const itemMenuItems: MenuItemConfig[] = [
+      { id: 'zotero-itemmenu-attachment-finder-find', label: 'Find Attachments', action: () => this.handleFindAttachments(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-check', label: 'Check Attachments', action: () => this.handleCheckAttachments(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-metadata', label: 'Fetch Metadata', action: () => this.handleFetchMetadata(), condition: () => this.hasValidSelectedItems() },
+      { id: 'zotero-itemmenu-attachment-finder-arxiv', label: 'Process arXiv Items', action: () => this.handleProcessArxiv(), condition: () => this.hasArxivItems() },
+    ];
+    for (const item of itemMenuItems) {
+      try {
+        const unregister = Zotero.MenuManager.registerMenu(item.id, { pluginID, label: item.label, callback: item.action });
+        this.menuUnregisterCallbacks.push(unregister);
+      } catch (error) {
+        console.warn(`Failed to register menu ${item.id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Initialize menus using legacy XUL-based approach
+   */
+  private async initWithLegacyMenus(): Promise<void> {
+    this.setupSelectionNotifier();
+    await this.createItemContextMenu();
+    await this.createCollectionContextMenu();
+    await this.createToolsMenu();
+    await this.createToolbarButtons();
+  }
+
+  /**
    * Clean up all menus and listeners
    */
   async cleanup(): Promise<void> {
     try {
+      // Unregister Notifier observer
+      if (this.notifierObserverID) {
+        try {
+          Zotero.Notifier.unregisterObserver(this.notifierObserverID);
+        } catch {}
+        this.notifierObserverID = null;
+      }
+
+      // Clear menu conditions
+      this.menuConditions.clear();
+
+      // Unregister new Menu API items
+      for (const unregister of this.menuUnregisterCallbacks) {
+        try { unregister(); } catch {}
+      }
+      this.menuUnregisterCallbacks = [];
+
       // Remove all registered menus
       for (const [id, element] of this.registeredMenus) {
         element.remove?.();
@@ -80,6 +138,35 @@ export class MenuManager {
       this.eventListeners.clear();
     } catch (error) {
       console.warn('Error cleaning up menus:', error);
+    }
+  }
+
+  /**
+   * Register Notifier observer for selection changes
+   */
+  private setupSelectionNotifier(): void {
+    // Use Zotero's Notifier API for efficient selection change detection
+    this.notifierObserverID = Zotero.Notifier.registerObserver(
+      (event, type, ids, extraData) => {
+        // Only react to select events in the items tree
+        if (type === 'select' && event === 'select') {
+          this.updateAllMenuVisibility();
+        }
+      },
+      ['select']
+    );
+  }
+
+  /**
+   * Update visibility of all menus with conditions
+   */
+  private updateAllMenuVisibility(): void {
+    for (const [id, element] of this.registeredMenus) {
+      const condition = this.menuConditions.get(id);
+      if (condition) {
+        const isVisible = condition();
+        element.hidden = !isVisible;
+      }
     }
   }
 
@@ -131,7 +218,7 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('zotero-itemmenu', itemMenuConfig);
+    await this.createMenuSection(MenuParentID.ITEM_CONTEXT, itemMenuConfig);
   }
 
   /**
@@ -161,7 +248,7 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('zotero-collectionmenu', collectionMenuConfig);
+    await this.createMenuSection(MenuParentID.COLLECTION_CONTEXT, collectionMenuConfig);
   }
 
   /**
@@ -189,27 +276,27 @@ export class MenuManager {
       ]
     };
 
-    await this.createMenuSection('menu_ToolsPopup', toolsMenuConfig);
+    await this.createMenuSection(MenuParentID.TOOLS_POPUP, toolsMenuConfig);
   }
 
   /**
    * Create toolbar buttons
    */
   private async createToolbarButtons(): Promise<void> {
-    const toolbar = document.getElementById('zotero-toolbar');
+    const toolbar = document.getElementById(MenuParentID.TOOLBAR);
     if (!toolbar) return;
 
     // Main action button
-    const findButton = this.createElement('toolbarbutton', {
+    const findButton = ZoteroUtils.createXULElement(document, 'toolbarbutton', {
       id: 'attachment-finder-find-button',
       label: 'Find Attachments',
       tooltiptext: 'Find attachments for selected items',
       image: 'chrome://zotero/skin/attach.png',
       oncommand: () => this.handleFindAttachments(),
-    });
+    }) as HTMLElement;
 
     // Add button to toolbar
-    const insertPoint = document.getElementById('zotero-toolbar-separator') || toolbar.lastElementChild;
+    const insertPoint = document.getElementById(MenuParentID.TOOLBAR_SEPARATOR) || toolbar.lastElementChild;
     if (insertPoint) {
       toolbar.insertBefore(findButton, insertPoint);
       this.registeredMenus.set('attachment-finder-find-button', findButton);
@@ -255,12 +342,12 @@ export class MenuManager {
   /**
    * Create a single menu item
    */
-  private async createMenuItem(config: MenuItemConfig): Promise<Element | null> {
+  private async createMenuItem(config: MenuItemConfig): Promise<HTMLElement | null> {
     try {
       if (config.separator) {
-        return this.createElement('menuseparator', {
+        return ZoteroUtils.createXULElement(document, 'menuseparator', {
           id: config.id,
-        });
+        }) as HTMLElement;
       }
 
       const attributes: Record<string, any> = {
@@ -279,20 +366,11 @@ export class MenuManager {
       // Add condition check
       if (config.condition) {
         attributes.hidden = !config.condition();
-        
-        // Update visibility on selection change
-        const updateVisibility = () => {
-          const element = document.getElementById(config.id);
-          if (element) {
-            element.hidden = !config.condition!();
-          }
-        };
-        
-        // Listen for selection changes
-        this.addSelectionListener(config.id, updateVisibility);
+        // Store condition for later evaluation by Notifier
+        this.menuConditions.set(config.id, config.condition);
       }
 
-      const menuItem = this.createElement('menuitem', attributes);
+      const menuItem = ZoteroUtils.createXULElement(document, 'menuitem', attributes) as HTMLElement;
 
       // Add click handler
       const handleClick = () => {
@@ -321,38 +399,6 @@ export class MenuManager {
       console.warn(`Failed to create menu item ${config.id}:`, error);
       return null;
     }
-  }
-
-  /**
-   * Create DOM element with attributes
-   */
-  private createElement(tagName: string, attributes: Record<string, any>): Element {
-    const element = document.createElementNS(
-      'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul',
-      tagName
-    );
-
-    for (const [key, value] of Object.entries(attributes)) {
-      if (key === 'oncommand' && typeof value === 'function') {
-        element.addEventListener('command', value);
-      } else {
-        element.setAttribute(key, String(value));
-      }
-    }
-
-    return element;
-  }
-
-  /**
-   * Add listener for selection changes
-   */
-  private addSelectionListener(id: string, callback: () => void): void {
-    // In a real implementation, this would listen to Zotero selection events
-    // For now, we'll use a simple interval-based approach
-    const interval = setInterval(callback, 1000);
-    
-    const cleanup = () => clearInterval(interval);
-    this.eventListeners.set(`${id}-selection`, cleanup);
   }
 
   /**
@@ -457,13 +503,7 @@ export class MenuManager {
    * Update menu visibility based on current context
    */
   updateMenuVisibility(): void {
-    for (const [id] of this.registeredMenus) {
-      const updateCallback = this.eventListeners.get(`${id}-selection`);
-      if (updateCallback) {
-        // Trigger update
-        setTimeout(updateCallback, 0);
-      }
-    }
+    this.updateAllMenuVisibility();
   }
 
   /**

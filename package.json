@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/zotero-zotadata.git"
+    "url": "git+https://github.com/ydeng11/zotero-zotadata.git"
   },
   "author": "Zotadata Team",
   "license": "AGPL-3.0-or-later",
@@ -41,7 +41,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.0",
     "vitest": "^1.0.0",
-    "zotero-plugin-scaffold": "^0.6.0",
+    "zotero-plugin-scaffold": "^0.8.5",
     "zotero-types": "^4.0.0"
   },
   "prettier": {
