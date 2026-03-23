@@ -11,10 +11,10 @@ let zotadataCode: string | null = null;
 /**
  * Extract the entire body of a method, handling nested braces correctly
  */
-function extractMethodBody(code: string, methodName: string): { params: string[]; body: string } | null {
-  // Match method definition pattern: methodName(...) {
+function extractMethodBody(code: string, methodName: string): { params: string[]; body: string; isAsync: boolean } | null {
+  // Match method definition pattern: [async] methodName(...) {
   const methodStartRegex = new RegExp(
-    `^(\\s*)${methodName}\\s*\\(([^)]*)\\)\\s*\\{`,
+    `^(\\s*)(?:async\\s+)?${methodName}\\s*\\(([^)]*)\\)\\s*\\{`,
     'm'
   );
 
@@ -24,6 +24,11 @@ function extractMethodBody(code: string, methodName: string): { params: string[]
   const indent = startMatch[1];
   const paramsStr = startMatch[2];
   const params = paramsStr.split(',').map(p => p.trim()).filter(p => p);
+
+  // Check if the method is async by looking at the actual code
+  const lineStart = startMatch.index!;
+  const beforeMethod = code.substring(lineStart, lineStart + startMatch[0].length);
+  const isAsync = beforeMethod.includes('async ');
 
   // Find the start position of the method body
   const startIndex = startMatch.index! + startMatch[0].length;
@@ -50,7 +55,7 @@ function extractMethodBody(code: string, methodName: string): { params: string[]
   if (braceCount !== 0) return null;
 
   const body = code.substring(startIndex, bodyEnd);
-  return { params, body };
+  return { params, body, isAsync };
 }
 
 /**
@@ -68,12 +73,19 @@ export function extractFunction(name: string): Function | null {
   const extracted = extractMethodBody(zotadataCode, name);
   if (!extracted) return null;
 
-  const { params, body } = extracted;
+  const { params, body, isAsync } = extracted;
 
   try {
     // Create a function from the extracted body
     // For methods that don't use `this`, we can create a standalone function
-    const fn = new Function(...params, body);
+    let fn: Function;
+    if (isAsync) {
+      // Create async function that preserves 'this' binding
+      // new Function returns a regular function, then we invoke it to get the async function
+      fn = new Function(`return async function(${params.join(',')}) { ${body} }`)();
+    } else {
+      fn = new Function(...params, body);
+    }
     zotadataCache.set(name, fn);
     return fn;
   } catch (error) {

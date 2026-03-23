@@ -6,6 +6,7 @@ export const openalexFixtures = {
       results: [{
         id: 'https://openalex.org/W123456789',
         display_name: 'Test Paper Title',
+        title: 'Test Paper Title',
         authorships: [
           { author: { display_name: 'John Smith' } },
         ],
@@ -24,6 +25,7 @@ export const openalexFixtures = {
       results: [{
         id: 'https://openalex.org/W123456789',
         display_name: 'Open Access Paper',
+        title: 'Open Access Paper',
         doi: 'https://doi.org/10.1000/oa.doi',
         open_access: {
           is_oa: true,
