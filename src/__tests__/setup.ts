@@ -71,3 +71,28 @@
 if (typeof document !== 'undefined') {
   (document as any).createXULElement = document.createElement.bind(document);
 }
+
+// Import mock utilities for tests
+import { createMockHTTP } from '../../tests/__mocks__/zotero-http';
+import { createMockPrefs, clearPrefs } from '../../tests/__mocks__/zotero-prefs';
+import { resetMockCounters } from '../../tests/__mocks__/zotero-items';
+
+// Extend Zotero mock with test utilities
+(globalThis as any).Zotero.Prefs = createMockPrefs();
+
+// Helper to reset HTTP mock with fixtures
+(globalThis as any).__resetHTTPMock = () => {
+  (globalThis as any).Zotero.HTTP = createMockHTTP();
+};
+
+// Helper to set custom HTTP mock
+(globalThis as any).__setHTTPMock = (mock: any) => {
+  (globalThis as any).Zotero.HTTP = mock;
+};
+
+// Reset mocks between tests
+beforeEach(() => {
+  (globalThis as any).__resetHTTPMock?.();
+  clearPrefs();
+  resetMockCounters();
+});
