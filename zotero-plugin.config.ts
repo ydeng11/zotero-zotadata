@@ -8,9 +8,9 @@ export default defineConfig({
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
   updateURL:
-    "https://github.com/yourusername/zotero-attachment-finder/releases/latest/download/update.json",
+    "https://github.com/ydeng11/zotero-zotadata/releases/latest/download/update.json",
   xpiDownloadLink:
-    "https://github.com/yourusername/zotero-attachment-finder/releases/latest/download/zotero-attachment-finder.xpi",
+    "https://github.com/ydeng11/zotero-zotadata/releases/latest/download/zotadata.xpi",
   version: {
     min: "8.0",
     max: "8.*",

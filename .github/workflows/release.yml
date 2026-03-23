@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 0.1.0)'
+        description: 'Version to release (e.g., 2.0.1)'
         required: true
         type: string
 
@@ -13,53 +13,66 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Validate version format
         run: |
           if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9-]+)?$ ]]; then
-            echo "Error: Version must follow semantic versioning (e.g., 1.0.0 or 1.0.0-beta)"
+            echo "Error: Version must follow semantic versioning (e.g., 2.0.1 or 2.0.1-beta)"
             exit 1
           fi
-          
-      - name: Build XPI
+
+      - name: Update version in package.json
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Update version in addon/manifest.json
         run: |
-          chmod +x build.sh
-          ./build.sh ${{ inputs.version }}
-          
+          jq '.version = "${{ inputs.version }}"' addon/manifest.json > addon/manifest.json.tmp
+          mv addon/manifest.json.tmp addon/manifest.json
+
+      - name: Build XPI
+        run: npx zotero-plugin build
+
       - name: Create Release
-        uses: actions/create-release@v1
-        id: create_release
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ inputs.version }}
-          release_name: Release v${{ inputs.version }}
+          name: Release v${{ inputs.version }}
           body: |
             ## Zotero Zotadata v${{ inputs.version }}
-            
+
             ### Installation
             1. Download the XPI file below
-            2. Open Zotero 7
+            2. Open Zotero 8
             3. Go to Tools → Add-ons
             4. Click gear icon → Install Add-on From File...
             5. Select the downloaded XPI file
             6. Restart Zotero
-            
+
             ### Compatibility
-            - Zotero 7.x only
+            - Zotero 8.x only
           draft: false
           prerelease: ${{ contains(inputs.version, '-') }}
-          
-      - name: Upload XPI Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: zotero-zotadata-${{ inputs.version }}.xpi
-          asset_name: zotero-zotadata-${{ inputs.version }}.xpi
-          asset_content_type: application/zip 
+          files: |
+            .scaffold/dist/zotadata.xpi
+
+      - name: Commit version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json package-lock.json addon/manifest.json
+          git commit -m "chore: bump version to ${{ inputs.version }}"
+          git push
