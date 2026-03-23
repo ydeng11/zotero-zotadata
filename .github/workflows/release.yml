@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 2.0.1)'
+        description: 'Version to release (e.g., 1.0.0). Use current version to release without bumping.'
         required: true
         type: string
 
@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -33,10 +33,24 @@ jobs:
             exit 1
           fi
 
+      - name: Check if version needs updating
+        id: version-check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          if [ "$CURRENT_VERSION" = "${{ inputs.version }}" ]; then
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Version already set to ${{ inputs.version }}, skipping version bump"
+          else
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Will update version from $CURRENT_VERSION to ${{ inputs.version }}"
+          fi
+
       - name: Update version in package.json
+        if: steps.version-check.outputs.needs_update == 'true'
         run: npm version ${{ inputs.version }} --no-git-tag-version
 
       - name: Update version in addon/manifest.json
+        if: steps.version-check.outputs.needs_update == 'true'
         run: |
           jq '.version = "${{ inputs.version }}"' addon/manifest.json > addon/manifest.json.tmp
           mv addon/manifest.json.tmp addon/manifest.json
@@ -45,7 +59,7 @@ jobs:
         run: npx zotero-plugin build
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -70,6 +84,7 @@ jobs:
             .scaffold/dist/zotadata.xpi
 
       - name: Commit version bump
+        if: steps.version-check.outputs.needs_update == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
