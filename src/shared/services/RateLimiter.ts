@@ -22,6 +22,10 @@ export class RateLimiter {
 
       if (waitTime > 0) {
         await this.delay(waitTime);
+        // Re-filter after delay to remove stale entries
+        const newNow = Date.now();
+        const newWindowStart = newNow - this.config.window;
+        this.requestTimes = this.requestTimes.filter(time => time > newWindowStart);
       }
     }
 

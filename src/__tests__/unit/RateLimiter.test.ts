@@ -45,4 +45,17 @@ describe('RateLimiter', () => {
 
     await expect(promise).resolves.toBeUndefined();
   });
+
+  it('should reset allow new requests after reset', async () => {
+    const limiter = new RateLimiter({ requests: 2, window: 1000 });
+
+    await limiter.waitForSlot();
+    await limiter.waitForSlot();
+
+    limiter.reset();
+
+    // Should allow new requests immediately after reset
+    await expect(limiter.waitForSlot()).resolves.toBeUndefined();
+    await expect(limiter.waitForSlot()).resolves.toBeUndefined();
+  });
 });
