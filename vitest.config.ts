@@ -21,7 +21,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': '/Users/ihelio/code/zotero-zotadata/zotero-zotadata/src',
     },
   },
   define: {
