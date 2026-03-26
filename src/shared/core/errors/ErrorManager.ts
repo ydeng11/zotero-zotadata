@@ -1,5 +1,9 @@
-import { ErrorType } from '../types';
+import { ErrorType } from './ErrorTypes';
+import { AppError } from './AppError';
 import type { ContextualError, LogLevel } from '../types';
+
+export { ErrorType, AppError };
+export type { ContextualError };
 
 /**
  * Centralized error management system with proper typing and context

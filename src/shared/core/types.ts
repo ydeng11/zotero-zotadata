@@ -11,6 +11,7 @@ export interface AttachmentStats {
   removed: number;
   weblinks: number;
   errors: number;
+  processed?: number;
 }
 
 export interface MetadataResult {
@@ -56,21 +57,46 @@ export interface CacheConfig {
   maxSize: number;
 }
 
-export enum ErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  RATE_LIMIT = 'RATE_LIMIT',
-  TIMEOUT = 'TIMEOUT',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  FILE_ERROR = 'FILE_ERROR',
-  API_ERROR = 'API_ERROR',
-  ZOTERO_ERROR = 'ZOTERO_ERROR'
-}
+// Re-export ErrorType from ErrorTypes for backward compatibility
+export { ErrorType } from './errors/ErrorTypes';
 
 export interface ContextualError extends Error {
-  type: ErrorType;
-  context: Record<string, any>;
+  type: import('./errors/ErrorTypes').ErrorType;
+  context: Record<string, unknown>;
   timestamp: string;
   retryable: boolean;
+  cause?: Error;
+}
+
+// Batch processing result
+export interface BatchResult<T = unknown> {
+  success: boolean;
+  results: Array<{ success: boolean; result?: T; error?: Error }>;
+  errors: Array<{ success: boolean; error: Error }>;
+  totalProcessed: number;
+  successCount: number;
+  errorCount: number;
+  successRate: number;
+}
+
+// Metadata fetch result
+export interface MetadataFetchResult {
+  success: boolean;
+  updated: boolean;
+  error?: string;
+}
+
+// arXiv processing result
+export interface ArxivProcessResult {
+  processed: boolean;
+  converted: boolean;
+  foundPublished: boolean;
+}
+
+// File retrieval result
+export interface FileRetrievalResult {
+  url: string | null;
+  source: string | null;
 }
 
 export interface SearchQuery {
