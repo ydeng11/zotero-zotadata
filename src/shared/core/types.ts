@@ -60,11 +60,10 @@ export interface CacheConfig {
 // Re-export ErrorType from ErrorTypes for backward compatibility
 export { ErrorType } from './errors/ErrorTypes';
 
-export interface ContextualError extends Error {
-  type: import('./errors/ErrorTypes').ErrorType;
-  context: Record<string, unknown>;
-  timestamp: string;
-  retryable: boolean;
+export interface ContextualError {
+  type: string;
+  message: string;
+  context?: Record<string, unknown>;
   cause?: Error;
 }
 

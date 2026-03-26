@@ -6,35 +6,20 @@ import type { ContextualError } from '../types';
  */
 export class AppError extends Error implements ContextualError {
   type: ErrorType;
-  context: Record<string, unknown>;
-  timestamp: string;
-  retryable: boolean;
+  context?: Record<string, unknown>;
   cause?: Error;
 
   constructor(
     type: ErrorType,
     message: string,
-    context: Record<string, unknown> = {},
+    context?: Record<string, unknown>,
     cause?: Error
   ) {
     super(message);
     this.name = 'AppError';
     this.type = type;
-    this.context = {
-      ...context,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-    };
-    this.timestamp = new Date().toISOString();
-    this.retryable = this.isRetryableError(type);
+    this.context = context;
     this.cause = cause;
-  }
-
-  private isRetryableError(type: ErrorType): boolean {
-    return [
-      ErrorType.NETWORK_ERROR,
-      ErrorType.TIMEOUT,
-      ErrorType.RATE_LIMIT,
-    ].includes(type);
   }
 
   /**
@@ -42,29 +27,11 @@ export class AppError extends Error implements ContextualError {
    */
   static fromUnknown(
     error: unknown,
-    type: ErrorType = ErrorType.UNKNOWN,
-    context: Record<string, unknown> = {}
+    type: ErrorType,
+    context?: Record<string, unknown>
   ): AppError {
     if (error instanceof AppError) return error;
-
     const message = error instanceof Error ? error.message : String(error);
-    const cause = error instanceof Error ? error : undefined;
-
-    return new AppError(type, message, context, cause);
-  }
-
-  /**
-   * Convert to a plain object for serialization
-   */
-  toJSON(): Record<string, unknown> {
-    return {
-      name: this.name,
-      type: this.type,
-      message: this.message,
-      context: this.context,
-      timestamp: this.timestamp,
-      retryable: this.retryable,
-      cause: this.cause?.message,
-    };
+    return new AppError(type, message, context, error instanceof Error ? error : undefined);
   }
 }
