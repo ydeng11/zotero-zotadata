@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { ContextualError } from '@/core/types';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { ContextualError } from '@/shared/core/types';
 
 /**
  * Dialog types for different user interactions

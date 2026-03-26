@@ -1,10 +1,10 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { 
-  APIResponse, 
-  RateLimitConfig, 
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type {
+  APIResponse,
+  RateLimitConfig,
   CacheConfig,
-  ContextualError 
-} from '@/core/types';
+  ContextualError
+} from '@/shared/core/types';
 
 /**
  * Base API service with rate limiting, caching, and error handling

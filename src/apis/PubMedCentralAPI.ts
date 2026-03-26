@@ -1,7 +1,7 @@
 import { APIService } from '@/services';
-import { ErrorManager, ErrorType } from '@/core';
-import type { APIResponse, SearchResult, PMCEntry } from '@/core/types';
-import { URLUtils, StringUtils } from '@/utils';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { APIResponse, SearchResult, PMCEntry } from '@/shared/core/types';
+import { URLUtils, StringUtils } from '@/shared/utils';
 
 /**
  * PMC search options

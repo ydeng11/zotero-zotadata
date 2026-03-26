@@ -1,6 +1,6 @@
 // Unit tests for ErrorManager
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ErrorManager, ErrorType } from '@/core';
+import { ErrorManager, ErrorType } from '@/shared/core';
 
 describe('ErrorManager', () => {
   let errorManager: ErrorManager;

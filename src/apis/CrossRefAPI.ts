@@ -1,10 +1,10 @@
 import { APIService } from '@/services/APIService';
-import type { 
-  CrossRefWork, 
-  SearchQuery, 
-  SearchResult, 
-  RateLimitConfig 
-} from '@/core/types';
+import type {
+  CrossRefWork,
+  SearchQuery,
+  SearchResult,
+  RateLimitConfig
+} from '@/shared/core/types';
 
 /**
  * CrossRef API implementation for DOI discovery and metadata fetching

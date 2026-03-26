@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { Resource } from '@/core/types';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { Resource } from '@/shared/core/types';
 
 /**
  * Resource types for tracking different kinds of resources

@@ -13,6 +13,8 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
+      "@/features/*": ["src/features/*"],
+      "@/shared/*": ["src/shared/*"],
       "@/core/*": ["src/core/*"],
       "@/modules/*": ["src/modules/*"],
       "@/services/*": ["src/services/*"],

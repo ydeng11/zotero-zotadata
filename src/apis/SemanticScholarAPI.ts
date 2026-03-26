@@ -1,10 +1,10 @@
 import { APIService } from '@/services/APIService';
-import type { 
-  SemanticScholarPaper, 
-  SearchQuery, 
-  SearchResult, 
-  RateLimitConfig 
-} from '@/core/types';
+import type {
+  SemanticScholarPaper,
+  SearchQuery,
+  SearchResult,
+  RateLimitConfig
+} from '@/shared/core/types';
 
 /**
  * Semantic Scholar API implementation for academic paper discovery

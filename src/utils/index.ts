@@ -1,7 +1,5 @@
-export { StringUtils } from './StringUtils';
-export { FileUtils } from './FileUtils';
-export { URLUtils } from './URLUtils';
-export { ZoteroUtils } from './ZoteroUtils';
-
-// Note: Other utility files to be implemented in future phases:
-// export { IdentifierExtractor } from './IdentifierExtractor'; 
+// Utils module exports - re-export from shared for backward compatibility
+export { StringUtils } from '@/shared/utils/StringUtils';
+export { FileUtils } from '@/shared/utils/FileUtils';
+export { URLUtils } from '@/shared/utils/URLUtils';
+export { ZoteroUtils } from '@/shared/utils/ZoteroUtils';

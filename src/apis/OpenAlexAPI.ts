@@ -1,10 +1,10 @@
 import { APIService } from '@/services/APIService';
-import type { 
-  OpenAlexWork, 
-  SearchQuery, 
-  SearchResult, 
-  RateLimitConfig 
-} from '@/core/types';
+import type {
+  OpenAlexWork,
+  SearchQuery,
+  SearchResult,
+  RateLimitConfig
+} from '@/shared/core/types';
 
 /**
  * OpenAlex API implementation for academic paper discovery
