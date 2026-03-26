@@ -1,6 +1,6 @@
 import { ErrorManager, ErrorType } from '@/shared/core';
 import { AttachmentChecker } from '@/modules/AttachmentChecker';
-import { CrossRefAPI } from '@/apis/CrossRefAPI';
+import { CrossRefAPI } from '@/features/metadata/apis';
 import { ZoteroUtils } from '@/shared/utils/ZoteroUtils';
 import { MenuParentID } from '@/constants/Menus';
 import type { AddonData, PluginConfig } from '@/shared/core/types';

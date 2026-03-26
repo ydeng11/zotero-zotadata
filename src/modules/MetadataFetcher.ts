@@ -1,7 +1,5 @@
 import { ErrorManager, ErrorType } from '@/shared/core';
-import { CrossRefAPI } from '@/apis/CrossRefAPI';
-import { OpenAlexAPI } from '@/apis/OpenAlexAPI';
-import { SemanticScholarAPI } from '@/apis/SemanticScholarAPI';
+import { CrossRefAPI, OpenAlexAPI, SemanticScholarAPI } from '@/features/metadata/apis';
 import { DownloadManager } from '@/services/DownloadManager';
 import type {
   MetadataResult,

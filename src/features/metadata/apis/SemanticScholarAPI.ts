@@ -1,4 +1,4 @@
-import { BaseMetadataAPI } from '@/features/metadata/apis/BaseMetadataAPI';
+import { BaseMetadataAPI } from './BaseMetadataAPI';
 import type {
   SemanticScholarPaper,
   SearchQuery,
