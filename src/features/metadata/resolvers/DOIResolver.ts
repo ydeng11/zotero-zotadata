@@ -1,13 +1,6 @@
 import { IdentifierResolver } from './IdentifierResolver';
-import type { SearchResult } from '@/shared/core/types';
 
 export class DOIResolver extends IdentifierResolver {
-  private threshold: number;
-
-  constructor(threshold = 0.9) {
-    super();
-    this.threshold = threshold;
-  }
 
   /**
    * Extract DOI from item fields
@@ -31,7 +24,7 @@ export class DOIResolver extends IdentifierResolver {
     // Try extra field
     const extra = item.getField('extra');
     if (extra) {
-      const match = extra.match(/DOI[:\-\s]*([10]\.\d{4,}\/[^\s]+)/i);
+      const match = extra.match(/DOI[:\-\s]*(10\.\d{4,}\/[^\s]+)/i);
       if (match) {
         return this.cleanDOI(match[1]);
       }
