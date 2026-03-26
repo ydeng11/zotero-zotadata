@@ -1,4 +1,4 @@
-import { APIService } from '@/services/APIService';
+import { BaseMetadataAPI } from '@/features/metadata/apis/BaseMetadataAPI';
 import type {
   CrossRefWork,
   SearchQuery,
@@ -9,7 +9,7 @@ import type {
 /**
  * CrossRef API implementation for DOI discovery and metadata fetching
  */
-export class CrossRefAPI extends APIService {
+export class CrossRefAPI extends BaseMetadataAPI {
   constructor() {
     super(
       'https://api.crossref.org',

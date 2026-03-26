@@ -1,4 +1,4 @@
-import { APIService } from '@/services/APIService';
+import { BaseMetadataAPI } from '@/features/metadata/apis/BaseMetadataAPI';
 import type {
   OpenAlexWork,
   SearchQuery,
@@ -10,7 +10,7 @@ import type {
  * OpenAlex API implementation for academic paper discovery
  * https://docs.openalex.org/
  */
-export class OpenAlexAPI extends APIService {
+export class OpenAlexAPI extends BaseMetadataAPI {
   constructor() {
     super(
       'https://api.openalex.org',

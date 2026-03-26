@@ -1,4 +1,4 @@
-import { APIService } from '@/services/APIService';
+import { BaseMetadataAPI } from '@/features/metadata/apis/BaseMetadataAPI';
 import type {
   SemanticScholarPaper,
   SearchQuery,
@@ -10,7 +10,7 @@ import type {
  * Semantic Scholar API implementation for academic paper discovery
  * https://api.semanticscholar.org/
  */
-export class SemanticScholarAPI extends APIService {
+export class SemanticScholarAPI extends BaseMetadataAPI {
   constructor() {
     super(
       'https://api.semanticscholar.org/graph/v1',

@@ -9,7 +9,7 @@ import type {
 /**
  * Base API service with rate limiting, caching, and error handling
  */
-export abstract class APIService {
+export abstract class BaseMetadataAPI {
   protected errorManager: ErrorManager;
   protected baseUrl: string;
   protected rateLimitConfig: RateLimitConfig;
