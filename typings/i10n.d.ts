@@ -2,4 +2,5 @@
 /* prettier-ignore */
 /* eslint-disable */
 // @ts-nocheck
-export type FluentMessageId = string;
+export type FluentMessageId =
+;

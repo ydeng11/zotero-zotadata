@@ -31,6 +31,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".scaffold"
+    ".scaffold",
+    "typings/i10n.d.ts"
   ]
 } 

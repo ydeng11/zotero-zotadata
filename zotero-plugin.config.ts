@@ -22,7 +22,7 @@ export default defineConfig({
       template: "addon/chrome.manifest",
     },
     fluent: {
-      enable: false,
+      enable: true,
     },
   },
   release: {
