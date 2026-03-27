@@ -1,9 +1,6 @@
 import { AppError, ErrorType } from '@/shared/core';
 
 export class AttachmentManager {
-  /**
-   * Remove invalid attachment permanently
-   */
   async removeInvalid(attachment: Zotero.Item): Promise<void> {
     try {
       await (attachment as any).eraseTx();
@@ -15,9 +12,6 @@ export class AttachmentManager {
     }
   }
 
-  /**
-   * Move attachment to trash (safer than permanent delete)
-   */
   async moveToTrash(attachment: Zotero.Item): Promise<void> {
     try {
       attachment.setField('deleted', true);
@@ -30,20 +24,17 @@ export class AttachmentManager {
     }
   }
 
-  /**
-   * Get attachments for an item
-   */
   async getAttachments(item: Zotero.Item): Promise<Zotero.Item[]> {
     const attachmentIds = item.getAttachments();
-    const attachments: Zotero.Item[] = [];
+    if (attachmentIds.length === 0) return [];
 
+    const attachments: Zotero.Item[] = [];
     for (const id of attachmentIds) {
       const attachment = Zotero.Items.get(id);
       if (attachment) {
         attachments.push(attachment);
       }
     }
-
     return attachments;
   }
 }

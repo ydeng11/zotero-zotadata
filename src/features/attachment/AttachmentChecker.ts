@@ -11,9 +11,6 @@ export class AttachmentChecker {
     this.manager = new AttachmentManager();
   }
 
-  /**
-   * Check attachments for a single item
-   */
   async checkItemAttachments(item: Zotero.Item): Promise<AttachmentStats> {
     const stats: AttachmentStats = {
       valid: 0,
@@ -38,9 +35,6 @@ export class AttachmentChecker {
     return stats;
   }
 
-  /**
-   * Process a single attachment
-   */
   private async processAttachment(
     attachment: Zotero.Item
   ): Promise<'valid' | 'removed' | 'weblinks' | 'errors'> {
@@ -59,9 +53,6 @@ export class AttachmentChecker {
     }
   }
 
-  /**
-   * Generate user-friendly results message
-   */
   generateResultsMessage(stats: AttachmentStats, itemCount: number = 1): string {
     const messages: string[] = [];
 

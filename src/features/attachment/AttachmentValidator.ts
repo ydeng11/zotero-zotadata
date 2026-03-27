@@ -9,12 +9,10 @@ export class AttachmentValidator {
     const linkMode = (attachment as any).attachmentLinkMode;
     const attachmentId = attachment.id;
 
-    // Check if it's a web link
     if (linkMode === this.LINK_MODE_LINKED_URL) {
       return { type: 'weblink', attachmentId };
     }
 
-    // Check if it's a file attachment
     if (
       linkMode === this.LINK_MODE_IMPORTED_FILE ||
       linkMode === this.LINK_MODE_LINKED_FILE
@@ -22,7 +20,6 @@ export class AttachmentValidator {
       return this.validateFileAttachment(attachment);
     }
 
-    // Unknown type - keep it
     return { type: 'valid', attachmentId };
   }
 
