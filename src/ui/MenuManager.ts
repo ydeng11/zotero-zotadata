@@ -1,6 +1,6 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { AddonData } from '@/core/types';
-import { ZoteroUtils } from '@/utils/ZoteroUtils';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { AddonData } from '@/shared/core/types';
+import { ZoteroUtils } from '@/shared/utils/ZoteroUtils';
 import { MenuParentID } from '@/constants/Menus';
 
 /**

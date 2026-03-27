@@ -111,7 +111,7 @@ export class StringUtils {
    */
   static containsAllWords(text: string, searchWords: string[]): boolean {
     const normalizedText = StringUtils.normalizeText(text);
-    return searchWords.every(word => 
+    return searchWords.every(word =>
       normalizedText.includes(StringUtils.normalizeText(word))
     );
   }
@@ -121,7 +121,7 @@ export class StringUtils {
    */
   static containsAnyWords(text: string, searchWords: string[]): boolean {
     const normalizedText = StringUtils.normalizeText(text);
-    return searchWords.some(word => 
+    return searchWords.some(word =>
       normalizedText.includes(StringUtils.normalizeText(word))
     );
   }
@@ -163,11 +163,11 @@ export class StringUtils {
   static countWords(text: string): Record<string, number> {
     const words = StringUtils.extractWords(text);
     const counts: Record<string, number> = {};
-    
+
     for (const word of words) {
       counts[word] = (counts[word] || 0) + 1;
     }
-    
+
     return counts;
   }
 
@@ -176,24 +176,24 @@ export class StringUtils {
    * (Simple implementation for document relevance)
    */
   static calculateTfIdf(
-    term: string, 
-    document: string, 
+    term: string,
+    document: string,
     corpus: string[]
   ): number {
     const normalizedTerm = StringUtils.normalizeText(term);
     const normalizedDoc = StringUtils.normalizeText(document);
-    
+
     // Term frequency
     const words = normalizedDoc.split(/\s+/);
     const termCount = words.filter(word => word === normalizedTerm).length;
     const tf = termCount / words.length;
-    
+
     // Inverse document frequency
-    const documentsWithTerm = corpus.filter(doc => 
+    const documentsWithTerm = corpus.filter(doc =>
       StringUtils.normalizeText(doc).includes(normalizedTerm)
     ).length;
     const idf = Math.log(corpus.length / (documentsWithTerm + 1));
-    
+
     return tf * idf;
   }
 
@@ -201,8 +201,8 @@ export class StringUtils {
    * Find best match from array of strings
    */
   static findBestMatch(
-    target: string, 
-    candidates: string[], 
+    target: string,
+    candidates: string[],
     minSimilarity = 0.5
   ): { match: string; similarity: number } | null {
     let bestMatch = null;
@@ -224,7 +224,7 @@ export class StringUtils {
    */
   static generateFuzzyPattern(text: string, maxErrors = 1): RegExp {
     const escaped = StringUtils.escapeRegex(text);
-    
+
     if (maxErrors === 0) {
       return new RegExp(escaped, 'i');
     }
@@ -234,7 +234,7 @@ export class StringUtils {
       .split('')
       .map(char => `${char}?`)
       .join('.*?');
-    
+
     return new RegExp(fuzzyPattern, 'i');
   }
 
@@ -290,15 +290,15 @@ export class StringUtils {
    */
   static formatAuthorName(name: string): { firstName: string; lastName: string } {
     const parts = name.trim().split(/\s+/);
-    
+
     if (parts.length === 1) {
       return { firstName: '', lastName: parts[0] };
     }
-    
+
     // Assume last part is last name, rest is first name
     const lastName = parts.pop() || '';
     const firstName = parts.join(' ');
-    
+
     return { firstName, lastName };
   }
 
@@ -309,11 +309,11 @@ export class StringUtils {
     try {
       // Remove whitespace and common prefixes
       let cleaned = url.trim();
-      
+
       if (!cleaned.startsWith('http')) {
         cleaned = 'https://' + cleaned;
       }
-      
+
       const parsed = new URL(cleaned);
       return parsed.href;
     } catch {
@@ -326,11 +326,11 @@ export class StringUtils {
    */
   static formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 B';
-    
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
@@ -352,4 +352,4 @@ export class StringUtils {
     }
     return result;
   }
-} 
+}

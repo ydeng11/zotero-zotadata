@@ -1,9 +1,9 @@
-import { ErrorManager, ErrorType } from '@/core';
+import { ErrorManager, ErrorType } from '@/shared/core';
 import { AttachmentChecker } from '@/modules/AttachmentChecker';
-import { CrossRefAPI } from '@/apis/CrossRefAPI';
-import { ZoteroUtils } from '@/utils/ZoteroUtils';
+import { CrossRefAPI } from '@/features/metadata/apis';
+import { ZoteroUtils } from '@/shared/utils/ZoteroUtils';
 import { MenuParentID } from '@/constants/Menus';
-import type { AddonData, PluginConfig } from '@/core/types';
+import type { AddonData, PluginConfig } from '@/shared/core/types';
 
 /**
  * Main Zotadata plugin class

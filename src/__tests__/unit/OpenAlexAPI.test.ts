@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { OpenAlexAPI } from '../../apis/OpenAlexAPI';
-import type { SearchQuery, OpenAlexWork } from '../../core/types';
+import { OpenAlexAPI } from '@/features/metadata/apis';
+import type { SearchQuery, OpenAlexWork } from '@/shared/core/types';
 
 // Mock Zotero HTTP
 const mockZoteroHTTP = {

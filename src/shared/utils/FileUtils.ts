@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from '@/core';
+import { ErrorManager, ErrorType } from '@/shared/core';
 
 /**
  * File type detection result
@@ -77,7 +77,7 @@ export class FileUtils {
 
     // Detect file type
     result.fileType = this.detectFileType(data);
-    
+
     if (!result.fileType.isSupported) {
       result.warnings.push(`File type ${result.fileType.mimeType} may not be supported`);
     }
@@ -109,7 +109,7 @@ export class FileUtils {
    */
   static detectFileType(data: ArrayBuffer): FileTypeInfo {
     const view = new Uint8Array(data);
-    
+
     // Check against known signatures
     for (const [name, { signature, mimeType }] of this.FILE_SIGNATURES) {
       if (this.matchesSignature(view, signature)) {
@@ -167,7 +167,7 @@ export class FileUtils {
     // Check for PDF trailer (%%EOF)
     const trailerSignature = [0x25, 0x25, 0x45, 0x4F, 0x46]; // %%EOF
     let hasTrailer = false;
-    
+
     // Search in last 1024 bytes
     const searchStart = Math.max(0, view.length - 1024);
     for (let i = searchStart; i <= view.length - 5; i++) {
@@ -262,7 +262,7 @@ export class FileUtils {
    */
   static getMimeTypeFromExtension(extension: string): string {
     const ext = extension.toLowerCase().startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
-    
+
     for (const [mimeType, info] of this.SUPPORTED_TYPES) {
       if (info.ext === ext) {
         return mimeType;
@@ -300,11 +300,11 @@ export class FileUtils {
    */
   static formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 B';
-    
+
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
@@ -322,7 +322,7 @@ export class FileUtils {
   static downloadBlob(data: ArrayBuffer, filename: string, mimeType: string): void {
     const blob = new Blob([data], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    
+
     try {
       const link = document.createElement('a');
       link.href = url;
@@ -345,9 +345,9 @@ export class FileUtils {
   } {
     const view1 = new Uint8Array(file1);
     const view2 = new Uint8Array(file2);
-    
+
     const sizeDifference = Math.abs(view1.length - view2.length);
-    
+
     if (view1.length !== view2.length) {
       return {
         identical: false,
@@ -364,7 +364,7 @@ export class FileUtils {
     }
 
     const similarity = matches / view1.length;
-    
+
     return {
       identical: similarity === 1,
       similarity,
@@ -379,7 +379,7 @@ export class FileUtils {
     try {
       const view = new Uint8Array(data);
       const text = String.fromCharCode(...view);
-      
+
       // Very basic PDF text extraction - look for text between BT/ET markers
       const textMatches = text.match(/BT\s+(.*?)\s+ET/gs);
       if (textMatches) {
@@ -389,7 +389,7 @@ export class FileUtils {
           .replace(/\s+/g, ' ')
           .trim();
       }
-      
+
       return null;
     } catch (error) {
       return null;
@@ -401,11 +401,11 @@ export class FileUtils {
    */
   private static matchesSignature(data: Uint8Array, signature: number[]): boolean {
     if (data.length < signature.length) return false;
-    
+
     for (let i = 0; i < signature.length; i++) {
       if (data[i] !== signature[i]) return false;
     }
-    
+
     return true;
   }
 
@@ -414,19 +414,19 @@ export class FileUtils {
    */
   private static isTextFile(data: Uint8Array): boolean {
     if (data.length === 0) return false;
-    
+
     // Sample first 1024 bytes
     const sample = data.slice(0, Math.min(1024, data.length));
     let textBytes = 0;
-    
+
     for (const byte of sample) {
       // Count printable ASCII and common UTF-8 characters
       if ((byte >= 32 && byte <= 126) || byte === 9 || byte === 10 || byte === 13) {
         textBytes++;
       }
     }
-    
+
     // If more than 80% are text characters, consider it text
     return (textBytes / sample.length) > 0.8;
   }
-} 
+}

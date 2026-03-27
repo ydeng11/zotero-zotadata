@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { AddonData } from '@/core/types';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { AddonData } from '@/shared/core/types';
 
 /**
  * Preference configuration

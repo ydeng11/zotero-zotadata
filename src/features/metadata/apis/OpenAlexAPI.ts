@@ -1,16 +1,16 @@
-import { APIService } from '@/services/APIService';
-import type { 
-  OpenAlexWork, 
-  SearchQuery, 
-  SearchResult, 
-  RateLimitConfig 
-} from '@/core/types';
+import { BaseMetadataAPI } from './BaseMetadataAPI';
+import type {
+  OpenAlexWork,
+  SearchQuery,
+  SearchResult,
+  RateLimitConfig
+} from '@/shared/core/types';
 
 /**
  * OpenAlex API implementation for academic paper discovery
  * https://docs.openalex.org/
  */
-export class OpenAlexAPI extends APIService {
+export class OpenAlexAPI extends BaseMetadataAPI {
   constructor() {
     super(
       'https://api.openalex.org',

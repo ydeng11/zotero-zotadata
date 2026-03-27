@@ -1,5 +1,9 @@
-import { ErrorType } from './types';
-import type { ContextualError, LogLevel } from './types';
+import { ErrorType } from './ErrorTypes';
+import { AppError } from './AppError';
+import type { ContextualError, LogLevel } from '../types';
+
+export { ErrorType, AppError };
+export type { ContextualError };
 
 /**
  * Centralized error management system with proper typing and context
@@ -25,7 +29,7 @@ export class ErrorManager {
     };
     error.timestamp = new Date().toISOString();
     error.retryable = this.isRetryableError(type);
-    
+
     return error;
   }
 
@@ -59,7 +63,7 @@ export class ErrorManager {
     context: Record<string, any> = {}
   ): ContextualError {
     let message = 'Unknown error occurred';
-    
+
     if (unknown instanceof Error) {
       message = unknown.message;
     } else if (typeof unknown === 'string') {
@@ -110,7 +114,7 @@ export class ErrorManager {
    */
   getErrorStats(): Record<ErrorType, number> {
     const stats = {} as Record<ErrorType, number>;
-    
+
     // Initialize all error types
     Object.values(ErrorType).forEach(type => {
       stats[type] = 0;
@@ -134,7 +138,7 @@ export class ErrorManager {
 
   private addToLog(error: ContextualError): void {
     this.errorLog.push(error);
-    
+
     // Trim log if too large
     if (this.errorLog.length > this.maxLogSize) {
       this.errorLog = this.errorLog.slice(-this.maxLogSize);
@@ -143,12 +147,12 @@ export class ErrorManager {
 
   private logToZotero(error: ContextualError): void {
     const logLevel = this.getLogLevel(error.type);
-    const contextStr = Object.keys(error.context).length > 0 
+    const contextStr = Object.keys(error.context).length > 0
       ? ` Context: ${JSON.stringify(error.context, null, 2)}`
       : '';
-    
+
     const message = `[${error.type}] ${error.message}${contextStr}`;
-    
+
     if (typeof Zotero !== 'undefined' && Zotero.log) {
       Zotero.log(`Zotadata Error: ${message}`, this.getZoteroLogLevel(logLevel));
     } else {
@@ -199,7 +203,7 @@ export class ErrorManager {
 
   private async notifyUser(error: ContextualError): Promise<void> {
     const userMessage = this.createUserFriendlyMessage(error);
-    
+
     try {
       if (typeof Zotero !== 'undefined' && Zotero.getMainWindows) {
         const windows = Zotero.getMainWindows();
@@ -220,7 +224,7 @@ export class ErrorManager {
   private createUserFriendlyMessage(error: ContextualError): string {
     const baseMessage = this.getUserFriendlyErrorMessage(error.type);
     const contextInfo = this.getContextualInfo(error);
-    
+
     let message = baseMessage;
     if (contextInfo) {
       message += `\n\nDetails: ${contextInfo}`;
@@ -293,4 +297,4 @@ export class ErrorManager {
       console.debug('Telemetry reporting failed:', telemetryError);
     }
   }
-} 
+}

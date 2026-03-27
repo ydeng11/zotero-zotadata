@@ -1,13 +1,13 @@
-import { ErrorManager, ErrorType } from '@/core';
-import { FileUtils } from '@/utils/FileUtils';
-import type { 
-  DownloadOptions, 
-  DownloadResult, 
-  QueueItem, 
+import { ErrorManager, ErrorType } from '@/shared/core';
+import { FileUtils } from '@/shared/utils/FileUtils';
+import type {
+  DownloadOptions,
+  DownloadResult,
+  QueueItem,
   QueueConfig,
   ProgressInfo,
-  Resource 
-} from '@/core/types';
+  Resource
+} from '@/shared/core/types';
 
 /**
  * Download item for queue management

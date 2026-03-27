@@ -11,6 +11,7 @@ export interface AttachmentStats {
   removed: number;
   weblinks: number;
   errors: number;
+  processed?: number;
 }
 
 export interface MetadataResult {
@@ -56,21 +57,45 @@ export interface CacheConfig {
   maxSize: number;
 }
 
-export enum ErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  RATE_LIMIT = 'RATE_LIMIT',
-  TIMEOUT = 'TIMEOUT',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  FILE_ERROR = 'FILE_ERROR',
-  API_ERROR = 'API_ERROR',
-  ZOTERO_ERROR = 'ZOTERO_ERROR'
+// Re-export ErrorType from ErrorTypes for backward compatibility
+export { ErrorType } from './errors/ErrorTypes';
+
+export interface ContextualError {
+  type: string;
+  message: string;
+  context?: Record<string, unknown>;
+  cause?: Error;
 }
 
-export interface ContextualError extends Error {
-  type: ErrorType;
-  context: Record<string, any>;
-  timestamp: string;
-  retryable: boolean;
+// Batch processing result
+export interface BatchResult<T = unknown> {
+  success: boolean;
+  results: Array<{ success: boolean; result?: T; error?: Error }>;
+  errors: Array<{ success: boolean; error: Error }>;
+  totalProcessed: number;
+  successCount: number;
+  errorCount: number;
+  successRate: number;
+}
+
+// Metadata fetch result
+export interface MetadataFetchResult {
+  success: boolean;
+  updated: boolean;
+  error?: string;
+}
+
+// arXiv processing result
+export interface ArxivProcessResult {
+  processed: boolean;
+  converted: boolean;
+  foundPublished: boolean;
+}
+
+// File retrieval result
+export interface FileRetrievalResult {
+  url: string | null;
+  source: string | null;
 }
 
 export interface SearchQuery {
@@ -288,9 +313,9 @@ export interface QueueConfig {
 }
 
 // Event system
-export type EventType = 
+export type EventType =
   | 'download:start'
-  | 'download:progress' 
+  | 'download:progress'
   | 'download:complete'
   | 'download:error'
   | 'metadata:found'
@@ -316,4 +341,13 @@ export interface PluginLifecycle {
   startup(): Promise<void>;
   shutdown(): Promise<void>;
   uninstall(): Promise<void>;
-} 
+}
+
+// Alias for backward compatibility
+export interface AttachmentFinderConfig extends PluginConfig {
+  downloads?: {
+    maxConcurrent: number;
+    maxFileSize?: number;
+    timeout?: number;
+  };
+}

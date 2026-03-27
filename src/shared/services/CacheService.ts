@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { CacheConfig } from '@/core/types';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { CacheConfig } from '@/shared/core/types';
 
 /**
  * Cache entry with metadata
@@ -43,7 +43,7 @@ export class CacheService {
   private persistentCache = new Map<string, CacheEntry<any>>();
   private config: CacheConfig;
   private errorManager: ErrorManager;
-  
+
   // Statistics
   private stats = {
     memoryHits: 0,
@@ -82,10 +82,10 @@ export class CacheService {
     if (persistentEntry && this.isValid(persistentEntry)) {
       persistentEntry.hitCount++;
       this.stats.persistentHits++;
-      
+
       // Promote to memory cache
       this.setMemoryCache(normalizedKey, persistentEntry.data, persistentEntry.ttl, persistentEntry.tags);
-      
+
       return persistentEntry.data;
     }
 
@@ -116,10 +116,10 @@ export class CacheService {
    */
   async delete(key: string): Promise<boolean> {
     const normalizedKey = this.normalizeKey(key);
-    
+
     const memoryDeleted = this.memoryCache.delete(normalizedKey);
     const persistentDeleted = this.persistentCache.delete(normalizedKey);
-    
+
     return memoryDeleted || persistentDeleted;
   }
 
@@ -172,7 +172,7 @@ export class CacheService {
    * Get cache statistics
    */
   getStats(): CacheStats {
-    const memoryHitRate = this.stats.memoryHits + this.stats.memoryMisses > 0 
+    const memoryHitRate = this.stats.memoryHits + this.stats.memoryMisses > 0
       ? this.stats.memoryHits / (this.stats.memoryHits + this.stats.memoryMisses)
       : 0;
 
@@ -234,7 +234,7 @@ export class CacheService {
     if (this.memoryCache.size > this.MEMORY_CACHE_SIZE) {
       const entries = Array.from(this.memoryCache.entries())
         .sort((a, b) => a[1].hitCount - b[1].hitCount);
-      
+
       const toRemove = entries.slice(0, this.memoryCache.size - this.MEMORY_CACHE_SIZE);
       for (const [key] of toRemove) {
         this.memoryCache.delete(key);
@@ -246,7 +246,7 @@ export class CacheService {
     if (this.persistentCache.size > this.PERSISTENT_CACHE_SIZE) {
       const entries = Array.from(this.persistentCache.entries())
         .sort((a, b) => a[1].hitCount - b[1].hitCount);
-      
+
       const toRemove = entries.slice(0, this.persistentCache.size - this.PERSISTENT_CACHE_SIZE);
       for (const [key] of toRemove) {
         this.persistentCache.delete(key);
@@ -263,7 +263,7 @@ export class CacheService {
       if (typeof Zotero !== 'undefined' && Zotero.File) {
         const cacheData = Object.fromEntries(this.persistentCache.entries());
         const jsonData = JSON.stringify(cacheData, null, 2);
-        
+
         // In a real implementation, this would save to a file
         // For now, we'll use localStorage as a fallback
         if (typeof localStorage !== 'undefined') {
@@ -285,7 +285,7 @@ export class CacheService {
         if (jsonData) {
           const cacheData = JSON.parse(jsonData);
           this.persistentCache = new Map(Object.entries(cacheData));
-          
+
           // Clean up expired entries
           await this.cleanup();
         }
@@ -360,7 +360,7 @@ export class CacheService {
    */
   async getMultiple<T>(keys: string[]): Promise<Map<string, T>> {
     const results = new Map<string, T>();
-    
+
     await Promise.allSettled(
       keys.map(async (key) => {
         const value = await this.get<T>(key);
@@ -402,4 +402,4 @@ export class CacheService {
       persistent: Object.fromEntries(this.persistentCache.entries()),
     };
   }
-} 
+}

@@ -1,15 +1,15 @@
-import { APIService } from '@/services/APIService';
-import type { 
-  CrossRefWork, 
-  SearchQuery, 
-  SearchResult, 
-  RateLimitConfig 
-} from '@/core/types';
+import { BaseMetadataAPI } from './BaseMetadataAPI';
+import type {
+  CrossRefWork,
+  SearchQuery,
+  SearchResult,
+  RateLimitConfig
+} from '@/shared/core/types';
 
 /**
  * CrossRef API implementation for DOI discovery and metadata fetching
  */
-export class CrossRefAPI extends APIService {
+export class CrossRefAPI extends BaseMetadataAPI {
   constructor() {
     super(
       'https://api.crossref.org',

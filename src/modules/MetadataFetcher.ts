@@ -1,14 +1,12 @@
-import { ErrorManager, ErrorType } from '@/core';
-import { CrossRefAPI } from '@/apis/CrossRefAPI';
-import { OpenAlexAPI } from '@/apis/OpenAlexAPI';
-import { SemanticScholarAPI } from '@/apis/SemanticScholarAPI';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import { CrossRefAPI, OpenAlexAPI, SemanticScholarAPI } from '@/features/metadata/apis';
 import { DownloadManager } from '@/services/DownloadManager';
-import type { 
-  MetadataResult, 
-  SearchQuery, 
-  SearchResult, 
-  AttachmentFinderConfig 
-} from '@/core/types';
+import type {
+  MetadataResult,
+  SearchQuery,
+  SearchResult,
+  AttachmentFinderConfig
+} from '@/shared/core/types';
 
 /**
  * Metadata search result with confidence scoring

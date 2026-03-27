@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from '@/core';
+import { ErrorManager, ErrorType } from '@/shared/core';
 
 /**
  * URL validation result
@@ -93,7 +93,7 @@ export class URLUtils {
     try {
       // Basic URL validation and cleaning
       let cleanedUrl = this.basicCleanURL(url);
-      
+
       const parsedUrl = new URL(cleanedUrl);
       result.domain = parsedUrl.hostname;
       result.protocol = parsedUrl.protocol;
@@ -139,7 +139,7 @@ export class URLUtils {
     try {
       const parsedUrl = new URL(url);
       const path = parsedUrl.pathname.toLowerCase();
-      
+
       // Check for common direct download patterns
       const directPatterns = [
         /\.pdf$/,
@@ -177,7 +177,7 @@ export class URLUtils {
       // Extract filename from URL
       const pathSegments = parsedUrl.pathname.split('/');
       const lastSegment = pathSegments[pathSegments.length - 1];
-      
+
       if (lastSegment && lastSegment.includes('.')) {
         info.filename = decodeURIComponent(lastSegment);
       }
@@ -205,7 +205,7 @@ export class URLUtils {
       }
 
       // Check for file size in URL parameters
-      const sizeParam = parsedUrl.searchParams.get('size') || 
+      const sizeParam = parsedUrl.searchParams.get('size') ||
                         parsedUrl.searchParams.get('filesize');
       if (sizeParam) {
         info.filesize = parseInt(sizeParam, 10);
@@ -231,7 +231,7 @@ export class URLUtils {
   static upgradeToHTTPS(url: string): string {
     try {
       const parsedUrl = new URL(url);
-      
+
       // List of domains that support HTTPS
       const httpsSupported = [
         'arxiv.org',
@@ -247,7 +247,7 @@ export class URLUtils {
         'openalex.org',
       ];
 
-      if (parsedUrl.protocol === 'http:' && 
+      if (parsedUrl.protocol === 'http:' &&
           httpsSupported.some(domain => parsedUrl.hostname.includes(domain))) {
         parsedUrl.protocol = 'https:';
         return parsedUrl.toString();
@@ -309,7 +309,7 @@ export class URLUtils {
    */
   static generateAlternativeURLs(originalUrl: string, title?: string): string[] {
     const alternatives: string[] = [];
-    
+
     try {
       const parsedUrl = new URL(originalUrl);
       const domain = parsedUrl.hostname;
@@ -367,31 +367,31 @@ export class URLUtils {
   static normalizeURL(url: string): string {
     try {
       const parsedUrl = new URL(this.basicCleanURL(url));
-      
+
       // Remove tracking parameters
       this.removeTrackingParameters(parsedUrl);
-      
+
       // Normalize protocol
       if (parsedUrl.protocol === 'http:') {
         parsedUrl.protocol = 'https:';
       }
-      
+
       // Remove default ports
       if ((parsedUrl.protocol === 'https:' && parsedUrl.port === '443') ||
           (parsedUrl.protocol === 'http:' && parsedUrl.port === '80')) {
         parsedUrl.port = '';
       }
-      
+
       // Normalize path
       parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, '') || '/';
-      
+
       // Sort search parameters
       const sortedParams = new URLSearchParams();
       Array.from(parsedUrl.searchParams.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .forEach(([key, value]) => sortedParams.append(key, value));
       parsedUrl.search = sortedParams.toString();
-      
+
       return parsedUrl.toString().toLowerCase();
     } catch {
       return url;
@@ -432,7 +432,7 @@ export class URLUtils {
     try {
       const parsedUrl = new URL(url);
       const currentDomain = parsedUrl.hostname;
-      
+
       return mirrors
         .filter(mirror => mirror !== currentDomain)
         .map(mirror => {
@@ -450,18 +450,18 @@ export class URLUtils {
    */
   private static basicCleanURL(url: string): string {
     let cleaned = url.trim();
-    
+
     // Remove common URL prefixes that might be accidentally included
     cleaned = cleaned.replace(/^(URL:|Link:|Download:|File:)\s*/i, '');
-    
+
     // Handle URLs that might be missing protocol
     if (!/^https?:\/\//i.test(cleaned) && cleaned.includes('.')) {
       cleaned = 'https://' + cleaned;
     }
-    
+
     // Remove trailing punctuation
     cleaned = cleaned.replace(/[.,;!?]+$/, '');
-    
+
     // Decode HTML entities
     cleaned = cleaned
       .replace(/&amp;/g, '&')
@@ -469,7 +469,7 @@ export class URLUtils {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
-    
+
     return cleaned;
   }
 
@@ -519,4 +519,4 @@ export class URLUtils {
       }
     }
   }
-} 
+}

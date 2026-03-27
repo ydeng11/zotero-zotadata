@@ -13,6 +13,8 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
+      "@/features/*": ["src/features/*"],
+      "@/shared/*": ["src/shared/*"],
       "@/core/*": ["src/core/*"],
       "@/modules/*": ["src/modules/*"],
       "@/services/*": ["src/services/*"],
@@ -29,6 +31,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".scaffold"
+    ".scaffold",
+    "typings/i10n.d.ts"
   ]
 } 

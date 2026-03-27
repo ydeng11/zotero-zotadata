@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from '@/core';
+import { ErrorManager, ErrorType } from '@/shared/core';
 import { XUL_NAMESPACE, PLATFORM_VERSION_CREATE_XUL } from '@/constants/Menus';
 
 /**
@@ -209,7 +209,7 @@ export class ZoteroUtils {
       // Get file information for file attachments
       if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
           attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE) {
-        
+
         info.filePath = attachment.getFilePath();
         info.mimeType = attachment.attachmentContentType;
 
@@ -217,7 +217,7 @@ export class ZoteroUtils {
         if (info.filePath) {
           const file = attachment.getFile();
           info.fileExists = file && file.exists();
-          
+
           if (info.fileExists) {
             try {
               info.fileSize = file.fileSize;
@@ -279,7 +279,7 @@ export class ZoteroUtils {
 
       // Create a blob from the data
       const blob = new Blob([data], { type: mimeType });
-      
+
       // Try different methods for creating attachment
       let attachment: Zotero.Item | null = null;
 
@@ -301,7 +301,7 @@ export class ZoteroUtils {
         try {
           // Method 2: Using linkFromURL with blob URL
           const blobUrl = URL.createObjectURL(blob);
-          
+
           attachment = await Zotero.Attachments.linkFromURL({
             url: blobUrl,
             parentItemID: parentItemId,
@@ -372,7 +372,7 @@ export class ZoteroUtils {
           }
 
           const currentValue = item.getField(mapping.zoteroField);
-          
+
           // Skip if field already has value and not overwriting
           if (currentValue && !overwrite) {
             continue;
@@ -387,7 +387,7 @@ export class ZoteroUtils {
           // Only update if value is different
           if (newValue !== currentValue) {
             item.setField(mapping.zoteroField, newValue);
-            result.changes.push(`${mapping.zoteroField}: "${currentValue}" → "${newValue}"`);
+            result.changes.push(`${mapping.zoteroField}: "${currentValue}" -> "${newValue}"`);
             result.updated = true;
           }
         } catch (error) {
@@ -399,7 +399,7 @@ export class ZoteroUtils {
       if (metadata.authors && Array.isArray(metadata.authors)) {
         try {
           const existingCreators = item.getCreators();
-          
+
           if (existingCreators.length === 0 || overwrite) {
             const newCreators = metadata.authors.map((author: any) => ({
               firstName: author.given || author.firstName || '',
@@ -419,7 +419,7 @@ export class ZoteroUtils {
       // Save changes
       if (result.updated) {
         await item.saveTx();
-        
+
         // Add note about update source
         if (source) {
           try {
@@ -461,7 +461,7 @@ export class ZoteroUtils {
     try {
       const itemTypeID = item.itemTypeID;
       const itemTypeName = Zotero.ItemTypes.getName(itemTypeID);
-      
+
       return {
         id: itemTypeID,
         name: itemTypeName,
@@ -546,20 +546,20 @@ export class ZoteroUtils {
 
       if (style === 'short') {
         const firstAuthor = creators[0];
-        const authorName = firstAuthor 
+        const authorName = firstAuthor
           ? `${firstAuthor.lastName}${creators.length > 1 ? ' et al.' : ''}`
           : 'Unknown Author';
-        
+
         return `${authorName}${year ? ` (${year})` : ''}: ${title.substring(0, 50)}${title.length > 50 ? '...' : ''}`;
       } else {
         const authorNames = creators.map(c => `${c.firstName} ${c.lastName}`).join(', ');
         const publication = item.getField('publicationTitle');
-        
+
         let citation = `${authorNames}${year ? ` (${year})` : ''}. ${title}.`;
         if (publication) {
           citation += ` ${publication}.`;
         }
-        
+
         return citation;
       }
     } catch (error) {
@@ -624,4 +624,4 @@ export class ZoteroUtils {
   static hasNewMenuAPI(): boolean {
     return typeof Zotero.MenuManager?.registerMenu === 'function';
   }
-} 
+}

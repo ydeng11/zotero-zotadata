@@ -1,7 +1,7 @@
 import { APIService } from '@/services';
-import { ErrorManager, ErrorType } from '@/core';
-import type { APIResponse, SearchResult, ArxivEntry } from '@/core/types';
-import { URLUtils, StringUtils } from '@/utils';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { APIResponse, SearchResult, ArxivEntry } from '@/shared/core/types';
+import { URLUtils, StringUtils } from '@/shared/utils';
 
 /**
  * arXiv search options

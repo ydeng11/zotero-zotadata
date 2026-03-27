@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/core';
-import type { AttachmentStats } from '@/core/types';
+import { ErrorManager, ErrorType } from '@/shared/core';
+import type { AttachmentStats } from '@/shared/core/types';
 
 /**
  * Modular attachment checker with proper error handling and type safety
