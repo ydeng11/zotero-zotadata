@@ -34,7 +34,6 @@ export function createMockItem(config: MockItemConfig = {}) {
   return {
     id,
     itemTypeID: config.itemTypeID ?? 1,
-    get id() { return id; },
 
     getField: vi.fn((fieldName: string) => fields[fieldName] ?? ''),
     setField: vi.fn((fieldName: string, value: string) => {

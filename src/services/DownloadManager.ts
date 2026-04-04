@@ -454,14 +454,12 @@ export class DownloadManager {
           responseType: 'arraybuffer',
         });
 
-        // Convert Zotero response to standard Response format
-        return {
-          ok: response.status >= 200 && response.status < 300,
+        const statusText =
+          (response as { statusText?: string }).statusText ?? '';
+        return new Response(response.response as ArrayBuffer, {
           status: response.status,
-          statusText: response.statusText || '',
-          headers: new Map(Object.entries(response.getAllResponseHeaders() || {})),
-          arrayBuffer: () => Promise.resolve(response.response),
-        } as Response;
+          statusText: statusText || undefined,
+        });
       } else {
         // Fallback to fetch for testing/standalone use
         return fetch(url, {

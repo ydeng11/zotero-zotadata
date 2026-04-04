@@ -1,15 +1,37 @@
 // src/__tests__/setup.ts
 // Mock Zotero 8 globals for testing
 
+/** Recorded calls for Zotero 8 MenuManager (Vitest assertions). */
+const menuManagerRegisterCalls: Array<{
+  menuID: string;
+  pluginID: string;
+  target: string;
+  menus: Array<{ menuType: string; l10nID?: string }>;
+}> = [];
+const menuManagerUnregisterCalls: string[] = [];
+
+function resetMenuManagerMocks(): void {
+  menuManagerRegisterCalls.length = 0;
+  menuManagerUnregisterCalls.length = 0;
+}
+
+(globalThis as any).__menuManagerRegisterCalls = menuManagerRegisterCalls;
+(globalThis as any).__menuManagerUnregisterCalls = menuManagerUnregisterCalls;
+(globalThis as any).__resetMenuManagerMocks = resetMenuManagerMocks;
+
 // Mock Zotero object
 (globalThis as any).Zotero = {
   log: console.log,
+  initializationPromise: Promise.resolve(),
+  unlockPromise: Promise.resolve(),
+  uiReadyPromise: Promise.resolve(),
   getMainWindows: () => [],
   getActiveZoteroPane: () => null,
   platformMajorVersion: 140,
   Items: {
     get: () => null,
     getAll: () => [],
+    trash: async () => {},
   },
   Attachments: {
     LINK_MODE_LINKED_URL: 1,
@@ -25,10 +47,21 @@
       getResponseHeader: () => null,
     }),
   },
-  // Zotero 8 Menu API mock
+  // Zotero 8 Menu API mock (registerMenu returns string | false, like runtime)
   MenuManager: {
-    registerMenu: () => () => {},
-    unregisterMenu: () => {},
+    registerMenu: (options: {
+      menuID: string;
+      pluginID: string;
+      target: string;
+      menus: Array<{ menuType: string; l10nID?: string }>;
+    }) => {
+      menuManagerRegisterCalls.push(options);
+      return options.menuID;
+    },
+    unregisterMenu: (menuID: string) => {
+      menuManagerUnregisterCalls.push(menuID);
+      return true;
+    },
   },
   Notifier: {
     registerObserver: () => 'test-id',
@@ -72,6 +105,8 @@ if (typeof document !== 'undefined') {
   (document as any).createXULElement = document.createElement.bind(document);
 }
 
+import { beforeEach } from 'vitest';
+
 // Import mock utilities for tests
 import { createMockHTTP } from '../../tests/__mocks__/zotero-http';
 import { createMockPrefs, clearPrefs } from '../../tests/__mocks__/zotero-prefs';
@@ -93,6 +128,7 @@ import { resetMockCounters } from '../../tests/__mocks__/zotero-items';
 // Reset mocks between tests
 beforeEach(() => {
   (globalThis as any).__resetHTTPMock?.();
+  (globalThis as any).__resetMenuManagerMocks?.();
   clearPrefs();
   resetMockCounters();
 });

@@ -14,8 +14,7 @@ export class AttachmentManager {
 
   async moveToTrash(attachment: Zotero.Item): Promise<void> {
     try {
-      attachment.setField('deleted', true);
-      await attachment.save();
+      await Zotero.Items.trash(attachment.id);
     } catch (error) {
       throw AppError.fromUnknown(error, ErrorType.ZOTERO_ERROR, {
         operation: 'moveToTrash',

@@ -43,7 +43,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
    */
   async getWorkByDOI(doi: string): Promise<SearchResult | null> {
     const cleanDOI = this.cleanDOI(doi);
-    const endpoint = `/works/${cleanDOI}`;
+    const endpoint = `/works/${encodeURIComponent(cleanDOI)}`;
 
     try {
       const response = await this.request<{
@@ -58,6 +58,70 @@ export class CrossRefAPI extends BaseMetadataAPI {
     } catch (error) {
       // DOI not found is not an error
       return null;
+    }
+  }
+
+  /**
+   * Fetch raw CrossRef work metadata by DOI (for arXiv → published migration).
+   */
+  async getCrossRefWorkMessage(doi: string): Promise<CrossRefWork | null> {
+    const cleanDOI = this.cleanDOI(doi);
+    const endpoint = `/works/${encodeURIComponent(cleanDOI)}`;
+
+    try {
+      const response = await this.request<{
+        status: string;
+        'message-type': string;
+        'message-version': string;
+        message: CrossRefWork;
+      }>(endpoint);
+
+      return response.data.message ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Raw work list for arXiv-ID query (caller filters preprints).
+   */
+  async fetchWorksByArxivId(arxivId: string): Promise<CrossRefWork[]> {
+    const cleanArxivId = arxivId.replace(/^arxiv:/i, '');
+    const endpoint = `/works?query=${encodeURIComponent(cleanArxivId)}&rows=10&sort=relevance`;
+
+    try {
+      const response = await this.request<{
+        message: {
+          items: CrossRefWork[];
+        };
+      }>(endpoint);
+
+      return response.data.message.items ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Raw work list for structured query (title / author / year).
+   */
+  async fetchWorksByQuery(query: SearchQuery): Promise<CrossRefWork[]> {
+    const searchQuery = this.buildSearchQuery(query);
+    if (!searchQuery) {
+      return [];
+    }
+    const endpoint = `/works?query=${encodeURIComponent(searchQuery)}&rows=10&sort=relevance`;
+
+    try {
+      const response = await this.request<{
+        message: {
+          items: CrossRefWork[];
+        };
+      }>(endpoint);
+
+      return response.data.message.items ?? [];
+    } catch {
+      return [];
     }
   }
 

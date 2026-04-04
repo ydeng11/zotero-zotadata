@@ -1,11 +1,19 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+const srcDir = fileURLToPath(new URL('./src', import.meta.url));
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', '.scaffold'],
+    exclude: [
+      'node_modules',
+      'dist',
+      '.scaffold',
+      'tests/unit/zotadata/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -21,10 +29,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/Users/ihelio/code/zotero-zotadata/zotero-zotadata/src',
+      '@': srcDir,
     },
   },
   define: {
     __ZOTERO_VERSION__: '"8.0"',
+    __env__: '"development"',
   },
 });

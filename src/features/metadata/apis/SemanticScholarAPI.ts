@@ -41,7 +41,9 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    */
   async getPaperByDOI(doi: string): Promise<SearchResult | null> {
     const cleanDOI = this.cleanDOI(doi);
-    const endpoint = `/paper/DOI:${cleanDOI}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    // Slashes in DOIs (e.g. 10.48550/arxiv.xxx) must be one path segment — encode the full S2 paper id
+    const paperId = `DOI:${cleanDOI}`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -57,7 +59,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Search by paper ID
    */
   async getPaperById(paperId: string): Promise<SearchResult | null> {
-    const endpoint = `/paper/${paperId}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -136,6 +138,26 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     }>(endpoint);
 
     return this.transformResults(response.data.data, { arxivId: cleanArxivId });
+  }
+
+  /**
+   * Paper search including externalIds (DOI) for published-version discovery.
+   */
+  async searchPapersWithExternalIds(
+    query: string,
+    limit = 10,
+  ): Promise<SemanticScholarPaper[]> {
+    const endpoint = `/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,externalIds`;
+
+    try {
+      const response = await this.request<{
+        data: SemanticScholarPaper[];
+      }>(endpoint);
+
+      return response.data.data ?? [];
+    } catch {
+      return [];
+    }
   }
 
   /**

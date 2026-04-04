@@ -1,10 +1,16 @@
 // tests/helpers/extract-function.ts
-// Helper to extract and test functions from zotadata.js
+// Helper to extract and test functions from the bundled plugin script.
+// Legacy suites under tests/unit/zotadata/ are excluded from Vitest until
+// rewritten to import TypeScript modules instead of regex-parsing the bundle.
 
 import fs from 'fs';
 import path from 'path';
 
-const zotadataPath = path.join(process.cwd(), 'addon/chrome/content/scripts/zotadata.js');
+/** Bundled plugin output (run `npm run build` first). Legacy tests parse this file. */
+const zotadataPath = path.join(
+  process.cwd(),
+  '.scaffold/dist/addon/content/scripts/zotadata.js',
+);
 const zotadataCache: Map<string, Function> = new Map();
 let zotadataCode: string | null = null;
 

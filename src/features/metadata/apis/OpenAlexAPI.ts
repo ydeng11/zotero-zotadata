@@ -42,7 +42,8 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    */
   async getWorkByDOI(doi: string): Promise<SearchResult | null> {
     const cleanDOI = this.cleanDOI(doi);
-    const endpoint = `/works/https://doi.org/${cleanDOI}`;
+    const workUrl = `https://doi.org/${cleanDOI}`;
+    const endpoint = `/works/${encodeURIComponent(workUrl)}`;
 
     try {
       const response = await this.request<OpenAlexWork>(endpoint);
@@ -139,7 +140,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Transform OpenAlex works to standardized search results
    */
   private transformResults(works: OpenAlexWork[], originalQuery: SearchQuery): SearchResult[] {
-    return works.map(work => {
+    return (works ?? []).map((work) => {
       const result: SearchResult = {
         title: work.display_name || work.title,
         authors: work.authorships?.map(authorship => 

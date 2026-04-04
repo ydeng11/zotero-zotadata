@@ -40,7 +40,6 @@ export class MenuManager {
   private errorManager: ErrorManager;
   private registeredMenus = new Map<string, HTMLElement>();
   private eventListeners = new Map<string, () => void>();
-  private menuUnregisterCallbacks: (() => void)[] = [];
   private useNewMenuAPI = false;
   private notifierObserverID: string | null = null;
   private menuConditions = new Map<string, () => boolean>();
@@ -76,18 +75,131 @@ export class MenuManager {
    */
   private async initWithNewMenuAPI(): Promise<void> {
     const pluginID = this.addonData.id;
-    const itemMenuItems: MenuItemConfig[] = [
-      { id: 'zotero-itemmenu-attachment-finder-find', label: 'Find Attachments', action: () => this.handleFindAttachments(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-check', label: 'Check Attachments', action: () => this.handleCheckAttachments(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-metadata', label: 'Fetch Metadata', action: () => this.handleFetchMetadata(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-arxiv', label: 'Process arXiv Items', action: () => this.handleProcessArxiv(), condition: () => this.hasArxivItems() },
+
+    const itemMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-find-attachments',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleFindAttachments();
+        },
+      },
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-check-attachments',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleCheckAttachments();
+        },
+      },
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-fetch-metadata',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleFetchMetadata();
+        },
+      },
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-process-arxiv',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasArxivItems());
+        },
+        onCommand: () => {
+          void this.handleProcessArxiv();
+        },
+      },
     ];
-    for (const item of itemMenuItems) {
+
+    const collectionMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-batch-find',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasSelectedCollection());
+        },
+        onCommand: () => {
+          void this.handleBatchFindAttachments();
+        },
+      },
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-batch-clean',
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasSelectedCollection());
+        },
+        onCommand: () => {
+          void this.handleBatchCheckAttachments();
+        },
+      },
+    ];
+
+    const toolsMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-preferences',
+        onCommand: () => {
+          void this.handlePreferences();
+        },
+      },
+      {
+        menuType: 'menuitem',
+        l10nID: 'zotadata-menu-status',
+        onCommand: () => {
+          void this.handleShowStatus();
+        },
+      },
+    ];
+
+    const registrations: Array<{
+      menuID: string;
+      target: string;
+      menus: Zotero.MenuManager.MenuData[];
+    }> = [
+      {
+        menuID: 'zotadata-attachment-finder-library-item',
+        target: 'main/library/item',
+        menus: itemMenus,
+      },
+      {
+        menuID: 'zotadata-attachment-finder-library-collection',
+        target: 'main/library/collection',
+        menus: collectionMenus,
+      },
+      {
+        menuID: 'zotadata-attachment-finder-menubar-tools',
+        target: 'main/menubar/tools',
+        menus: toolsMenus,
+      },
+    ];
+
+    for (const reg of registrations) {
       try {
-        const unregister = Zotero.MenuManager.registerMenu(item.id, { pluginID, label: item.label, callback: item.action });
-        this.menuUnregisterCallbacks.push(unregister);
+        const ok = Zotero.MenuManager.registerMenu({
+          menuID: reg.menuID,
+          pluginID,
+          target: reg.target,
+          menus: reg.menus,
+        });
+        if (ok === false) {
+          console.warn(`MenuManager.registerMenu failed for ${reg.menuID}`);
+        }
       } catch (error) {
-        console.warn(`Failed to register menu ${item.id}:`, error);
+        console.warn(`Failed to register menu ${reg.menuID}:`, error);
       }
     }
   }
@@ -119,11 +231,8 @@ export class MenuManager {
       // Clear menu conditions
       this.menuConditions.clear();
 
-      // Unregister new Menu API items
-      for (const unregister of this.menuUnregisterCallbacks) {
-        try { unregister(); } catch {}
-      }
-      this.menuUnregisterCallbacks = [];
+      // Do not call MenuManager.unregisterMenu — Zotero clears plugin menu
+      // registrations on addon shutdown; duplicate unregister warns.
 
       // Remove all registered menus
       for (const [id, element] of this.registeredMenus) {

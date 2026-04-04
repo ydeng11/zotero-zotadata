@@ -59,11 +59,14 @@ export interface CacheConfig {
 
 // Re-export ErrorType from ErrorTypes for backward compatibility
 export { ErrorType } from './errors/ErrorTypes';
+import type { ErrorType } from './errors/ErrorTypes';
 
-export interface ContextualError {
-  type: string;
-  message: string;
-  context?: Record<string, unknown>;
+/** Runtime errors produced by ErrorManager / AppError (extends Error). */
+export interface ContextualError extends Error {
+  type: ErrorType;
+  context: Record<string, unknown>;
+  timestamp: string;
+  retryable: boolean;
   cause?: Error;
 }
 
@@ -85,11 +88,21 @@ export interface MetadataFetchResult {
   error?: string;
 }
 
+/** Per-item result for arXiv batch processing (drives summary copy). */
+export type ArxivProcessOutcome =
+  | 'updated_published'
+  | 'converted_preprint'
+  | 'unchanged'
+  | 'skipped_not_arxiv'
+  | 'failed_metadata'
+  | 'failed_exception';
+
 // arXiv processing result
 export interface ArxivProcessResult {
   processed: boolean;
   converted: boolean;
   foundPublished: boolean;
+  outcome: ArxivProcessOutcome;
 }
 
 // File retrieval result
@@ -161,6 +174,7 @@ export interface AttachmentInfo {
 
 // API-specific types
 export interface CrossRefWork {
+  type?: string;
   DOI: string;
   title: string[];
   author: Array<{
@@ -208,6 +222,11 @@ export interface SemanticScholarPaper {
   year?: number;
   venue?: string;
   doi?: string;
+  externalIds?: {
+    DOI?: string;
+    ArXiv?: string;
+    CorpusId?: string;
+  };
   url?: string;
   openAccessPdf?: {
     url: string;
@@ -341,6 +360,22 @@ export interface PluginLifecycle {
   startup(): Promise<void>;
   shutdown(): Promise<void>;
   uninstall(): Promise<void>;
+}
+
+/** Per-item outcome for the "Find Missing Files" command. */
+export type FileFinderOutcome =
+  | 'downloaded'
+  | 'already_has_file'
+  | 'no_source_found'
+  | 'download_failed'
+  | 'skipped_not_regular';
+
+export interface FileFinderResult {
+  item: Zotero.Item;
+  outcome: FileFinderOutcome;
+  source?: string;
+  pdfUrl?: string;
+  error?: string;
 }
 
 // Alias for backward compatibility

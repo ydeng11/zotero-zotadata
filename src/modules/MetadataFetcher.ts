@@ -2,10 +2,11 @@ import { ErrorManager, ErrorType } from '@/shared/core';
 import { CrossRefAPI, OpenAlexAPI, SemanticScholarAPI } from '@/features/metadata/apis';
 import { DownloadManager } from '@/services/DownloadManager';
 import type {
+  ContextualError,
   MetadataResult,
   SearchQuery,
   SearchResult,
-  AttachmentFinderConfig
+  AttachmentFinderConfig,
 } from '@/shared/core/types';
 
 /**
@@ -87,7 +88,7 @@ export class MetadataFetcher {
           item: selectedItems[index],
           source: 'MetadataFetcher',
           changes: [],
-          errors: [result.reason.message || 'Unknown error'],
+          errors: [this.formatSettledReason(result.reason)],
         };
       }
     });
@@ -346,14 +347,21 @@ export class MetadataFetcher {
         searchTime,
       };
     } catch (error) {
-      const contextualError = this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: apiName, query }
-      );
+      // BaseMetadataAPI.wrapAsync already logged API failures; avoid duplicate alerts.
+      const alreadyHandled =
+        error instanceof Error &&
+        'type' in error &&
+        Object.values(ErrorType).includes((error as ContextualError).type);
 
-      await this.errorManager.handleError(contextualError);
-      
+      if (!alreadyHandled) {
+        const contextualError = this.errorManager.createFromUnknown(
+          error,
+          ErrorType.API_ERROR,
+          { api: apiName, query },
+        );
+        await this.errorManager.handleError(contextualError);
+      }
+
       return {
         results: [],
         source,
@@ -455,7 +463,9 @@ export class MetadataFetcher {
           }
         } catch (error) {
           // PDF download failure shouldn't fail the entire operation
-          changes.push(`Failed to download PDF: ${error.message}`);
+          const msg =
+            error instanceof Error ? error.message : String(error);
+          changes.push(`Failed to download PDF: ${msg}`);
         }
       }
 
@@ -523,6 +533,23 @@ export class MetadataFetcher {
     }
 
     return query;
+  }
+
+  /** Safe message for Promise.allSettled rejection reasons (may not be an Error). */
+  private formatSettledReason(reason: unknown): string {
+    if (reason instanceof Error) {
+      return reason.message || 'Unknown error';
+    }
+    if (typeof reason === 'string') {
+      return reason;
+    }
+    if (reason !== null && typeof reason === 'object' && 'message' in reason) {
+      const m = (reason as { message: unknown }).message;
+      if (typeof m === 'string') {
+        return m;
+      }
+    }
+    return 'Unknown error';
   }
 
   /**

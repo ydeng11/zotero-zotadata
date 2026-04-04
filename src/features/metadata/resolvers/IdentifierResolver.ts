@@ -22,8 +22,8 @@ export abstract class IdentifierResolver {
     const year = date ? this.extractYear(date) : undefined;
     const creators = item.getCreators();
     const authors = creators
-      .filter(c => c.creatorType === 'author')
-      .map(c => c.lastName || c.name || '')
+      .filter((c) => c.creatorType === 'author')
+      .map((c) => c.lastName || c.name || '')
       .filter(Boolean);
 
     return { title, year, authors: authors.length > 0 ? authors : undefined };

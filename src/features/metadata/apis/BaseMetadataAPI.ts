@@ -110,7 +110,8 @@ export abstract class BaseMetadataAPI {
         url,
         method,
         endpoint,
-      }
+      },
+      { notifyUser: false },
     );
   }
 

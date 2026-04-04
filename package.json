@@ -17,6 +17,7 @@
   "author": "Zotadata Team",
   "license": "AGPL-3.0-or-later",
   "scripts": {
+    "postinstall": "patch-package",
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
     "build:dev": "zotero-plugin build --dev",
@@ -37,6 +38,7 @@
     "@types/node": "^22.15.29",
     "@vitest/coverage-v8": "^1.0.0",
     "eslint": "^9.28.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.0",

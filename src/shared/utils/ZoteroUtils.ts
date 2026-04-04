@@ -210,7 +210,10 @@ export class ZoteroUtils {
       if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
           attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE) {
 
-        info.filePath = attachment.getFilePath();
+        const fp = attachment.getFilePath();
+        if (fp) {
+          info.filePath = fp;
+        }
         info.mimeType = attachment.attachmentContentType;
 
         // Check if file exists

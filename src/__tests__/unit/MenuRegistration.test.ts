@@ -1,0 +1,70 @@
+import { describe, it, expect, vi } from 'vitest';
+import { ZotadataPlugin } from '@/plugin';
+
+type MenuRegisterCall = {
+  menuID: string;
+  pluginID: string;
+  target: string;
+  menus: Array<{ menuType: string; l10nID?: string; onShowing?: unknown }>;
+};
+
+function getMenuRegisterCalls(): MenuRegisterCall[] {
+  return (globalThis as { __menuManagerRegisterCalls?: MenuRegisterCall[] }).__menuManagerRegisterCalls ?? [];
+}
+
+function getMenuUnregisterCalls(): string[] {
+  return (globalThis as { __menuManagerUnregisterCalls?: string[] }).__menuManagerUnregisterCalls ?? [];
+}
+
+describe('MenuRegistration (Zotero 8 MenuManager)', () => {
+  it('calls registerMenu with menuID, pluginID, target, and menu items with onShowing labels', async () => {
+    const plugin = new ZotadataPlugin();
+    await plugin.init({
+      id: 'zotadata@zotero.org',
+      version: '1.0.0',
+      rootURI: '',
+    });
+
+    const calls = getMenuRegisterCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].menuID).toBe('zotadata-main-library-item-actions');
+    expect(calls[0].pluginID).toBe('zotadata@zotero.org');
+    expect(calls[0].target).toBe('main/library/item');
+    expect(calls[0].menus).toHaveLength(4);
+    expect(calls[0].menus.every((m) => m.menuType === 'menuitem')).toBe(true);
+    expect(calls[0].menus.every((m) => typeof m.onShowing === 'function')).toBe(true);
+    expect(calls[0].menus.map((m) => m.l10nID)).toEqual([
+      'zotadata-menu-check-attachments',
+      'zotadata-menu-fetch-metadata',
+      'zotadata-menu-process-arxiv',
+      'zotadata-menu-find-files',
+    ]);
+  });
+
+  it('shutdown does not call unregisterMenu (Zotero clears plugin menus on addon shutdown)', async () => {
+    const plugin = new ZotadataPlugin();
+    await plugin.init({
+      id: 'zotadata@zotero.org',
+      version: '1.0.0',
+      rootURI: '',
+    });
+    await plugin.shutdown();
+
+    expect(getMenuUnregisterCalls()).toEqual([]);
+  });
+
+  it('completes init when registerMenu returns false', async () => {
+    const spy = vi.spyOn(Zotero.MenuManager, 'registerMenu').mockReturnValue(false);
+
+    const plugin = new ZotadataPlugin();
+    await expect(
+      plugin.init({
+        id: 'zotadata@zotero.org',
+        version: '1.0.0',
+        rootURI: '',
+      }),
+    ).resolves.toBeUndefined();
+
+    spy.mockRestore();
+  });
+});

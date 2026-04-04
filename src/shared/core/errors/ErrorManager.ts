@@ -8,6 +8,12 @@ export type { ContextualError };
 /**
  * Centralized error management system with proper typing and context
  */
+/** Options for {@link ErrorManager.wrapAsync} */
+export interface WrapAsyncOptions {
+  /** When false, errors are logged but the user is not alerted (default: true). */
+  notifyUser?: boolean;
+}
+
 export class ErrorManager {
   private errorLog: ContextualError[] = [];
   private maxLogSize = 1000;
@@ -21,10 +27,14 @@ export class ErrorManager {
     context: Record<string, any> = {}
   ): ContextualError {
     const error = new Error(message) as ContextualError;
+    error.name = 'ContextualError';
     error.type = type;
     error.context = {
       ...context,
-      userAgent: navigator.userAgent,
+      userAgent:
+        typeof navigator !== 'undefined' && navigator.userAgent
+          ? navigator.userAgent
+          : 'Node',
       timestamp: new Date().toISOString(),
     };
     error.timestamp = new Date().toISOString();
@@ -36,7 +46,10 @@ export class ErrorManager {
   /**
    * Handle error with appropriate logging and user notification
    */
-  async handleError(error: ContextualError): Promise<void> {
+  async handleError(
+    error: ContextualError,
+    options: WrapAsyncOptions = {},
+  ): Promise<void> {
     // Add to error log
     this.addToLog(error);
 
@@ -44,7 +57,7 @@ export class ErrorManager {
     this.logToZotero(error);
 
     // Determine if user should be notified
-    if (this.shouldNotifyUser(error)) {
+    if (this.shouldNotifyUser(error) && options.notifyUser !== false) {
       await this.notifyUser(error);
     }
 
@@ -84,13 +97,14 @@ export class ErrorManager {
   async wrapAsync<T>(
     operation: () => Promise<T>,
     errorType: ErrorType,
-    context: Record<string, any> = {}
+    context: Record<string, any> = {},
+    options: WrapAsyncOptions = {},
   ): Promise<T> {
     try {
       return await operation();
     } catch (error) {
       const contextualError = this.createFromUnknown(error, errorType, context);
-      await this.handleError(contextualError);
+      await this.handleError(contextualError, options);
       throw contextualError;
     }
   }
@@ -147,8 +161,9 @@ export class ErrorManager {
 
   private logToZotero(error: ContextualError): void {
     const logLevel = this.getLogLevel(error.type);
-    const contextStr = Object.keys(error.context).length > 0
-      ? ` Context: ${JSON.stringify(error.context, null, 2)}`
+    const ctx = error.context ?? {};
+    const contextStr = Object.keys(ctx).length > 0
+      ? ` Context: ${JSON.stringify(ctx, null, 2)}`
       : '';
 
     const message = `[${error.type}] ${error.message}${contextStr}`;
@@ -189,7 +204,9 @@ export class ErrorManager {
 
   private shouldNotifyUser(error: ContextualError): boolean {
     // Don't notify for rate limits or network timeouts
-    if ([ErrorType.RATE_LIMIT, ErrorType.TIMEOUT].includes(error.type)) {
+    if (
+      [ErrorType.RATE_LIMIT, ErrorType.TIMEOUT].includes(error.type as ErrorType)
+    ) {
       return false;
     }
 
@@ -210,7 +227,9 @@ export class ErrorManager {
         if (windows.length > 0) {
           const window = windows[0];
           if (window.alert) {
-            window.alert(userMessage);
+            // Some host environments return a thenable from alert; await to avoid
+            // uncaught (in promise) rejections.
+            await Promise.resolve(window.alert(userMessage)).catch(() => {});
           }
         }
       }
@@ -222,7 +241,9 @@ export class ErrorManager {
   }
 
   private createUserFriendlyMessage(error: ContextualError): string {
-    const baseMessage = this.getUserFriendlyErrorMessage(error.type);
+    const baseMessage = this.getUserFriendlyErrorMessage(
+      error.type as ErrorType,
+    );
     const contextInfo = this.getContextualInfo(error);
 
     let message = baseMessage;
@@ -283,7 +304,7 @@ export class ErrorManager {
     return ![
       ErrorType.RATE_LIMIT,
       ErrorType.VALIDATION_ERROR,
-    ].includes(error.type);
+    ].includes(error.type as ErrorType);
   }
 
   private async reportTelemetry(error: ContextualError): Promise<void> {

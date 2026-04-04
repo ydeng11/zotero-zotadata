@@ -1,0 +1,14 @@
+diff --git a/node_modules/zotero-plugin-toolkit/dist/index.js b/node_modules/zotero-plugin-toolkit/dist/index.js
+index 57f7cb0..de69b29 100644
+--- a/node_modules/zotero-plugin-toolkit/dist/index.js
++++ b/node_modules/zotero-plugin-toolkit/dist/index.js
+@@ -491,8 +491,8 @@ function makeHelperTool(cls, options) {
+ 	} });
+ }
+ function _importESModule(path) {
++	if (path.endsWith(".sys.mjs")) return ChromeUtils.importESModule(path, { global: "contextual" });
+ 	if (typeof ChromeUtils.import === "undefined") return ChromeUtils.importESModule(path, { global: "contextual" });
+-	if (path.endsWith(".sys.mjs")) path = path.replace(/\.sys\.mjs$/, ".jsm");
+ 	return ChromeUtils.import(path);
+ }
+ 

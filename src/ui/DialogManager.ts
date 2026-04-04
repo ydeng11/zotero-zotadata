@@ -83,26 +83,33 @@ export class DialogManager {
 
     if (typeof error === 'string') {
       message = error;
+    } else if (this.isContextualError(error)) {
+      message = this.getUserFriendlyErrorMessage(error);
+      details = this.formatErrorContext(error);
     } else if (error instanceof Error) {
       message = error.message;
-      
-      // If it's a contextual error, show additional details
-      if ('context' in error && error.context) {
-        const contextualError = error as ContextualError;
-        details = this.formatErrorContext(contextualError);
-        
-        // Provide user-friendly error messages
-        message = this.getUserFriendlyErrorMessage(contextualError);
-      }
     } else {
       message = 'An unknown error occurred';
     }
 
-    return this.showDialog({
-      message,
-      title,
-      details,
-    }, 'error');
+    await this.showDialog(
+      {
+        message,
+        title,
+        details,
+      },
+      'error',
+    );
+  }
+
+  private isContextualError(e: unknown): e is ContextualError {
+    return (
+      e instanceof Error &&
+      'type' in e &&
+      'retryable' in e &&
+      'timestamp' in e &&
+      typeof (e as ContextualError).context === 'object'
+    );
   }
 
   /**
@@ -135,7 +142,7 @@ export class DialogManager {
       progressWindow.addDescription(options.message);
       
       if (options.showCancelButton && options.onCancel) {
-        progressWindow.addDescription('Click to cancel', 'cancel');
+        progressWindow.addDescription('Click to cancel');
       }
       
       progressWindow.show();
@@ -219,8 +226,11 @@ export class DialogManager {
       return this.showFallbackDialog(options, type);
     }
 
-    const Services = mainWindow.Services;
-    if (!Services || !Services.prompt) {
+    const prompt =
+      typeof Services !== 'undefined' && Services.prompt
+        ? Services.prompt
+        : undefined;
+    if (!prompt || !prompt.confirmEx) {
       return this.showFallbackDialog(options, type);
     }
 
@@ -228,7 +238,7 @@ export class DialogManager {
     const defaultButton = options.defaultButton || 0;
 
     try {
-      const result = Services.prompt.confirmEx(
+      const result = prompt.confirmEx(
         mainWindow,
         options.title || 'Zotadata',
         options.message + (options.details ? '\n\nDetails: ' + options.details : ''),
@@ -274,16 +284,17 @@ export class DialogManager {
    * Get dialog flags for Zotero's prompt service
    */
   private getDialogFlags(type: DialogType, buttons?: string[]): number {
-    const Services = Zotero.getMainWindow()?.Services;
-    if (!Services) return 0;
+    if (typeof Services === 'undefined' || !Services.prompt) return 0;
 
     const STD_OK_CANCEL_BUTTONS = 513; // Services.prompt.STD_OK_CANCEL_BUTTONS
-    const STD_YES_NO_BUTTONS = 1027;   // Services.prompt.STD_YES_NO_BUTTONS
+    const STD_YES_NO_BUTTONS = 1027; // Services.prompt.STD_YES_NO_BUTTONS
     const BUTTON_TITLE_IS_STRING = 127; // Services.prompt.BUTTON_TITLE_IS_STRING
 
     switch (type) {
       case 'confirm':
-        return buttons && buttons.length === 2 ? STD_OK_CANCEL_BUTTONS : STD_YES_NO_BUTTONS;
+        return buttons && buttons.length === 2
+          ? STD_OK_CANCEL_BUTTONS
+          : STD_YES_NO_BUTTONS;
       case 'error':
       case 'warning':
       case 'info':
@@ -315,8 +326,13 @@ export class DialogManager {
       parts.push(`Item ID: ${context.itemId}`);
     }
 
-    if (context.timestamp) {
-      parts.push(`Time: ${new Date(context.timestamp).toLocaleString()}`);
+    if (context.timestamp != null) {
+      const ts = context.timestamp;
+      const d =
+        typeof ts === 'string' || typeof ts === 'number'
+          ? new Date(ts)
+          : new Date(String(ts));
+      parts.push(`Time: ${d.toLocaleString()}`);
     }
 
     return parts.join('\n');

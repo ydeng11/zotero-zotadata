@@ -18,17 +18,23 @@ describe('AttachmentManager', () => {
   });
 
   it('should move attachment to trash instead of deleting', async () => {
+    const trash = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('Zotero', {
+      Items: {
+        trash,
+      },
+    });
+
     const manager = new AttachmentManager();
 
     const mockAttachment = {
       id: 2,
-      setField: vi.fn(),
-      save: vi.fn().mockResolvedValue(undefined),
     };
 
     await manager.moveToTrash(mockAttachment as any);
 
-    expect(mockAttachment.setField).toHaveBeenCalledWith('deleted', true);
-    expect(mockAttachment.save).toHaveBeenCalled();
+    expect(trash).toHaveBeenCalledWith(2);
+
+    vi.unstubAllGlobals();
   });
 });

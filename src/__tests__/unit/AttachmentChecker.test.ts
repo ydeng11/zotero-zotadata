@@ -33,6 +33,7 @@ describe('AttachmentChecker', () => {
     vi.stubGlobal('Zotero', {
       Items: {
         get: vi.fn((id: number) => mockAttachments.get(id)),
+        trash: vi.fn().mockResolvedValue(undefined),
       },
     });
 
@@ -53,8 +54,6 @@ describe('AttachmentChecker', () => {
       attachmentLinkMode: 0,
       getFilePath: () => '/path/to/missing.pdf',
       getFile: () => ({ exists: () => false }),
-      setField: vi.fn(),
-      save: vi.fn().mockResolvedValue(undefined),
     });
 
     const mockItem = {
@@ -62,9 +61,11 @@ describe('AttachmentChecker', () => {
       getAttachments: () => [20],
     };
 
+    const trash = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('Zotero', {
       Items: {
         get: vi.fn((id: number) => mockAttachments.get(id)),
+        trash,
       },
     });
 
@@ -72,8 +73,7 @@ describe('AttachmentChecker', () => {
 
     expect(stats.valid).toBe(0);
     expect(stats.removed).toBe(1);
-    expect(mockAttachments.get(20).setField).toHaveBeenCalledWith('deleted', true);
-    expect(mockAttachments.get(20).save).toHaveBeenCalled();
+    expect(trash).toHaveBeenCalledWith(20);
 
     vi.unstubAllGlobals();
   });

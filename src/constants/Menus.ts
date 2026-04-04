@@ -32,3 +32,22 @@ export const MenuItemID = {
   FETCH_METADATA: 'zotero-itemmenu-zotadata-fetch-metadata',
   PROCESS_ARXIV: 'zotero-itemmenu-zotadata-process-arxiv',
 } as const;
+
+/**
+ * Fluent IDs for Zotero 8 MenuManager (main/library/item).
+ * Must match keys in addon/locale (e.g. en-US/mainWindow.ftl) with a `.label` attribute.
+ */
+export const LIBRARY_ITEM_MENU_L10N_IDS = [
+  'zotadata-menu-check-attachments',
+  'zotadata-menu-fetch-metadata',
+  'zotadata-menu-process-arxiv',
+  'zotadata-menu-find-files',
+] as const;
+
+/** Fallback labels if Fluent is not bound (legacy / tests). */
+export const LIBRARY_ITEM_MENU_LABELS = [
+  'Check Attachments',
+  'Fetch Metadata',
+  'Process arXiv Items',
+  'Find Missing Files',
+] as const;

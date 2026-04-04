@@ -150,100 +150,71 @@ export class AttachmentChecker {
    */
   private async processAttachment(
     attachment: Zotero.Item
-  ): Promise<'valid' | 'removed' | 'weblinks' | 'error'> {
+  ): Promise<'valid' | 'removed' | 'weblinks' | 'errors'> {
     try {
-      // Check if it's a web link
       if (this.isWebLink(attachment)) {
         return 'weblinks';
       }
 
-      // Validate file attachment
       const isValid = await this.validateFileAttachment(attachment);
-      
+
       if (isValid) {
         return 'valid';
-      } else {
-        // Remove invalid attachment
-        await this.removeInvalidAttachment(attachment);
-        return 'removed';
       }
+      await this.removeInvalidAttachment(attachment);
+      return 'removed';
     } catch (error) {
-      this.errorManager.handleError(
-        this.errorManager.createFromUnknown(
-          error,
-          ErrorType.FILE_ERROR,
-          {
-            operation: 'processAttachment',
-            attachmentId: attachment.id,
-          }
-        )
-      );
-      return 'error';
+      const detail =
+        error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+      if (typeof Zotero !== 'undefined' && Zotero.log) {
+        Zotero.log(
+          `Zotadata: processAttachment failed (attachment ${attachment.id}): ${detail}`,
+          2,
+        );
+      }
+      return 'errors';
     }
   }
 
   /**
-   * Check if attachment is a web link
+   * Linked URL attachments (not stored files)
    */
   private isWebLink(attachment: Zotero.Item): boolean {
     try {
-      const linkMode = attachment.getField('linkMode');
-      return linkMode === 'linked_url';
+      return (
+        attachment.isAttachment?.() === true &&
+        attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_URL
+      );
     } catch {
       return false;
     }
   }
 
   /**
-   * Validate file attachment exists and is accessible
+   * Whether the attachment file exists on disk (uses Zotero APIs, not getField('path')).
    */
   private async validateFileAttachment(attachment: Zotero.Item): Promise<boolean> {
     try {
-      const path = attachment.getField('path');
-      if (!path) {
+      if (attachment.isAttachment?.() !== true) {
         return false;
       }
-
-      // Check if file exists
-      // Note: This would need to be implemented with proper Zotero file API
-      // For now, we'll use a simplified check
-      return this.fileExists(path);
+      if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_URL) {
+        return true;
+      }
+      return await attachment.fileExists();
     } catch {
       return false;
     }
   }
 
   /**
-   * Check if file exists (simplified implementation)
-   */
-  private fileExists(path: string): boolean {
-    try {
-      // This would need proper implementation using Zotero's file system API
-      // For now, return true if path is not empty
-      return path.length > 0;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Remove invalid attachment
+   * Move a broken/unusable file attachment to trash (skipped if not editable).
    */
   private async removeInvalidAttachment(attachment: Zotero.Item): Promise<void> {
-    try {
-      // Move to trash instead of permanent deletion
-      attachment.setField('deleted', true);
-      await attachment.save();
-    } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.ZOTERO_ERROR,
-        {
-          operation: 'removeInvalidAttachment',
-          attachmentId: attachment.id,
-        }
-      );
+    if (typeof attachment.isEditable === 'function' && !attachment.isEditable('edit')) {
+      throw new Error('Cannot move attachment to trash: item or library is read-only');
     }
+    await Zotero.Items.trash(attachment.id);
   }
 
   /**
