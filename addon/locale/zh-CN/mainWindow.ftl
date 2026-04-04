@@ -1,5 +1,8 @@
 # 主窗口 — 上下文菜单
 
+zotadata-submenu =
+    .label = Zotadata
+
 zotadata-menu-check-attachments =
     .label = 检查附件
 zotadata-menu-fetch-metadata =

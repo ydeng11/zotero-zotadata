@@ -12,4 +12,5 @@ export type FluentMessageId =
   | 'zotadata-menu-find-files'
   | 'zotadata-menu-preferences'
   | 'zotadata-menu-process-arxiv'
-  | 'zotadata-menu-status';
+  | 'zotadata-menu-status'
+  | 'zotadata-submenu';

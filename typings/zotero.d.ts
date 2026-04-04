@@ -24,7 +24,7 @@ declare global {
       getFilePath(): string | false;
       getFile(): any;
       fileExists(): Promise<boolean>;
-      isEditable?(op?: 'edit' | 'erase'): boolean;
+      isEditable?(op?: "edit" | "erase"): boolean;
       setNote(note: string): void;
       getCreators(): Array<{
         firstName?: string;
@@ -32,11 +32,13 @@ declare global {
         name?: string;
         creatorType: string;
       }>;
-      setCreators(creators: Array<{
-        firstName?: string;
-        lastName: string;
-        creatorType: string;
-      }>): void;
+      setCreators(
+        creators: Array<{
+          firstName?: string;
+          lastName: string;
+          creatorType: string;
+        }>,
+      ): void;
       getAttachments(): number[];
       addAttachment(options: {
         url?: string;
@@ -112,13 +114,17 @@ declare global {
     }
 
     namespace HTTP {
-      function request(method: string, url: string, options?: {
-        headers?: Record<string, string>;
-        body?: string | ArrayBuffer;
-        responseType?: string;
-        timeout?: number;
-        successCodes?: number[];
-      }): Promise<{
+      function request(
+        method: string,
+        url: string,
+        options?: {
+          headers?: Record<string, string>;
+          body?: string | ArrayBuffer;
+          responseType?: string;
+          timeout?: number;
+          successCodes?: number[];
+        },
+      ): Promise<{
         status: number;
         response: any;
         responseText: string;
@@ -134,8 +140,13 @@ declare global {
 
     namespace Notifier {
       function registerObserver(
-        callback: (event: string, type: string, ids: number[], extraData: any) => void,
-        types?: string[]
+        callback: (
+          event: string,
+          type: string,
+          ids: number[],
+          extraData: any,
+        ) => void,
+        types?: string[],
       ): string;
       function unregisterObserver(id: string): void;
     }
@@ -145,8 +156,9 @@ declare global {
      */
     namespace MenuManager {
       interface MenuData {
-        menuType: 'menuitem' | 'separator' | 'submenu';
+        menuType: "menuitem" | "separator" | "submenu";
         l10nID?: string;
+        menus?: MenuData[];
         onCommand?: (event: Event, context: unknown) => void | void;
         onShowing?: (event: Event, context: unknown) => void | void;
       }
