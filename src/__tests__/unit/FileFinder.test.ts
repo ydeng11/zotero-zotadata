@@ -12,6 +12,7 @@ function makeMockItem(overrides: Record<string, unknown> = {}): Zotero.Item {
 
   return {
     id: (overrides.id as number) ?? 1,
+    libraryID: (overrides.libraryID as number) ?? 1,
     isRegularItem: () => (overrides.isRegular as boolean) ?? true,
     getField: (f: string) => fields[f] ?? '',
     getCreators: () =>
@@ -242,6 +243,124 @@ describe('FileFinder', () => {
 
     expect(result.outcome).toBe('download_failed');
     expect(result.error).toContain('Network error');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('falls back to manual stored-file import when importFromURL fails', async () => {
+    const importFromURL = vi
+      .fn()
+      .mockRejectedValue(new Error('Primary import failed'));
+    const importFromBuffer = vi.fn().mockResolvedValue({
+      id: 203,
+      attachmentLinkMode: 2,
+      getFile: () => ({ exists: () => true }),
+      fileExists: vi.fn().mockResolvedValue(true),
+    });
+    const pdfBytes = new TextEncoder().encode(
+      `%PDF-1.4\n${'0'.repeat(1200)}\n%%EOF`,
+    ).buffer;
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      log: () => {},
+      Items: { get: () => null },
+      Attachments: {
+        ...globalThis.Zotero.Attachments,
+        LINK_MODE_LINKED_URL: 1,
+        LINK_MODE_IMPORTED_FILE: 2,
+        importFromURL,
+        importFromBuffer,
+      },
+      HTTP: {
+        request: vi
+          .fn()
+          .mockResolvedValueOnce({
+            status: 200,
+            responseText: JSON.stringify({
+              is_oa: true,
+              best_oa_location: { url_for_pdf: 'https://example.com/fallback.pdf' },
+            }),
+          })
+          .mockResolvedValueOnce({
+            status: 200,
+            response: pdfBytes,
+          }),
+      },
+    });
+
+    const item = makeMockItem();
+    const result = await finder.processItem(item);
+
+    expect(result.outcome).toBe('downloaded');
+    expect(importFromURL).toHaveBeenCalled();
+    expect(importFromBuffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentItemID: 1,
+        contentType: 'application/pdf',
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('detects existing PDFs using the legacy attachment check', async () => {
+    const item = makeMockItem({ attachmentIds: [100] });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      Items: {
+        get: vi.fn(() => ({
+          isPDFAttachment: () => true,
+          getFile: () => ({ exists: () => true }),
+        })),
+      },
+    });
+
+    await expect((finder as any).itemHasPDF(item)).resolves.toBe(true);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the article source order from the original file finder', async () => {
+    const item = makeMockItem({
+      fields: {
+        title: 'Test Paper Title',
+        DOI: '10.1234/test.2024',
+        date: '2024',
+        extra: '',
+      },
+    });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      ItemTypes: {
+        getName: vi.fn(() => 'journalArticle'),
+      },
+      Utilities: {
+        ...globalThis.Zotero.Utilities,
+        cleanDOI: (doi: string) => doi,
+        cleanISBN: (isbn: string) => isbn,
+      },
+    });
+
+    vi.spyOn(finder as any, 'extractDOI').mockReturnValue('10.1234/test.2024');
+    vi.spyOn(finder as any, 'extractISBN').mockReturnValue(null);
+    vi.spyOn(finder as any, 'findUnpaywallPDF').mockResolvedValue(null);
+    vi.spyOn(finder as any, 'findArxivPDF').mockResolvedValue(
+      'http://arxiv.org/pdf/2301.12345.pdf',
+    );
+    const coreSpy = vi
+      .spyOn(finder as any, 'findCorePDFByDOI')
+      .mockResolvedValue('https://core.example.com/paper.pdf');
+
+    const result = await (finder as any).findFileForItem(item);
+
+    expect(result).toEqual({
+      url: 'http://arxiv.org/pdf/2301.12345.pdf',
+      source: 'arXiv',
+    });
+    expect(coreSpy).not.toHaveBeenCalled();
 
     vi.unstubAllGlobals();
   });

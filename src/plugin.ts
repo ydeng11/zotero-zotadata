@@ -408,7 +408,9 @@ export class ZotadataPlugin {
       async () => {
         this.log("Fetch Metadata command triggered");
 
-        const selectedItems = Zotero.getActiveZoteroPane().getSelectedItems();
+        const selectedItems = Zotero.getActiveZoteroPane()
+          .getSelectedItems()
+          .filter((i) => i.isRegularItem());
         if (selectedItems.length === 0) {
           this.showZotadataToast(
             TOAST_OPERATION.fetchMetadata,
@@ -419,7 +421,9 @@ export class ZotadataPlugin {
         }
 
         const results =
-          await this.getMetadataFetcher().fetchMetadataForSelectedItems();
+          await this.getMetadataFetcher().fetchMetadataForSelectedItems({
+            items: selectedItems,
+          });
         this.showZotadataToast(
           TOAST_OPERATION.fetchMetadata,
           this.formatMetadataFetchSummary(results),

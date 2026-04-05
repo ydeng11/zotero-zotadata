@@ -1,5 +1,6 @@
 import { CrossRefAPI } from '@/features/metadata/apis/CrossRefAPI';
 import { SemanticScholarAPI } from '@/features/metadata/apis/SemanticScholarAPI';
+import { FileFinder } from '@/modules/FileFinder';
 import { StringUtils } from '@/shared/utils/StringUtils';
 import type {
   ArxivProcessResult,
@@ -14,13 +15,16 @@ import type {
 export class ArxivProcessor {
   private crossRefAPI: CrossRefAPI;
   private semanticScholarAPI: SemanticScholarAPI;
+  private fileFinder: FileFinder;
 
   constructor(
     crossRefAPI?: CrossRefAPI,
     semanticScholarAPI?: SemanticScholarAPI,
+    fileFinder?: FileFinder,
   ) {
     this.crossRefAPI = crossRefAPI ?? new CrossRefAPI();
     this.semanticScholarAPI = semanticScholarAPI ?? new SemanticScholarAPI();
+    this.fileFinder = fileFinder ?? new FileFinder();
   }
 
   /**
@@ -60,11 +64,22 @@ export class ArxivProcessor {
 
       const publishedRef = await this.findPublishedVersion(item);
       if (publishedRef) {
+        const currentType = Zotero.ItemTypes.getName(item.itemTypeID);
+        const willChangeType = publishedRef.startsWith('VENUE:')
+          ? currentType === 'journalArticle'
+          : currentType !== 'journalArticle';
         const updated = await this.updateItemAsPublishedVersion(
           item,
           publishedRef,
         );
         if (updated) {
+          const hasExistingPDF = await this.itemHasPDF(item);
+          if (willChangeType || !hasExistingPDF) {
+            await this.downloadPublishedVersion(item, publishedRef);
+          } else {
+            item.addTag('PDF Already Present', 1);
+            await item.saveTx();
+          }
           item.addTag('Updated to Published Version', 1);
           await item.saveTx();
           return {
@@ -487,9 +502,32 @@ export class ArxivProcessor {
   }
 
   private async updateAttachmentsForPublishedVersion(
-    _item: Zotero.Item,
+    item: Zotero.Item,
   ): Promise<void> {
-    // Future: replace arXiv PDF with publisher OA PDF when available.
+    const attachmentIds = item.getAttachments();
+    for (const attachmentID of attachmentIds) {
+      const attachment = Zotero.Items.get(attachmentID);
+      if (!attachment) {
+        continue;
+      }
+
+      const currentTitle = String(attachment.getField('title') ?? '').trim();
+      if (!currentTitle) {
+        continue;
+      }
+
+      const nextTitle = currentTitle
+        .replace(/\s*\(preprint\)/gi, '')
+        .replace(/\s*\(arxiv\)/gi, '')
+        .replace(/\s*preprint\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (nextTitle !== currentTitle) {
+        attachment.setField('title', nextTitle);
+        await attachment.saveTx();
+      }
+    }
   }
 
   async convertToPreprint(item: Zotero.Item): Promise<void> {
@@ -504,6 +542,65 @@ export class ArxivProcessor {
     item.setField('publicationTitle', '');
     item.addTag('Converted to Preprint', 1);
     await item.saveTx();
+  }
+
+  async itemHasPDF(item: Zotero.Item): Promise<boolean> {
+    return this.fileFinder.itemHasPDF(item);
+  }
+
+  async downloadPublishedVersion(
+    item: Zotero.Item,
+    publishedInfo: string,
+  ): Promise<void> {
+    try {
+      if (await this.itemHasPDF(item)) {
+        item.addTag('Already Has PDF', 1);
+        await item.saveTx();
+        return;
+      }
+
+      if (publishedInfo.startsWith('VENUE:')) {
+        const arxivPdf = await this.fileFinder.findArxivPDF(item);
+        if (arxivPdf) {
+          const downloaded = await this.fileFinder.downloadFileForItem(
+            item,
+            arxivPdf,
+            'Conference Paper (arXiv)',
+          );
+          item.addTag(
+            downloaded
+              ? 'Conference PDF Downloaded'
+              : 'Conference PDF Download Failed',
+            1,
+          );
+        } else {
+          item.addTag('No Conference PDF Found', 1);
+        }
+        await item.saveTx();
+        return;
+      }
+
+      const fileInfo = await this.fileFinder.findFileForItem(item);
+      if (fileInfo.url && fileInfo.source) {
+        const downloaded = await this.fileFinder.downloadFileForItem(
+          item,
+          fileInfo.url,
+          `Published Version (${fileInfo.source})`,
+        );
+        item.addTag(
+          downloaded
+            ? 'Published PDF Downloaded'
+            : 'Published PDF Download Failed',
+          1,
+        );
+      } else {
+        item.addTag('No Published PDF Found', 1);
+      }
+      await item.saveTx();
+    } catch {
+      item.addTag('Published PDF Error', 1);
+      await item.saveTx();
+    }
   }
 
   private formatBatchSummary(

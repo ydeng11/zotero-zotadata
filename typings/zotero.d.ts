@@ -6,6 +6,7 @@ declare global {
     // Item interface
     interface Item {
       id: number;
+      libraryID: number;
       itemTypeID: number;
       getField(field: string): string;
       setField(field: string, value: string): void;
@@ -84,6 +85,7 @@ declare global {
 
       function importFromURL(options: {
         url: string;
+        libraryID?: number;
         parentItemID?: number;
         title?: string;
         fileBaseName?: string;
