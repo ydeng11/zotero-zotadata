@@ -51,8 +51,11 @@ describe('FileFinder', () => {
     const attachments = new Map<number, unknown>();
     attachments.set(100, {
       isAttachment: () => true,
+      isPDFAttachment: () => true,
       attachmentLinkMode: 2,
+      attachmentContentType: 'application/pdf',
       fileExists: vi.fn().mockResolvedValue(true),
+      getFile: () => ({ exists: () => true }),
     });
 
     vi.stubGlobal('Zotero', {
@@ -68,6 +71,55 @@ describe('FileFinder', () => {
     const result = await finder.processItem(item);
 
     expect(result.outcome).toBe('already_has_file');
+    vi.unstubAllGlobals();
+  });
+
+  it('does not treat snapshot-only attachments as existing PDFs', async () => {
+    const attachments = new Map<number, unknown>();
+    attachments.set(100, {
+      isAttachment: () => true,
+      isPDFAttachment: () => false,
+      attachmentLinkMode: 2,
+      attachmentContentType: 'text/html',
+      fileExists: vi.fn().mockResolvedValue(true),
+      getFile: () => ({ exists: () => true }),
+    });
+
+    const importFromURL = vi.fn().mockResolvedValue({ id: 204 });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      locale: 'en-US',
+      Items: { get: (id: number) => attachments.get(id) ?? null },
+      Attachments: {
+        ...globalThis.Zotero.Attachments,
+        LINK_MODE_LINKED_URL: 1,
+        importFromURL,
+      },
+      HTTP: {
+        request: vi.fn().mockResolvedValue({
+          status: 404,
+          responseText: '{}',
+        }),
+      },
+    });
+
+    mockOpenAlex.searchOpenAccess.mockResolvedValue([
+      {
+        title: 'Test Paper Title',
+        authors: ['Jane Doe'],
+        pdfUrl: 'https://example.com/paper.pdf',
+        confidence: 0.9,
+        source: 'OpenAlex',
+      },
+    ]);
+
+    const item = makeMockItem({ attachmentIds: [100] });
+    const result = await finder.processItem(item);
+
+    expect(result.outcome).toBe('downloaded');
+    expect(importFromURL).toHaveBeenCalled();
+
     vi.unstubAllGlobals();
   });
 
@@ -174,6 +226,78 @@ describe('FileFinder', () => {
       }),
     );
     expect(mockOpenAlex.searchOpenAccess).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('ignores a mismatched non-arXiv DOI for arXiv-like items and falls back to the arXiv PDF', async () => {
+    const importFromURL = vi.fn().mockResolvedValue({ id: 205 });
+    const request = vi.fn().mockResolvedValue({
+      status: 404,
+      responseText: '{}',
+    });
+    (mockOpenAlex as any).getWorkByDOI = vi.fn().mockResolvedValue({
+      title: 'Completely Different Paper',
+      authors: ['Someone Else'],
+      year: 2003,
+      doi: '10.1000/official',
+      url: 'https://openalex.org/W999',
+      confidence: 1,
+      source: 'OpenAlex',
+    });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      locale: 'en-US',
+      Items: { get: () => null },
+      Attachments: {
+        ...globalThis.Zotero.Attachments,
+        LINK_MODE_LINKED_URL: 1,
+        importFromURL,
+      },
+      HTTP: {
+        request,
+      },
+    });
+
+    const item = makeMockItem({
+      fields: {
+        title: 'Semi-Supervised Learning with Deep Generative Models',
+        DOI: '10.1000/official',
+        url: 'https://arxiv.org/abs/1406.5298',
+        extra: 'arXiv: 1406.5298',
+        publicationTitle: 'arXiv',
+        date: '2014',
+      },
+      creators: [
+        {
+          firstName: 'Diederik P.',
+          lastName: 'Kingma',
+          creatorType: 'author',
+        },
+      ],
+    });
+
+    const result = await finder.processItem(item);
+
+    expect(result.outcome).toBe('downloaded');
+    expect(result.source).toBe('arXiv');
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      'GET',
+      expect.stringContaining('10.48550%2Farxiv.1406.5298'),
+      expect.anything(),
+    );
+    expect(request).not.toHaveBeenCalledWith(
+      'GET',
+      expect.stringContaining('10.1000%2Fofficial'),
+      expect.anything(),
+    );
+    expect(importFromURL).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'http://arxiv.org/pdf/1406.5298.pdf',
+      }),
+    );
 
     vi.unstubAllGlobals();
   });
@@ -318,6 +442,115 @@ describe('FileFinder', () => {
     });
 
     await expect((finder as any).itemHasPDF(item)).resolves.toBe(true);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('sends locale-aware headers during file discovery requests', async () => {
+    const request = vi.fn().mockResolvedValue({
+      status: 404,
+      responseText: '{}',
+    });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      locale: 'de-DE',
+      HTTP: { request },
+    });
+
+    await (finder as any).findCorePDFByDOI('10.1000/example');
+
+    expect(request).toHaveBeenCalledWith(
+      'GET',
+      expect.stringContaining('api.core.ac.uk'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Accept-Language': 'de-DE,de;q=0.9',
+        }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('sends locale-aware headers during manual PDF downloads', async () => {
+    const request = vi.fn().mockResolvedValue({
+      status: 200,
+      response: new TextEncoder().encode(`%PDF-1.4\n${'0'.repeat(1200)}\n%%EOF`).buffer,
+    });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      locale: 'de-DE',
+      HTTP: { request },
+      Attachments: {
+        ...globalThis.Zotero.Attachments,
+        importFromBuffer: vi.fn().mockResolvedValue({
+          id: 205,
+          attachmentLinkMode: 2,
+          getFile: () => ({ exists: () => true }),
+          fileExists: vi.fn().mockResolvedValue(true),
+        }),
+      },
+    });
+
+    await (finder as any).manualDownloadAndImport(
+      makeMockItem(),
+      'https://example.com/paper.pdf',
+      'Test Paper Title',
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      'GET',
+      'https://example.com/paper.pdf',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Accept-Language': 'de-DE,de;q=0.9',
+        }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps downloads eligible when the source has no language signal', async () => {
+    const importFromURL = vi.fn().mockResolvedValue({ id: 206 });
+
+    vi.stubGlobal('Zotero', {
+      ...globalThis.Zotero,
+      locale: 'de-DE',
+      Items: { get: () => null },
+      Attachments: {
+        ...globalThis.Zotero.Attachments,
+        LINK_MODE_LINKED_URL: 1,
+        importFromURL,
+      },
+      HTTP: {
+        request: vi.fn().mockResolvedValue({
+          status: 404,
+          responseText: '{}',
+        }),
+      },
+    });
+
+    mockOpenAlex.searchOpenAccess.mockResolvedValue([
+      {
+        title: 'Test Paper Title',
+        authors: ['Jane Doe'],
+        pdfUrl: 'https://example.com/paper.pdf',
+        confidence: 0.9,
+        source: 'OpenAlex',
+      },
+    ]);
+
+    const result = await finder.processItem(makeMockItem());
+
+    expect(result.outcome).toBe('downloaded');
+    expect(importFromURL).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: 'https://example.com/paper.pdf',
+      }),
+    );
 
     vi.unstubAllGlobals();
   });

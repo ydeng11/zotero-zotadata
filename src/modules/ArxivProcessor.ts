@@ -2,6 +2,7 @@ import { CrossRefAPI } from '@/features/metadata/apis/CrossRefAPI';
 import { SemanticScholarAPI } from '@/features/metadata/apis/SemanticScholarAPI';
 import { FileFinder } from '@/modules/FileFinder';
 import { StringUtils } from '@/shared/utils/StringUtils';
+import { matchesPreferredLanguage } from '@/utils/locale';
 import type {
   ArxivProcessResult,
   CrossRefWork,
@@ -136,7 +137,7 @@ export class ArxivProcessor {
 
     const arxivId = ArxivProcessor.extractArxivId(item);
     if (arxivId) {
-      const byArxiv = await this.searchCrossRefByArxivId(arxivId);
+      const byArxiv = await this.searchCrossRefByArxivId(arxivId, title);
       if (byArxiv) {
         return byArxiv;
       }
@@ -230,14 +231,12 @@ export class ArxivProcessor {
     return intersection.size / union.size;
   }
 
-  private async searchCrossRefByArxivId(arxivId: string): Promise<string | null> {
+  private async searchCrossRefByArxivId(
+    arxivId: string,
+    itemTitle: string,
+  ): Promise<string | null> {
     const works = await this.crossRefAPI.fetchWorksByArxivId(arxivId);
-    for (const work of works) {
-      if (!ArxivProcessor.isArxivPreprintCrossRefWork(work) && work.DOI) {
-        return work.DOI;
-      }
-    }
-    return null;
+    return this.pickCrossRefPublishedDOI(works, itemTitle, 0.7);
   }
 
   private async searchCrossRefForPublishedVersion(
@@ -249,11 +248,34 @@ export class ArxivProcessor {
     }
 
     const works = await this.crossRefAPI.fetchWorksByQuery(query);
+    return this.pickCrossRefPublishedDOI(works, query.title, 0.9);
+  }
+
+  private pickCrossRefPublishedDOI(
+    works: CrossRefWork[],
+    itemTitle: string,
+    minSimilarity: number,
+  ): string | null {
     for (const work of works) {
-      if (!ArxivProcessor.isArxivPreprintCrossRefWork(work) && work.DOI) {
-        return work.DOI;
+      if (!work.DOI || ArxivProcessor.isArxivPreprintCrossRefWork(work)) {
+        continue;
       }
+
+      if (!matchesPreferredLanguage(work.language)) {
+        continue;
+      }
+
+      const similarity = ArxivProcessor.getBestCrossRefTitleSimilarity(
+        work,
+        itemTitle,
+      );
+      if (similarity < minSimilarity) {
+        continue;
+      }
+
+      return work.DOI;
     }
+
     return null;
   }
 
@@ -359,6 +381,40 @@ export class ArxivProcessor {
     return false;
   }
 
+  private static getCrossRefCandidateTitles(work: CrossRefWork): string[] {
+    const titles = [work['original-title']?.[0], work.title?.[0]]
+      .map((title) => title?.trim())
+      .filter((title): title is string => Boolean(title));
+
+    return [...new Set(titles)];
+  }
+
+  private static getBestCrossRefTitleSimilarity(
+    work: CrossRefWork,
+    itemTitle: string,
+  ): number {
+    const candidateTitles = ArxivProcessor.getCrossRefCandidateTitles(work);
+    if (candidateTitles.length === 0) {
+      return 0;
+    }
+
+    return Math.max(
+      ...candidateTitles.map((title) =>
+        ArxivProcessor.titleSimilarity(itemTitle, title),
+      ),
+    );
+  }
+
+  private static getPreferredCrossRefTitle(work: CrossRefWork): string | null {
+    const originalTitle = work['original-title']?.[0]?.trim();
+    if (originalTitle) {
+      return originalTitle;
+    }
+
+    const title = work.title?.[0]?.trim();
+    return title || null;
+  }
+
   private static buildItemSearchQuery(item: Zotero.Item): SearchQuery {
     const query: SearchQuery = {};
     const title = (item.getField('title') as string)?.trim();
@@ -437,10 +493,14 @@ export class ArxivProcessor {
       return false;
     }
 
+    if (!matchesPreferredLanguage(work.language)) {
+      return false;
+    }
+
     item.setField('DOI', work.DOI);
     item.setField('repository', '');
 
-    const title = Array.isArray(work.title) ? work.title[0] : work.title;
+    const title = ArxivProcessor.getPreferredCrossRefTitle(work);
     if (title) {
       item.setField('title', title);
     }

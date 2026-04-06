@@ -1,4 +1,5 @@
 import { ErrorManager, ErrorType } from '@/shared/core';
+import { buildAcceptLanguageHeader } from '@/utils/locale';
 import type {
   APIResponse,
   RateLimitConfig,
@@ -83,6 +84,7 @@ export abstract class BaseMetadataAPI {
           method,
           headers: {
             'User-Agent': this.userAgent,
+            'Accept-Language': buildAcceptLanguageHeader(),
             ...headers,
           },
           body,

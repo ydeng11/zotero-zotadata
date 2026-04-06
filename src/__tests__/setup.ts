@@ -64,6 +64,7 @@ function installDefaultAttachmentAdapters(): void {
   initializationPromise: Promise.resolve(),
   unlockPromise: Promise.resolve(),
   uiReadyPromise: Promise.resolve(),
+  locale: 'en-US',
   getMainWindows: () => [],
   getActiveZoteroPane: () => null,
   platformMajorVersion: 140,
@@ -134,6 +135,9 @@ function installDefaultAttachmentAdapters(): void {
 
 // Mock Services global (auto-imported in Firefox 128+)
 (globalThis as any).Services = {
+  locale: {
+    appLocaleAsBCP47: 'en-US',
+  },
   wm: {
     addListener: () => {},
     removeListener: () => {},
@@ -185,6 +189,8 @@ beforeEach(() => {
   clearPrefs();
   resetMockCounters();
   resetItemAccessors();
+  (globalThis as any).Zotero.locale = 'en-US';
+  (globalThis as any).Services.locale.appLocaleAsBCP47 = 'en-US';
   if (isLiveAPIMode()) {
     installLiveAttachmentAdapters();
   } else {

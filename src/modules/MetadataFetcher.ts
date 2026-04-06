@@ -6,6 +6,9 @@ import {
 } from "@/features/metadata/apis";
 import { DownloadManager } from "@/services/DownloadManager";
 import {
+  extractArxivIdFromItem,
+  getCanonicalArxivDoiForItem,
+  isArxivDoi,
   isSearchQueryActionable,
   normalizeDoi,
   parseDoiFromExtra,
@@ -46,6 +49,11 @@ interface FetchOptions {
   includeOpenAccess?: boolean;
   downloadPDFs?: boolean;
   apis?: string[];
+}
+
+interface DOIDiscoveryOptions {
+  ignoreExistingDoi?: boolean;
+  publishedOnly?: boolean;
 }
 
 interface LegacyFetchResult {
@@ -355,16 +363,28 @@ export class MetadataFetcher {
 
   async fetchDOIBasedMetadata(item: Zotero.Item): Promise<LegacyFetchResult> {
     const changes: string[] = [];
-    let doi = this.extractDOI(item);
+    const existingDoi = this.extractDOI(item);
+    const resolvedDoi = await this.resolvePreferredDoiForMetadata(
+      item,
+      existingDoi,
+    );
+    let doi = existingDoi;
+
+    if (
+      resolvedDoi &&
+      normalizeDoi(resolvedDoi) !== normalizeDoi(existingDoi ?? "")
+    ) {
+      doi = resolvedDoi;
+      item.setField("DOI", resolvedDoi);
+      item.addTag("DOI Added", 1);
+      await item.saveTx();
+      changes.push(
+        `${existingDoi ? "Updated DOI" : "Added DOI"}: ${resolvedDoi}`,
+      );
+    }
 
     if (!doi) {
-      doi = await this.discoverDOI(item);
-      if (doi) {
-        item.setField("DOI", doi);
-        item.addTag("DOI Added", 1);
-        await item.saveTx();
-        changes.push(`Added DOI: ${doi}`);
-      }
+      doi = resolvedDoi;
     }
 
     if (!doi) {
@@ -520,11 +540,14 @@ export class MetadataFetcher {
     };
   }
 
-  async discoverDOI(item: Zotero.Item): Promise<string | null> {
+  async discoverDOI(
+    item: Zotero.Item,
+    options: DOIDiscoveryOptions = {},
+  ): Promise<string | null> {
     const strategies = [
-      () => this.searchCrossRefForDOI(item),
-      () => this.searchOpenAlexForDOI(item),
-      () => this.searchSemanticScholarForDOI(item),
+      () => this.searchCrossRefForDOI(item, options),
+      () => this.searchOpenAlexForDOI(item, options),
+      () => this.searchSemanticScholarForDOI(item, options),
       () => this.searchDBLPForDOI(item),
       () => this.searchGoogleScholarForDOI(item),
     ];
@@ -555,90 +578,109 @@ export class MetadataFetcher {
     return null;
   }
 
-  async searchCrossRefForDOI(item: Zotero.Item): Promise<string | null> {
+  async searchCrossRefForDOI(
+    item: Zotero.Item,
+    options: DOIDiscoveryOptions = {},
+  ): Promise<string | null> {
     const title = String(item.getField("title") ?? "").trim();
     if (!title) {
       return null;
     }
 
     const works = await this.crossRefAPI.fetchWorksByQuery(
-      this.buildSearchQuery(item),
+      this.buildSearchQuery(item, {
+        includeDoi: !options.ignoreExistingDoi,
+      }),
     );
     for (const work of works) {
       const workTitle = Array.isArray(work.title) ? work.title[0] : work.title;
+      const doi = work.DOI ? normalizeDoi(work.DOI) : "";
       if (
-        work.DOI &&
+        doi &&
+        (!options.publishedOnly || !isArxivDoi(doi)) &&
         workTitle &&
         this.titleSimilarity(workTitle, title) > 0.8
       ) {
-        return normalizeDoi(work.DOI);
+        return doi;
       }
     }
     return null;
   }
 
-  async searchOpenAlexForDOI(item: Zotero.Item): Promise<string | null> {
+  async searchOpenAlexForDOI(
+    item: Zotero.Item,
+    options: DOIDiscoveryOptions = {},
+  ): Promise<string | null> {
     const title = String(item.getField("title") ?? "").trim();
     if (!title) {
       return null;
     }
 
-    const exact = await this.searchOpenAlexExact(item, title);
+    const exact = await this.searchOpenAlexExact(item, title, options);
     if (exact) {
       return exact;
     }
 
-    return this.searchOpenAlexTitleOnly(item, title);
+    return this.searchOpenAlexTitleOnly(item, title, options);
   }
 
   async searchOpenAlexExact(
     item: Zotero.Item,
     title: string,
+    options: DOIDiscoveryOptions = {},
   ): Promise<string | null> {
-    const query = this.buildSearchQuery(item);
+    const query = this.buildSearchQuery(item, {
+      includeDoi: !options.ignoreExistingDoi,
+    });
     const results = await this.openAlexAPI.searchExact(query);
-    return this.pickDoiBySimilarity(results, title, 0.95);
+    return this.pickDoiBySimilarity(results, title, 0.95, options);
   }
 
   async searchOpenAlexTitleOnly(
     item: Zotero.Item,
     title: string,
+    options: DOIDiscoveryOptions = {},
   ): Promise<string | null> {
     const results = await this.openAlexAPI.search({
       title,
       year: this.extractYear(item),
     });
-    return this.pickDoiBySimilarity(results, title, 0.9);
+    return this.pickDoiBySimilarity(results, title, 0.9, options);
   }
 
-  async searchSemanticScholarForDOI(item: Zotero.Item): Promise<string | null> {
+  async searchSemanticScholarForDOI(
+    item: Zotero.Item,
+    options: DOIDiscoveryOptions = {},
+  ): Promise<string | null> {
     const title = String(item.getField("title") ?? "").trim();
     if (!title) {
       return null;
     }
 
-    const exact = await this.searchSemanticScholarExact(item, title);
+    const exact = await this.searchSemanticScholarExact(item, title, options);
     if (exact) {
       return exact;
     }
 
-    return this.searchSemanticScholarRelaxed(item, title);
+    return this.searchSemanticScholarRelaxed(item, title, options);
   }
 
   async searchSemanticScholarExact(
     item: Zotero.Item,
     title: string,
+    options: DOIDiscoveryOptions = {},
   ): Promise<string | null> {
     const papers = await this.semanticScholarAPI.searchPapersWithExternalIds(
       this.buildSemanticScholarExactQuery(item, title),
       3,
     );
-    return this.pickSemanticScholarDoi(papers, title, 0.95);
+    return this.pickSemanticScholarDoi(papers, title, 0.95, options);
   }
 
   async searchSemanticScholarRelaxed(
     _item: Zotero.Item,
     title: string,
+    options: DOIDiscoveryOptions = {},
   ): Promise<string | null> {
     const cleaned = title
       .replace(/[^\w\s]/g, " ")
@@ -649,7 +691,7 @@ export class MetadataFetcher {
       cleaned,
       10,
     );
-    return this.pickSemanticScholarDoi(papers, title, 0.9);
+    return this.pickSemanticScholarDoi(papers, title, 0.9, options);
   }
 
   async searchDBLPForDOI(item: Zotero.Item): Promise<string | null> {
@@ -1517,8 +1559,12 @@ export class MetadataFetcher {
   /**
    * Build search query from Zotero item
    */
-  private buildSearchQuery(item: Zotero.Item): SearchQuery {
+  private buildSearchQuery(
+    item: Zotero.Item,
+    options: { includeDoi?: boolean } = {},
+  ): SearchQuery {
     const query: SearchQuery = {};
+    const includeDoi = options.includeDoi ?? true;
 
     // Extract title
     const title = item.getField("title");
@@ -1529,9 +1575,9 @@ export class MetadataFetcher {
     // Extract DOI (standard field, then Extra — many items only store DOI in Extra)
     const extraField = (item.getField("extra") as string) ?? "";
     const doiField = (item.getField("DOI") as string)?.trim();
-    if (doiField) {
+    if (includeDoi && doiField) {
       query.doi = normalizeDoi(doiField);
-    } else {
+    } else if (includeDoi) {
       const fromExtra = parseDoiFromExtra(extraField);
       if (fromExtra) {
         query.doi = fromExtra;
@@ -1558,9 +1604,9 @@ export class MetadataFetcher {
         .filter((name) => name.length > 0);
     }
 
-    const arxivMatch = extraField.match(/arXiv:\s*([^\s]+)/i);
-    if (arxivMatch) {
-      query.arxivId = arxivMatch[1];
+    const arxivId = extractArxivIdFromItem(item);
+    if (arxivId) {
+      query.arxivId = arxivId;
     }
 
     return query;
@@ -1761,14 +1807,71 @@ export class MetadataFetcher {
     return undefined;
   }
 
+  private async resolvePreferredDoiForMetadata(
+    item: Zotero.Item,
+    existingDoi: string | null,
+  ): Promise<string | null> {
+    if (
+      existingDoi &&
+      !isArxivDoi(existingDoi) &&
+      (await this.matchesExistingOfficialDoi(item, existingDoi))
+    ) {
+      return existingDoi;
+    }
+
+    const discoveredDoi = await this.discoverPublishedDoi(item);
+    if (discoveredDoi) {
+      return discoveredDoi;
+    }
+
+    if (existingDoi && isArxivDoi(existingDoi)) {
+      return existingDoi;
+    }
+
+    return getCanonicalArxivDoiForItem(item) ?? existingDoi;
+  }
+
+  private async matchesExistingOfficialDoi(
+    item: Zotero.Item,
+    doi: string,
+  ): Promise<boolean> {
+    const currentTitle = String(item.getField("title") ?? "").trim();
+    if (!currentTitle) {
+      return true;
+    }
+
+    const metadata = await this.fetchCrossRefMetadata(doi);
+    if (!metadata) {
+      return getCanonicalArxivDoiForItem(item) === null;
+    }
+
+    const metadataTitle =
+      metadata["original-title"]?.[0] ??
+      (Array.isArray(metadata.title) ? metadata.title[0] : metadata.title);
+    if (!metadataTitle) {
+      return getCanonicalArxivDoiForItem(item) === null;
+    }
+
+    return this.titleSimilarity(metadataTitle, currentTitle) >= 0.9;
+  }
+
+  private async discoverPublishedDoi(item: Zotero.Item): Promise<string | null> {
+    return this.discoverDOI(item, {
+      ignoreExistingDoi: true,
+      publishedOnly: true,
+    });
+  }
+
   private pickDoiBySimilarity(
     results: SearchResult[],
     title: string,
     minSimilarity: number,
+    options: DOIDiscoveryOptions = {},
   ): string | null {
     for (const result of results) {
       if (
         result.doi &&
+        (!options.publishedOnly || !isArxivDoi(result.doi)) &&
         result.title &&
         this.titleSimilarity(result.title, title) > minSimilarity
       ) {
@@ -1782,6 +1885,7 @@ export class MetadataFetcher {
     papers: SemanticScholarPaper[],
     title: string,
     minSimilarity: number,
+    options: DOIDiscoveryOptions = {},
   ): string | null {
     for (const paper of papers) {
       const candidate = String(paper.title ?? "").trim();
@@ -1793,7 +1897,7 @@ export class MetadataFetcher {
       }
 
       const doi = paper.doi ?? paper.externalIds?.DOI;
-      if (doi) {
+      if (doi && (!options.publishedOnly || !isArxivDoi(doi))) {
         return normalizeDoi(doi);
       }
     }

@@ -311,4 +311,124 @@ describe("MetadataFetcher legacy compatibility", () => {
 
     expect(doi).toBe("10.4000/exact-match");
   });
+
+  it("replaces a mismatched DOI with the canonical arXiv DOI for arXiv-backed items", async () => {
+    const item = createMockItem({
+      title: "Semi-Supervised Learning with Deep Generative Models",
+      DOI: "10.29228/joh.67701",
+      url: "https://arxiv.org/abs/1406.5298",
+      extra: "arXiv: 1406.5298",
+      publicationTitle: "arXiv",
+      date: "2014",
+      creators: [{ firstName: "Diederik P.", lastName: "Kingma" }],
+    });
+
+    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
+      false,
+    );
+    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
+      "10.48550/arxiv.1406.5298",
+    );
+    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue(null);
+    vi.spyOn(fetcher as any, "updateItemAuthors").mockResolvedValue(undefined);
+
+    (fetcher as any).openAlexAPI = {
+      getWorkByDOI: vi.fn().mockResolvedValue({
+        title: "Semi-Supervised Learning with Deep Generative Models",
+        authors: ["Diederik P. Kingma", "Danilo J. Rezende"],
+        year: 2014,
+        doi: "10.48550/arxiv.1406.5298",
+        url: "https://openalex.org/W123",
+        confidence: 1,
+        source: "OpenAlex",
+      }),
+    };
+
+    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
+
+    expect(item.getField("DOI")).toBe("10.48550/arxiv.1406.5298");
+    expect(result.success).toBe(true);
+    expect(result.changes).toContain("Updated DOI: 10.48550/arxiv.1406.5298");
+    expect(result.changes).toContain(
+      "Updated authors: Diederik P. Kingma, Danilo J. Rezende",
+    );
+    expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
+  });
+
+  it("keeps an existing non-arXiv DOI when it matches the current item", async () => {
+    const item = createMockItem({
+      title: "Official Paper Title",
+      DOI: "10.1000/official",
+      url: "https://arxiv.org/abs/1406.5298",
+      extra: "arXiv: 1406.5298",
+      publicationTitle: "arXiv",
+      date: "2014",
+      creators: [{ firstName: "Jane", lastName: "Doe" }],
+    });
+
+    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
+      "10.9999/should-not-replace",
+    );
+    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
+      false,
+    );
+    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
+      DOI: "10.1000/official",
+      title: ["Official Paper Title"],
+    });
+    vi.spyOn(fetcher as any, "updateItemWithMetadata").mockResolvedValue([
+      "Updated title: Official Paper Title",
+    ]);
+    vi.spyOn(fetcher as any, "supplementDOIMetadata").mockResolvedValue([]);
+
+    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
+
+    expect(item.getField("DOI")).toBe("10.1000/official");
+    expect((fetcher as any).discoverDOI).not.toHaveBeenCalled();
+    expect((fetcher as any).fetchCrossRefMetadata).toHaveBeenCalledWith(
+      "10.1000/official",
+    );
+    expect(result.success).toBe(true);
+    expect(result.changes).not.toContain(
+      "Updated DOI: 10.48550/arxiv.1406.5298",
+    );
+  });
+
+  it("promotes an arXiv DOI to a discovered published DOI during metadata fetch", async () => {
+    const item = createMockItem({
+      title: "Official Paper Title",
+      DOI: "10.48550/arxiv.1406.5298",
+      url: "https://arxiv.org/abs/1406.5298",
+      extra: "arXiv: 1406.5298",
+      publicationTitle: "arXiv",
+      date: "2014",
+      creators: [{ firstName: "Jane", lastName: "Doe" }],
+    });
+
+    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue("10.1000/official");
+    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
+      false,
+    );
+    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
+      DOI: "10.1000/official",
+      title: ["Official Paper Title"],
+    });
+    vi.spyOn(fetcher as any, "updateItemWithMetadata").mockResolvedValue([
+      "Updated title: Official Paper Title",
+    ]);
+    vi.spyOn(fetcher as any, "supplementDOIMetadata").mockResolvedValue([]);
+
+    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
+
+    expect((fetcher as any).discoverDOI).toHaveBeenCalledWith(item, {
+      ignoreExistingDoi: true,
+      publishedOnly: true,
+    });
+    expect(item.getField("DOI")).toBe("10.1000/official");
+    expect((fetcher as any).fetchCrossRefMetadata).toHaveBeenCalledWith(
+      "10.1000/official",
+    );
+    expect(result.success).toBe(true);
+    expect(result.changes).toContain("Updated DOI: 10.1000/official");
+  });
 });

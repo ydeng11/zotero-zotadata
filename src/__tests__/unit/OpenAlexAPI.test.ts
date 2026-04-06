@@ -110,6 +110,34 @@ describe('OpenAlexAPI', () => {
     });
   });
 
+  describe('searchExact', () => {
+    it('uses a single combined filter for title, author, and year', async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: 'OK',
+        responseText: JSON.stringify({
+          results: [],
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.searchExact({
+        title: 'Semi-Supervised Learning with Deep Generative Models',
+        authors: ['Diederik P. Kingma'],
+        year: 2014,
+      });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+
+      expect(requestUrl).toContain(
+        'filter=title.search%3ASemi+Supervised+Learning+with+Deep+Generative+Models%2Cauthorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014',
+      );
+      expect(requestUrl).not.toContain('&filter=publication_year%3A2014');
+    });
+  });
+
   describe('getWorkByDOI', () => {
     it('should fetch work by DOI', async () => {
       const mockResponse = {

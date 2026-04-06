@@ -30,7 +30,7 @@ export const PUBLICATIONS = {
   } satisfies PublicationSeed,
   semiSupervisedLearning: {
     title: 'Semi-Supervised Learning with Deep Generative Models',
-    doi: '10.29228/joh.67701',
+    doi: '10.48550/arxiv.1406.5298',
     arxivId: '1406.5298',
     url: 'https://arxiv.org/abs/1406.5298',
     itemTypeID: 1,

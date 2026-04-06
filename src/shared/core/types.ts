@@ -177,7 +177,9 @@ export interface CrossRefWork {
   type?: string;
   DOI: string;
   title: string[];
-  author: Array<{
+  'original-title'?: string[];
+  language?: string;
+  author?: Array<{
     given?: string;
     family: string;
   }>;

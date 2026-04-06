@@ -65,17 +65,21 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     const titleQuery = this.cleanTitle(query.title);
     const authorQuery = query.authors[0]; // Use first author
-    
+    const filters = [
+      `title.search:${titleQuery}`,
+      `authorships.author.display_name.search:${authorQuery}`,
+    ];
+
+    if (query.year) {
+      filters.push(`publication_year:${query.year}`);
+    }
+
     const searchParams = new URLSearchParams({
-      filter: `title.search:${titleQuery},authorships.author.display_name.search:${authorQuery}`,
+      filter: filters.join(','),
       select: 'id,doi,title,display_name,authorships,publication_year,primary_location,open_access',
       'per-page': '10',
       sort: 'relevance_score:desc'
     });
-
-    if (query.year) {
-      searchParams.append('filter', `publication_year:${query.year}`);
-    }
 
     const endpoint = `/works?${searchParams.toString()}`;
     const response = await this.request<{

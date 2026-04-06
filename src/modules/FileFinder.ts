@@ -1,7 +1,14 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis/OpenAlexAPI";
 import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
-import { normalizeDoi, parseDoiFromExtra } from "@/utils/itemSearchQuery";
+import { buildAcceptLanguageHeader, matchesPreferredLanguage } from "@/utils/locale";
+import {
+  extractArxivIdFromItem,
+  getCanonicalArxivDoiForItem,
+  isArxivDoi,
+  normalizeDoi,
+  parseDoiFromExtra,
+} from "@/utils/itemSearchQuery";
 import type {
   FileFinderResult,
   SearchQuery,
@@ -162,7 +169,17 @@ export class FileFinder {
     }
 
     const extra = String(item.getField("extra") ?? "");
-    return parseDoiFromExtra(extra) ?? null;
+    const extraDoi = parseDoiFromExtra(extra);
+    if (extraDoi) {
+      return normalizeDoi(extraDoi);
+    }
+
+    const canonicalArxivDoi = getCanonicalArxivDoiForItem(item);
+    if (canonicalArxivDoi && isArxivDoi(canonicalArxivDoi)) {
+      return canonicalArxivDoi;
+    }
+
+    return null;
   }
 
   extractISBN(item: Zotero.Item): string | null {
@@ -177,15 +194,7 @@ export class FileFinder {
   }
 
   extractArxivId(item: Zotero.Item): string | null {
-    const extra = String(item.getField("extra") ?? "");
-    const extraMatch = extra.match(/arXiv:\s*([^\s]+)/i);
-    if (extraMatch) {
-      return extraMatch[1].replace(/v\d+$/i, "");
-    }
-
-    const url = String(item.getField("url") ?? "");
-    const urlMatch = url.match(/arxiv\.org\/(?:abs|pdf)\/([^\s/?#]+)/i);
-    return urlMatch ? urlMatch[1].replace(/v\d+$/i, "") : null;
+    return extractArxivIdFromItem(item);
   }
 
   async itemHasPDF(item: Zotero.Item): Promise<boolean> {
@@ -200,11 +209,15 @@ export class FileFinder {
         continue;
       }
 
+      const filePath =
+        typeof attachment.getFilePath === "function"
+          ? attachment.getFilePath()
+          : null;
       const isPdf =
         attachment.isPDFAttachment?.() === true ||
-        attachment.attachmentContentType === "application/pdf" ||
-        attachment.attachmentLinkMode !==
-          Zotero.Attachments.LINK_MODE_LINKED_URL;
+        String(attachment.attachmentContentType ?? "").toLowerCase() ===
+          "application/pdf" ||
+        (typeof filePath === "string" && filePath.toLowerCase().endsWith(".pdf"));
       if (!isPdf) {
         continue;
       }
@@ -231,7 +244,7 @@ export class FileFinder {
   async findFileForItem(item: Zotero.Item): Promise<LocatedFile> {
     try {
       const itemType = this.getItemTypeName(item);
-      const doi = this.extractDOI(item);
+      const doi = await this.resolvePreferredDOI(item);
       const isbn = this.extractISBN(item);
 
       if (itemType === "book") {
@@ -246,6 +259,45 @@ export class FileFinder {
     }
 
     return NO_FILE_FOUND;
+  }
+
+  private async resolvePreferredDOI(item: Zotero.Item): Promise<string | null> {
+    const doi = this.extractDOI(item);
+    if (!doi || isArxivDoi(doi) || !this.isArxivLikeItem(item)) {
+      return doi;
+    }
+
+    const matches = await this.doiMatchesItemTitle(item, doi);
+    if (matches) {
+      return doi;
+    }
+
+    return getCanonicalArxivDoiForItem(item) ?? null;
+  }
+
+  private async doiMatchesItemTitle(
+    item: Zotero.Item,
+    doi: string,
+  ): Promise<boolean> {
+    const title = String(item.getField("title") ?? "").trim();
+    if (!title) {
+      return true;
+    }
+
+    try {
+      const work = await this.openAlexAPI.getWorkByDOI(doi);
+      if (!work?.title) {
+        return false;
+      }
+
+      return FileFinder.titleSimilarity(work.title, title) >= 0.9;
+    } catch {
+      return false;
+    }
+  }
+
+  private isArxivLikeItem(item: Zotero.Item): boolean {
+    return getCanonicalArxivDoiForItem(item) !== null;
   }
 
   async findPublishedPDF(
@@ -375,9 +427,9 @@ export class FileFinder {
         "GET",
         `https://api.core.ac.uk/v3/search/works?q=${encodeURIComponent(`doi:"${doi}"`)}&limit=5`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             Accept: "application/json",
-          },
+          }),
         },
       );
       if (response.status !== 200) {
@@ -424,9 +476,9 @@ export class FileFinder {
         "GET",
         `http://export.arxiv.org/api/query?search_query=${encodeURIComponent(`ti:"${title}"`)}&max_results=3`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             "User-Agent": "Zotero Zotadata/1.0",
-          },
+          }),
         },
       );
       if (response.status !== 200) {
@@ -481,9 +533,9 @@ export class FileFinder {
         "GET",
         `https://archive.org/advancedsearch.php?q=${encodeURIComponent(`isbn:${isbn}`)}&fl=identifier,title,creator&rows=5&page=1&output=json`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             Accept: "application/json",
-          },
+          }),
           timeout: 15000,
         },
       );
@@ -519,9 +571,9 @@ export class FileFinder {
         "GET",
         `https://archive.org/metadata/${identifier}`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             Accept: "application/json",
-          },
+          }),
           timeout: 10000,
         },
       );
@@ -553,9 +605,9 @@ export class FileFinder {
         "GET",
         `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=details`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             Accept: "application/json",
-          },
+          }),
           timeout: 15000,
         },
       );
@@ -610,9 +662,9 @@ export class FileFinder {
         "GET",
         `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=3`,
         {
-          headers: {
+          headers: this.buildRequestHeaders({
             Accept: "application/json",
-          },
+          }),
           timeout: 15000,
         },
       );
@@ -659,6 +711,7 @@ export class FileFinder {
     try {
       const url = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${UNPAYWALL_EMAIL}`;
       const response = await Zotero.HTTP.request("GET", url, {
+        headers: this.buildRequestHeaders(),
         timeout: 15000,
         responseType: "text",
       });
@@ -782,16 +835,20 @@ export class FileFinder {
   ): Promise<Zotero.Item | null> {
     const response = await Zotero.HTTP.request("GET", fileUrl, {
       responseType: "arraybuffer",
-      headers: {
+      headers: this.buildRequestHeaders({
         "User-Agent": "Zotero Zotadata/1.0",
         Accept: "application/pdf,*/*",
         Referer: new URL(fileUrl).origin,
-      },
+      }),
       timeout: 30000,
     });
 
     if (response.status !== 200) {
       throw new Error(`HTTP ${response.status}: download failed`);
+    }
+
+    if (!this.responseLanguageMatchesLocale(response)) {
+      throw new Error("Downloaded file language conflicts with Zotero locale");
     }
 
     const data = this.toUint8Array(response.response);
@@ -803,6 +860,31 @@ export class FileFinder {
     }
 
     return this.createAttachmentFromData(item, data, title);
+  }
+
+  private buildRequestHeaders(
+    headers: Record<string, string> = {},
+  ): Record<string, string> {
+    return {
+      "Accept-Language": buildAcceptLanguageHeader(),
+      ...headers,
+    };
+  }
+
+  private responseLanguageMatchesLocale(response: {
+    getResponseHeader?: (name: string) => string | null;
+  }): boolean {
+    if (typeof response.getResponseHeader !== "function") {
+      return true;
+    }
+
+    const language = response.getResponseHeader("Content-Language");
+    if (!language) {
+      return true;
+    }
+
+    const [primaryLanguage] = language.split(",");
+    return matchesPreferredLanguage(primaryLanguage);
   }
 
   private async createAttachmentFromData(
