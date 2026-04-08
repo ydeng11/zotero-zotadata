@@ -135,12 +135,10 @@ export function validateMetadataMatch(
   );
 
   const score =
-    0.3 * titleSimilarity +
-    0.2 * (overlap.overlapRatio >= 0.5 ? 1 : overlap.overlapRatio) +
+    0.4 * titleSimilarity +
+    0.35 * overlap.overlapRatio +
     0.15 * (authorCountDiff <= 2 ? 1 : authorCountDiff <= 4 ? 0.5 : 0) +
-    0.2 * overlap.overlapRatio +
-    0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0) +
-    0.05 * 0;
+    0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
 
   const accept = score >= 0.7 && overlap.matchCount >= 1;
 
