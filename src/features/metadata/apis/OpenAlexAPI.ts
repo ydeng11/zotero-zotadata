@@ -1,10 +1,10 @@
-import { BaseMetadataAPI } from './BaseMetadataAPI';
+import { BaseMetadataAPI } from "./BaseMetadataAPI";
 import type {
   OpenAlexWork,
   SearchQuery,
   SearchResult,
-  RateLimitConfig
-} from '@/shared/core/types';
+  RateLimitConfig,
+} from "@/shared/core/types";
 
 /**
  * OpenAlex API implementation for academic paper discovery
@@ -13,9 +13,9 @@ import type {
 export class OpenAlexAPI extends BaseMetadataAPI {
   constructor() {
     super(
-      'https://api.openalex.org',
+      "https://api.openalex.org",
       { requests: 100, window: 1000 }, // 100 requests per second (generous limit)
-      { ttl: 1800000, maxSize: 1000 }   // 30 minute cache
+      { ttl: 1800000, maxSize: 1000 }, // 30 minute cache
     );
   }
 
@@ -75,10 +75,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     }
 
     const searchParams = new URLSearchParams({
-      filter: filters.join(','),
-      select: 'id,doi,title,display_name,authorships,publication_year,primary_location,open_access',
-      'per-page': '10',
-      sort: 'relevance_score:desc'
+      filter: filters.join(","),
+      select:
+        "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
+      "per-page": "10",
+      sort: "relevance_score:desc",
     });
 
     const endpoint = `/works?${searchParams.toString()}`;
@@ -115,11 +116,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     }
 
     if (query.authors && query.authors.length > 0) {
-      const authorFilter = query.authors
-        .slice(0, 2) // Limit to first 2 authors for better results
-        .map(author => `authorships.author.display_name.search:${author}`)
-        .join(',');
-      filters.push(authorFilter);
+      const authorFilters = query.authors
+        .slice(0, 3)
+        .map((author) => `authorships.author.display_name.search:${author}`)
+        .join("|");
+      filters.push(authorFilters);
     }
 
     if (query.year) {
@@ -131,31 +132,37 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     }
 
     if (filters.length > 0) {
-      params.append('filter', filters.join(','));
+      params.append("filter", filters.join(","));
     }
 
-    // Standard parameters for better results
-    params.append('select', 'id,doi,title,display_name,authorships,publication_year,primary_location,open_access');
-    
+    params.append(
+      "select",
+      "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
+    );
+
     return params.toString();
   }
 
   /**
    * Transform OpenAlex works to standardized search results
    */
-  private transformResults(works: OpenAlexWork[], originalQuery: SearchQuery): SearchResult[] {
+  private transformResults(
+    works: OpenAlexWork[],
+    originalQuery: SearchQuery,
+  ): SearchResult[] {
     return (works ?? []).map((work) => {
       const result: SearchResult = {
         title: work.display_name || work.title,
-        authors: work.authorships?.map(authorship => 
-          authorship.author.display_name
-        ) || [],
+        authors:
+          work.authorships?.map(
+            (authorship) => authorship.author.display_name,
+          ) || [],
         year: work.publication_year,
-        doi: work.doi?.replace('https://doi.org/', ''),
+        doi: work.doi?.replace("https://doi.org/", ""),
         url: work.id,
         pdfUrl: work.open_access?.oa_url || undefined,
         confidence: this.calculateConfidence(work, originalQuery),
-        source: 'OpenAlex',
+        source: "OpenAlex",
       };
 
       return result;
@@ -170,13 +177,16 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     // Title similarity
     if (query.title && work.display_name) {
-      const similarity = this.calculateTitleSimilarity(query.title, work.display_name);
+      const similarity = this.calculateTitleSimilarity(
+        query.title,
+        work.display_name,
+      );
       confidence += similarity * 0.3;
     }
 
     // Author match
     if (query.authors && work.authorships) {
-      const workAuthors = work.authorships.map(a => a.author.display_name);
+      const workAuthors = work.authorships.map((a) => a.author.display_name);
       const authorMatch = this.calculateAuthorMatch(query.authors, workAuthors);
       confidence += authorMatch * 0.25;
     }
@@ -191,7 +201,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     // DOI exact match
     if (query.doi && work.doi) {
-      const workDOI = work.doi.replace('https://doi.org/', '');
+      const workDOI = work.doi.replace("https://doi.org/", "");
       if (this.cleanDOI(query.doi) === this.cleanDOI(workDOI)) {
         confidence = 1.0;
       }
@@ -209,18 +219,29 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Calculate title similarity using word overlap
    */
   private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) => 
-      str.toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .replace(/\s+/g, ' ')
+    const normalize = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
         .trim();
 
-    const words1 = new Set(normalize(title1).split(' ').filter(w => w.length > 2));
-    const words2 = new Set(normalize(title2).split(' ').filter(w => w.length > 2));
+    const words1 = new Set(
+      normalize(title1)
+        .split(" ")
+        .filter((w) => w.length > 2),
+    );
+    const words2 = new Set(
+      normalize(title2)
+        .split(" ")
+        .filter((w) => w.length > 2),
+    );
 
     if (words1.size === 0 || words2.size === 0) return 0;
 
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
+    const intersection = new Set(
+      [...words1].filter((word) => words2.has(word)),
+    );
     const union = new Set([...words1, ...words2]);
 
     return intersection.size / union.size;
@@ -229,15 +250,19 @@ export class OpenAlexAPI extends BaseMetadataAPI {
   /**
    * Calculate author match score
    */
-  private calculateAuthorMatch(queryAuthors: string[], workAuthors: string[]): number {
+  private calculateAuthorMatch(
+    queryAuthors: string[],
+    workAuthors: string[],
+  ): number {
     if (queryAuthors.length === 0 || workAuthors.length === 0) {
       return 0;
     }
 
-    const normalizeAuthor = (author: string) => 
-      author.toLowerCase()
-        .replace(/[^\w\s]/g, '')
-        .replace(/\s+/g, ' ')
+    const normalizeAuthor = (author: string) =>
+      author
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
 
     const queryNormalized = queryAuthors.map(normalizeAuthor);
@@ -245,16 +270,17 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     let matches = 0;
     for (const queryAuthor of queryNormalized) {
-      const queryParts = queryAuthor.split(' ');
+      const queryParts = queryAuthor.split(" ");
       for (const workAuthor of workNormalized) {
-        const workParts = workAuthor.split(' ');
-        
+        const workParts = workAuthor.split(" ");
+
         // Check for lastName match
-        const lastNameMatch = queryParts.some(qPart => 
-          workParts.some(wPart => 
-            (qPart.length > 2 && wPart.includes(qPart)) ||
-            (wPart.length > 2 && qPart.includes(wPart))
-          )
+        const lastNameMatch = queryParts.some((qPart) =>
+          workParts.some(
+            (wPart) =>
+              (qPart.length > 2 && wPart.includes(qPart)) ||
+              (wPart.length > 2 && qPart.includes(wPart)),
+          ),
         );
 
         if (lastNameMatch) {
@@ -272,8 +298,8 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    */
   private cleanTitle(title: string): string {
     return title
-      .replace(/[^\w\s]/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
       .substring(0, 200); // OpenAlex handles long queries well but let's be safe
   }
@@ -283,8 +309,8 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    */
   private cleanDOI(doi: string): string {
     return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '')
-      .replace(/^doi:/, '')
+      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
+      .replace(/^doi:/, "")
       .trim()
       .toLowerCase();
   }
@@ -299,10 +325,10 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     rateLimit: RateLimitConfig;
   } {
     return {
-      name: 'OpenAlex',
-      version: '1.0',
+      name: "OpenAlex",
+      version: "1.0",
       baseUrl: this.baseUrl,
       rateLimit: this.rateLimitConfig,
     };
   }
-} 
+}
