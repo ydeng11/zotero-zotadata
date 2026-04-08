@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { ZotadataPlugin } from "@/plugin";
+import { LIBRARY_ITEM_MENU_LABELS } from "@/constants/Menus";
 
 type MenuRegisterCall = {
   menuID: string;
@@ -56,6 +57,12 @@ describe("MenuRegistration (Zotero 8 MenuManager)", () => {
       "zotadata-menu-fetch-metadata",
       "zotadata-menu-process-arxiv",
       "zotadata-menu-find-files",
+    ]);
+    expect(LIBRARY_ITEM_MENU_LABELS).toEqual([
+      "Validate References",
+      "Update Metadata",
+      "Process Preprints",
+      "Retrieve Files",
     ]);
   });
 

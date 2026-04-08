@@ -6,6 +6,7 @@ import { FileFinder } from "@/modules/FileFinder";
 import { CrossRefAPI } from "@/features/metadata/apis";
 import { ZoteroUtils } from "@/shared/utils/ZoteroUtils";
 import {
+  CONFIGURE_EMAIL_L10N_ID,
   LIBRARY_ITEM_MENU_LABELS,
   LIBRARY_ITEM_MENU_L10N_IDS,
   LIBRARY_ITEM_SUBMENU_L10N_ID,
@@ -104,17 +105,32 @@ export class ZotadataPlugin {
   }
 
   /**
-   * Called when a main Zotero window loads (legacy XUL menus only).
+   * Called when a main Zotero window loads.
+   * Used for legacy XUL menus and as a fallback when MenuManager API is used.
    */
   async onMainWindowReady(win: Window): Promise<void> {
     if (!ZoteroUtils.hasNewMenuAPI() && win.ZoteroPane) {
       await this.addToWindow(win);
+    } else if (ZoteroUtils.hasNewMenuAPI()) {
+      // Also try to register via MenuManager when window loads
+      // in case registerMenus() was called before windows existed
+      try {
+        await this.registerMenusWithMenuAPI();
+      } catch (error) {
+        this.log(`Failed to register menus on window ready: ${error}`);
+      }
     }
   }
 
   private async registerMenus(): Promise<void> {
     try {
-      if (ZoteroUtils.hasNewMenuAPI()) {
+      const hasNewMenuAPI = ZoteroUtils.hasNewMenuAPI();
+      this.log(`registerMenus: hasNewMenuAPI=${hasNewMenuAPI}`);
+      this.log(
+        `registerMenus: Zotero.MenuManager exists=${typeof Zotero.MenuManager !== "undefined"}`,
+      );
+
+      if (hasNewMenuAPI) {
         await this.registerMenusWithMenuAPI();
       } else {
         await this.registerMenusLegacy();
@@ -176,6 +192,18 @@ export class ZotadataPlugin {
         },
       }));
 
+    const configureEmailMenu: Zotero.MenuManager.MenuData = {
+      menuType: "menuitem",
+      l10nID: CONFIGURE_EMAIL_L10N_ID,
+      onCommand: () => {
+        void this.handleConfigureEmail().catch((err: unknown) => {
+          this.log(
+            `Configure Email failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+      },
+    };
+
     const menus: Zotero.MenuManager.MenuData[] = [
       {
         menuType: "submenu",
@@ -190,7 +218,11 @@ export class ZotadataPlugin {
             "Zotadata",
           );
         },
-        menus: actionMenus,
+        menus: [
+          ...actionMenus,
+          { menuType: "separator" as const },
+          configureEmailMenu,
+        ],
       },
     ];
 
@@ -200,6 +232,10 @@ export class ZotadataPlugin {
       target: "main/library/item",
       menus,
     });
+
+    this.log(
+      `MenuManager.registerMenu result: ${registered}, menuID: ${menuID}, target: main/library/item`,
+    );
 
     if (registered !== false) {
       this.log("Registered menus using MenuManager API");
@@ -237,7 +273,7 @@ export class ZotadataPlugin {
       const menuItems = [
         {
           id: "zotero-itemmenu-zotadata-check",
-          label: "Check Attachments",
+          label: "Validate References",
           handler: () =>
             void this.handleCheckAttachments().catch((err: unknown) => {
               this.log(
@@ -247,7 +283,7 @@ export class ZotadataPlugin {
         },
         {
           id: "zotero-itemmenu-zotadata-fetch-metadata",
-          label: "Fetch Metadata",
+          label: "Update Metadata",
           handler: () =>
             void this.handleFetchMetadata().catch((err: unknown) => {
               this.log(
@@ -257,7 +293,7 @@ export class ZotadataPlugin {
         },
         {
           id: "zotero-itemmenu-zotadata-process-arxiv",
-          label: "Process arXiv Items",
+          label: "Process Preprints",
           handler: () =>
             void this.handleProcessArxiv().catch((err: unknown) => {
               this.log(
@@ -267,7 +303,7 @@ export class ZotadataPlugin {
         },
         {
           id: "zotero-itemmenu-zotadata-find-files",
-          label: "Find Missing Files",
+          label: "Retrieve Files",
           handler: () =>
             void this.handleFindFiles().catch((err: unknown) => {
               this.log(
@@ -287,6 +323,26 @@ export class ZotadataPlugin {
         menuPopup.appendChild(menuItem);
         this.addedElementIDs.push(item.id);
       }
+
+      const separator = ZoteroUtils.createXULElement(doc, "menuseparator", {
+        id: "zotero-itemmenu-zotadata-separator",
+      });
+      menuPopup.appendChild(separator);
+      this.addedElementIDs.push(separator.id);
+
+      const configureEmailItem = ZoteroUtils.createXULElement(doc, "menuitem", {
+        id: "zotero-itemmenu-zotadata-configure-email",
+        label: "Configure Email",
+      });
+      configureEmailItem.addEventListener("command", () => {
+        void this.handleConfigureEmail().catch((err: unknown) => {
+          this.log(
+            `Configure Email failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+      });
+      menuPopup.appendChild(configureEmailItem);
+      this.addedElementIDs.push(configureEmailItem.id);
 
       menu.appendChild(menuPopup);
       this.addedElementIDs.push(menu.id);
@@ -480,8 +536,10 @@ export class ZotadataPlugin {
     }
 
     const ok = results.filter((r) => r.success).length;
+    const successRate = Math.round((ok / results.length) * 100);
     const lines = [
       `${ok} of ${results.length} item(s) updated${ok === results.length ? "." : " (see below for failures)."}`,
+      `• Success rate: ${successRate}%`,
     ];
     const failed = results.filter((r) => !r.success);
     if (failed.length > 0) {
@@ -495,6 +553,7 @@ export class ZotadataPlugin {
         lines.push(`… and ${failed.length - 5} more not listed`);
       }
     }
+    lines.push("\n🏷️ Check the item tags for detailed results.");
     return lines.join("\n");
   }
 
@@ -521,6 +580,70 @@ export class ZotadataPlugin {
       },
       ErrorType.ZOTERO_ERROR,
       { operation: "handleFindFiles" },
+    );
+  }
+
+  private async handleConfigureEmail(): Promise<void> {
+    return this.errorManager.wrapAsync(
+      async () => {
+        this.log("Configure Email command triggered");
+
+        const win = Zotero.getMainWindows()[0];
+        if (!win) {
+          this.showZotadataToast(
+            "Configure Email",
+            "Could not open configuration dialog.",
+            { short: true },
+          );
+          return;
+        }
+
+        const currentEmail = Zotero.Prefs.get(
+          "extensions.zotero.zotadata.email",
+        ) as string;
+
+        const prompt = win.prompt(
+          "Configure Email for Zotadata\n\n" +
+            "Your email is required for API access (Unpaywall, etc.) and will be stored locally in Zotero preferences.\n\n" +
+            "Current email: " +
+            (currentEmail || "(not set)") +
+            "\n\n" +
+            "Enter your email address (or leave empty to disable API features):",
+          currentEmail || "",
+        );
+
+        if (prompt === null) {
+          return;
+        }
+
+        if (prompt.trim() === "") {
+          Zotero.Prefs.set("extensions.zotero.zotadata.email", "");
+          this.showZotadataToast(
+            "Configure Email",
+            "Email cleared. API features (Unpaywall, etc.) will be disabled until you configure an email.",
+            { short: true },
+          );
+          return;
+        }
+
+        if (!prompt.includes("@")) {
+          this.showZotadataToast(
+            "Configure Email",
+            "Invalid email address. Please enter a valid email or leave empty to disable API features.",
+            { short: true },
+          );
+          return;
+        }
+
+        Zotero.Prefs.set("extensions.zotero.zotadata.email", prompt.trim());
+        this.showZotadataToast(
+          "Configure Email",
+          `Email configured successfully: ${prompt.trim()}`,
+          { short: true },
+        );
+      },
+      ErrorType.ZOTERO_ERROR,
+      { operation: "handleConfigureEmail" },
     );
   }
 

@@ -297,7 +297,7 @@ export class MenuManager {
         },
         {
           id: 'zotero-itemmenu-attachment-finder-check',
-          label: 'Check Attachments',
+          label: 'Validate References',
           icon: 'chrome://zotero/skin/cross.png',
           tooltip: 'Check and clean up existing attachments',
           action: () => this.handleCheckAttachments(),
@@ -305,7 +305,7 @@ export class MenuManager {
         },
         {
           id: 'zotero-itemmenu-attachment-finder-metadata',
-          label: 'Fetch Metadata',
+          label: 'Update Metadata',
           icon: 'chrome://zotero/skin/treeitem-book.png',
           tooltip: 'Fetch additional metadata from academic APIs',
           action: () => this.handleFetchMetadata(),
@@ -318,12 +318,20 @@ export class MenuManager {
         },
         {
           id: 'zotero-itemmenu-attachment-finder-arxiv',
-          label: 'Process arXiv Items',
+          label: 'Process Preprints',
           icon: 'chrome://zotero/skin/treeitem-attachment-pdf.png',
           tooltip: 'Process and download PDFs for arXiv preprints',
           action: () => this.handleProcessArxiv(),
           condition: () => this.hasArxivItems(),
-        }
+        },
+        {
+          id: 'zotero-itemmenu-attachment-finder-files',
+          label: 'Retrieve Files',
+          icon: 'chrome://zotero/skin/attach.png',
+          tooltip: 'Search for and download missing files',
+          action: () => this.handleFindFiles(),
+          condition: () => this.hasValidSelectedItems(),
+        },
       ]
     };
 
@@ -540,6 +548,10 @@ export class MenuManager {
     if (attachmentFinder) {
       await attachmentFinder.processArxivItems();
     }
+  }
+
+  private async handleFindFiles(): Promise<void> {
+    await this.handleFindAttachments();
   }
 
   private async handleBatchFindAttachments(): Promise<void> {

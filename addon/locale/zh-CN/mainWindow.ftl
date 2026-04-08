@@ -4,13 +4,13 @@ zotadata-submenu =
     .label = Zotadata
 
 zotadata-menu-check-attachments =
-    .label = 检查附件
+    .label = 验证参考文献
 zotadata-menu-fetch-metadata =
-    .label = 获取元数据
+    .label = 更新元数据
 zotadata-menu-process-arxiv =
-    .label = 处理 arXiv 条目
+    .label = 处理预印本
 zotadata-menu-find-files =
-    .label = 查找缺失文件
+    .label = 获取文件
 
 zotadata-menu-find-attachments =
     .label = 查找附件

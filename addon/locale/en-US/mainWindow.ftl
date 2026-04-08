@@ -5,13 +5,16 @@ zotadata-submenu =
     .label = Zotadata
 
 zotadata-menu-check-attachments =
-    .label = Check Attachments
+    .label = Validate References
 zotadata-menu-fetch-metadata =
-    .label = Fetch Metadata
+    .label = Update Metadata
 zotadata-menu-process-arxiv =
-    .label = Process arXiv Items
+    .label = Process Preprints
 zotadata-menu-find-files =
-    .label = Find Missing Files
+    .label = Retrieve Files
+
+zotadata-menu-configure-email =
+    .label = Configure Email
 
 zotadata-menu-find-attachments =
     .label = Find Attachments

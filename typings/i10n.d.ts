@@ -7,6 +7,7 @@ export type FluentMessageId =
   | 'zotadata-menu-batch-clean'
   | 'zotadata-menu-batch-find'
   | 'zotadata-menu-check-attachments'
+  | 'zotadata-menu-configure-email'
   | 'zotadata-menu-fetch-metadata'
   | 'zotadata-menu-find-attachments'
   | 'zotadata-menu-find-files'

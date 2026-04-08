@@ -1,14 +1,14 @@
-import { CrossRefAPI } from '@/features/metadata/apis/CrossRefAPI';
-import { SemanticScholarAPI } from '@/features/metadata/apis/SemanticScholarAPI';
-import { FileFinder } from '@/modules/FileFinder';
-import { StringUtils } from '@/shared/utils/StringUtils';
-import { matchesPreferredLanguage } from '@/utils/locale';
+import { CrossRefAPI } from "@/features/metadata/apis/CrossRefAPI";
+import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
+import { FileFinder } from "@/modules/FileFinder";
+import { StringUtils } from "@/shared/utils/StringUtils";
+import { matchesPreferredLanguage } from "@/utils/locale";
 import type {
   ArxivProcessResult,
   CrossRefWork,
   SearchQuery,
   SemanticScholarPaper,
-} from '@/shared/core/types';
+} from "@/shared/core/types";
 
 /**
  * Discover published versions of arXiv preprints and normalize item metadata.
@@ -34,12 +34,12 @@ export class ArxivProcessor {
   async processSelectedItems(): Promise<string> {
     const pane = Zotero.getActiveZoteroPane();
     if (!pane) {
-      return 'No active Zotero window.';
+      return "No active Zotero window.";
     }
 
     const selected = pane.getSelectedItems().filter((i) => i.isRegularItem());
     if (selected.length === 0) {
-      return 'No items selected.';
+      return "No items selected.";
     }
 
     const outcomes = await Promise.all(
@@ -59,16 +59,16 @@ export class ArxivProcessor {
           processed: false,
           converted: false,
           foundPublished: false,
-          outcome: 'skipped_not_arxiv',
+          outcome: "skipped_not_arxiv",
         };
       }
 
       const publishedRef = await this.findPublishedVersion(item);
       if (publishedRef) {
         const currentType = Zotero.ItemTypes.getName(item.itemTypeID);
-        const willChangeType = publishedRef.startsWith('VENUE:')
-          ? currentType === 'journalArticle'
-          : currentType !== 'journalArticle';
+        const willChangeType = publishedRef.startsWith("VENUE:")
+          ? currentType === "journalArticle"
+          : currentType !== "journalArticle";
         const updated = await this.updateItemAsPublishedVersion(
           item,
           publishedRef,
@@ -78,34 +78,34 @@ export class ArxivProcessor {
           if (willChangeType || !hasExistingPDF) {
             await this.downloadPublishedVersion(item, publishedRef);
           } else {
-            item.addTag('PDF Already Present', 1);
+            item.addTag("PDF Already Present", 1);
             await item.saveTx();
           }
-          item.addTag('Updated to Published Version', 1);
+          item.addTag("Updated to Published Version", 1);
           await item.saveTx();
           return {
             processed: true,
             converted: false,
             foundPublished: true,
-            outcome: 'updated_published',
+            outcome: "updated_published",
           };
         }
         return {
           processed: false,
           converted: false,
           foundPublished: false,
-          outcome: 'failed_metadata',
+          outcome: "failed_metadata",
         };
       }
 
       const typeName = Zotero.ItemTypes.getName(item.itemTypeID);
-      if (typeName === 'journalArticle') {
+      if (typeName === "journalArticle") {
         await this.convertToPreprint(item);
         return {
           processed: true,
           converted: true,
           foundPublished: false,
-          outcome: 'converted_preprint',
+          outcome: "converted_preprint",
         };
       }
 
@@ -113,15 +113,15 @@ export class ArxivProcessor {
         processed: true,
         converted: false,
         foundPublished: false,
-        outcome: 'unchanged',
+        outcome: "unchanged",
       };
     } catch {
-      item.addTag('arXiv Process Error', 1);
+      item.addTag("arXiv Process Error", 1);
       return {
         processed: false,
         converted: false,
         foundPublished: false,
-        outcome: 'failed_exception',
+        outcome: "failed_exception",
       };
     }
   }
@@ -130,7 +130,7 @@ export class ArxivProcessor {
    * Resolve a published DOI or Semantic-Scholar-style venue string.
    */
   async findPublishedVersion(item: Zotero.Item): Promise<string | null> {
-    const title = (item.getField('title') as string)?.trim();
+    const title = (item.getField("title") as string)?.trim();
     if (!title) {
       return null;
     }
@@ -153,22 +153,22 @@ export class ArxivProcessor {
 
   static isArxivItem(item: Zotero.Item): boolean {
     try {
-      const pub = String(item.getField('publicationTitle') ?? '').toLowerCase();
-      if (pub.includes('arxiv')) {
+      const pub = String(item.getField("publicationTitle") ?? "").toLowerCase();
+      if (pub.includes("arxiv")) {
         return true;
       }
 
-      const url = String(item.getField('url') ?? '').toLowerCase();
-      if (url.includes('arxiv.org')) {
+      const url = String(item.getField("url") ?? "").toLowerCase();
+      if (url.includes("arxiv.org")) {
         return true;
       }
 
-      const extra = String(item.getField('extra') ?? '');
+      const extra = String(item.getField("extra") ?? "");
       if (/arXiv:\s*\S+/i.test(extra)) {
         return true;
       }
 
-      const title = String(item.getField('title') ?? '').toLowerCase();
+      const title = String(item.getField("title") ?? "").toLowerCase();
       if (/\barxiv\b/.test(title)) {
         return true;
       }
@@ -180,24 +180,24 @@ export class ArxivProcessor {
   }
 
   static extractArxivId(item: Zotero.Item): string | null {
-    const extra = String(item.getField('extra') ?? '');
-    const url = String(item.getField('url') ?? '');
+    const extra = String(item.getField("extra") ?? "");
+    const url = String(item.getField("url") ?? "");
 
     const fromExtra = extra.match(/arXiv:\s*([^\s]+)/i);
     if (fromExtra) {
-      return fromExtra[1].replace(/v\d+$/i, '');
+      return fromExtra[1].replace(/v\d+$/i, "");
     }
 
     const fromString = StringUtils.extractArxivId(extra);
     if (fromString) {
-      return fromString.replace(/v\d+$/i, '');
+      return fromString.replace(/v\d+$/i, "");
     }
 
     const fromUrl = url.match(
       /arxiv\.org\/(?:abs|pdf)\/([a-z-]+\/\d+(?:v\d+)?|\d+\.\d+(?:v\d+)?)/i,
     );
     if (fromUrl) {
-      return fromUrl[1].replace(/v\d+$/i, '');
+      return fromUrl[1].replace(/v\d+$/i, "");
     }
 
     return null;
@@ -207,18 +207,18 @@ export class ArxivProcessor {
     const normalize = (s: string): string =>
       s
         .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
         .trim();
 
     const words1 = new Set(
       normalize(title1)
-        .split(' ')
+        .split(" ")
         .filter((w) => w.length > 2),
     );
     const words2 = new Set(
       normalize(title2)
-        .split(' ')
+        .split(" ")
         .filter((w) => w.length > 2),
     );
 
@@ -282,7 +282,7 @@ export class ArxivProcessor {
   private async searchSemanticScholarForPublishedVersion(
     item: Zotero.Item,
   ): Promise<string | null> {
-    const title = (item.getField('title') as string)?.trim();
+    const title = (item.getField("title") as string)?.trim();
     if (!title) {
       return null;
     }
@@ -298,7 +298,7 @@ export class ArxivProcessor {
   private async searchSemanticScholarExactPublished(
     title: string,
   ): Promise<string | null> {
-    const quoted = `"${title.replace(/"/g, '')}"`;
+    const quoted = `"${title.replace(/"/g, "")}"`;
     const papers = await this.semanticScholarAPI.searchPapersWithExternalIds(
       quoted,
       10,
@@ -348,8 +348,8 @@ export class ArxivProcessor {
 
   private static cleanTitleForRelaxedSearch(title: string): string {
     return title
-      .replace(/[^\w\s:]/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s:]/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
       .substring(0, 200);
   }
@@ -359,22 +359,22 @@ export class ArxivProcessor {
       return false;
     }
     const v = venue.toLowerCase();
-    return v === 'arxiv' || v.includes('arxiv');
+    return v === "arxiv" || v.includes("arxiv");
   }
 
   private static isArxivPreprintCrossRefWork(work: CrossRefWork): boolean {
-    const doi = work.DOI?.toLowerCase() ?? '';
-    if (doi.includes('arxiv') || doi.includes('48550')) {
+    const doi = work.DOI?.toLowerCase() ?? "";
+    if (doi.includes("arxiv") || doi.includes("48550")) {
       return true;
     }
 
-    const container = (work['container-title']?.[0] ?? '').toLowerCase();
-    if (container.includes('arxiv')) {
+    const container = (work["container-title"]?.[0] ?? "").toLowerCase();
+    if (container.includes("arxiv")) {
       return true;
     }
 
-    const t = (work.type ?? '').toLowerCase();
-    if (t === 'posted-content') {
+    const t = (work.type ?? "").toLowerCase();
+    if (t === "posted-content") {
       return true;
     }
 
@@ -382,7 +382,7 @@ export class ArxivProcessor {
   }
 
   private static getCrossRefCandidateTitles(work: CrossRefWork): string[] {
-    const titles = [work['original-title']?.[0], work.title?.[0]]
+    const titles = [work["original-title"]?.[0], work.title?.[0]]
       .map((title) => title?.trim())
       .filter((title): title is string => Boolean(title));
 
@@ -406,7 +406,7 @@ export class ArxivProcessor {
   }
 
   private static getPreferredCrossRefTitle(work: CrossRefWork): string | null {
-    const originalTitle = work['original-title']?.[0]?.trim();
+    const originalTitle = work["original-title"]?.[0]?.trim();
     if (originalTitle) {
       return originalTitle;
     }
@@ -417,21 +417,21 @@ export class ArxivProcessor {
 
   private static buildItemSearchQuery(item: Zotero.Item): SearchQuery {
     const query: SearchQuery = {};
-    const title = (item.getField('title') as string)?.trim();
+    const title = (item.getField("title") as string)?.trim();
     if (title) {
       query.title = title;
     }
 
     const creators = item.getCreators();
     const authors = creators
-      .filter((c) => c.creatorType === 'author')
-      .map((c) => `${c.firstName || ''} ${c.lastName || ''}`.trim())
+      .filter((c) => c.creatorType === "author")
+      .map((c) => `${c.firstName || ""} ${c.lastName || ""}`.trim())
       .filter((n) => n.length > 0);
     if (authors.length > 0) {
       query.authors = authors;
     }
 
-    const date = item.getField('date') as string | undefined;
+    const date = item.getField("date") as string | undefined;
     if (date) {
       const y = parseInt(date, 10);
       if (!Number.isNaN(y)) {
@@ -448,16 +448,16 @@ export class ArxivProcessor {
       return true;
     }
     const markers = [
-      'ICML',
-      'ICLR',
-      'NEURIPS',
-      'CVPR',
-      'ICCV',
-      'ECCV',
-      'ACL',
-      'EMNLP',
-      'AAAI',
-      'IJCAI',
+      "ICML",
+      "ICLR",
+      "NEURIPS",
+      "CVPR",
+      "ICCV",
+      "ECCV",
+      "ACL",
+      "EMNLP",
+      "AAAI",
+      "IJCAI",
     ];
     return markers.some((m) => v.includes(m));
   }
@@ -474,14 +474,14 @@ export class ArxivProcessor {
     if (venueFormat) {
       const venue = venueFormat[1].trim();
       if (ArxivProcessor.isConferenceVenueName(venue)) {
-        item.setType(Zotero.ItemTypes.getID('conferencePaper'));
-        item.setField('proceedingsTitle', venue);
-        item.setField('publicationTitle', '');
+        item.setType(Zotero.ItemTypes.getID("conferencePaper"));
+        item.setField("proceedingsTitle", venue);
+        item.setField("publicationTitle", "");
       } else {
-        item.setType(Zotero.ItemTypes.getID('journalArticle'));
-        item.setField('publicationTitle', venue);
+        item.setType(Zotero.ItemTypes.getID("journalArticle"));
+        item.setField("publicationTitle", venue);
       }
-      item.setField('repository', '');
+      item.setField("repository", "");
       await item.saveTx();
       await this.updateAttachmentsForPublishedVersion(item);
       return true;
@@ -497,43 +497,43 @@ export class ArxivProcessor {
       return false;
     }
 
-    item.setField('DOI', work.DOI);
-    item.setField('repository', '');
+    item.setField("DOI", work.DOI);
+    item.setField("repository", "");
 
     const title = ArxivProcessor.getPreferredCrossRefTitle(work);
     if (title) {
-      item.setField('title', title);
+      item.setField("title", title);
     }
 
-    const year = work.published?.['date-parts']?.[0]?.[0];
+    const year = work.published?.["date-parts"]?.[0]?.[0];
     if (year) {
-      item.setField('date', String(year));
+      item.setField("date", String(year));
     }
 
-    const workType = (work.type ?? '').toLowerCase();
-    if (workType === 'proceedings-article') {
-      item.setType(Zotero.ItemTypes.getID('conferencePaper'));
-      const proc = work['container-title']?.[0];
+    const workType = (work.type ?? "").toLowerCase();
+    if (workType === "proceedings-article") {
+      item.setType(Zotero.ItemTypes.getID("conferencePaper"));
+      const proc = work["container-title"]?.[0];
       if (proc) {
-        item.setField('proceedingsTitle', proc);
+        item.setField("proceedingsTitle", proc);
       }
-      item.setField('publicationTitle', '');
+      item.setField("publicationTitle", "");
     } else {
-      item.setType(Zotero.ItemTypes.getID('journalArticle'));
-      const journal = work['container-title']?.[0];
+      item.setType(Zotero.ItemTypes.getID("journalArticle"));
+      const journal = work["container-title"]?.[0];
       if (journal) {
-        item.setField('publicationTitle', journal);
+        item.setField("publicationTitle", journal);
       }
     }
 
     if (work.volume) {
-      item.setField('volume', work.volume);
+      item.setField("volume", work.volume);
     }
     if (work.issue) {
-      item.setField('issue', work.issue);
+      item.setField("issue", work.issue);
     }
     if (work.page) {
-      item.setField('pages', work.page);
+      item.setField("pages", work.page);
     }
 
     ArxivProcessor.applyAuthorsFromCrossRef(item, work);
@@ -551,13 +551,13 @@ export class ArxivProcessor {
     }
 
     const newAuthors = work.author.map((a) => ({
-      creatorType: 'author' as const,
-      firstName: (a.given ?? '').trim(),
-      lastName: (a.family ?? '').trim(),
+      creatorType: "author" as const,
+      firstName: (a.given ?? "").trim(),
+      lastName: (a.family ?? "").trim(),
     }));
 
     const existing = item.getCreators();
-    const nonAuthors = existing.filter((c) => c.creatorType !== 'author');
+    const nonAuthors = existing.filter((c) => c.creatorType !== "author");
     item.setCreators([...newAuthors, ...nonAuthors]);
   }
 
@@ -571,36 +571,36 @@ export class ArxivProcessor {
         continue;
       }
 
-      const currentTitle = String(attachment.getField('title') ?? '').trim();
+      const currentTitle = String(attachment.getField("title") ?? "").trim();
       if (!currentTitle) {
         continue;
       }
 
       const nextTitle = currentTitle
-        .replace(/\s*\(preprint\)/gi, '')
-        .replace(/\s*\(arxiv\)/gi, '')
-        .replace(/\s*preprint\s*/gi, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/\s*\(preprint\)/gi, "")
+        .replace(/\s*\(arxiv\)/gi, "")
+        .replace(/\s*preprint\s*/gi, " ")
+        .replace(/\s+/g, " ")
         .trim();
 
       if (nextTitle !== currentTitle) {
-        attachment.setField('title', nextTitle);
+        attachment.setField("title", nextTitle);
         await attachment.saveTx();
       }
     }
   }
 
   async convertToPreprint(item: Zotero.Item): Promise<void> {
-    const preprintId = Zotero.ItemTypes.getID('preprint');
+    const preprintId = Zotero.ItemTypes.getID("preprint");
     item.setType(preprintId);
 
-    const repo = String(item.getField('repository') ?? '').trim();
+    const repo = String(item.getField("repository") ?? "").trim();
     if (!repo) {
-      item.setField('repository', 'arXiv');
+      item.setField("repository", "arXiv");
     }
 
-    item.setField('publicationTitle', '');
-    item.addTag('Converted to Preprint', 1);
+    item.setField("publicationTitle", "");
+    item.addTag("Converted to Preprint", 1);
     await item.saveTx();
   }
 
@@ -614,27 +614,27 @@ export class ArxivProcessor {
   ): Promise<void> {
     try {
       if (await this.itemHasPDF(item)) {
-        item.addTag('Already Has PDF', 1);
+        item.addTag("Already Has PDF", 1);
         await item.saveTx();
         return;
       }
 
-      if (publishedInfo.startsWith('VENUE:')) {
+      if (publishedInfo.startsWith("VENUE:")) {
         const arxivPdf = await this.fileFinder.findArxivPDF(item);
         if (arxivPdf) {
           const downloaded = await this.fileFinder.downloadFileForItem(
             item,
             arxivPdf,
-            'Conference Paper (arXiv)',
+            "Conference Paper (arXiv)",
           );
           item.addTag(
             downloaded
-              ? 'Conference PDF Downloaded'
-              : 'Conference PDF Download Failed',
+              ? "Conference PDF Downloaded"
+              : "Conference PDF Download Failed",
             1,
           );
         } else {
-          item.addTag('No Conference PDF Found', 1);
+          item.addTag("No Conference PDF Found", 1);
         }
         await item.saveTx();
         return;
@@ -649,16 +649,16 @@ export class ArxivProcessor {
         );
         item.addTag(
           downloaded
-            ? 'Published PDF Downloaded'
-            : 'Published PDF Download Failed',
+            ? "Published PDF Downloaded"
+            : "Published PDF Download Failed",
           1,
         );
       } else {
-        item.addTag('No Published PDF Found', 1);
+        item.addTag("No Published PDF Found", 1);
       }
       await item.saveTx();
     } catch {
-      item.addTag('Published PDF Error', 1);
+      item.addTag("Published PDF Error", 1);
       await item.saveTx();
     }
   }
@@ -668,53 +668,59 @@ export class ArxivProcessor {
     total: number,
   ): string {
     const published = outcomes.filter(
-      (o) => o.outcome === 'updated_published',
+      (o) => o.outcome === "updated_published",
     ).length;
     const preprint = outcomes.filter(
-      (o) => o.outcome === 'converted_preprint',
+      (o) => o.outcome === "converted_preprint",
     ).length;
     const skipped = outcomes.filter(
-      (o) => o.outcome === 'skipped_not_arxiv',
+      (o) => o.outcome === "skipped_not_arxiv",
     ).length;
     const failed = outcomes.filter(
-      (o) => o.outcome === 'failed_metadata' || o.outcome === 'failed_exception',
+      (o) =>
+        o.outcome === "failed_metadata" || o.outcome === "failed_exception",
     ).length;
+    const unchanged = outcomes.filter((o) => o.outcome === "unchanged").length;
+
+    const successCount = published + preprint + unchanged;
+    const successRate =
+      outcomes.length > 0
+        ? Math.round((successCount / outcomes.length) * 100)
+        : 0;
 
     const parts: string[] = [];
     if (published > 0) {
       parts.push(
-        `${published} ${published === 1 ? 'item' : 'items'} updated to published metadata`,
+        `• ${published} ${published === 1 ? "item" : "items"} updated to published metadata`,
       );
     }
     if (preprint > 0) {
       parts.push(
-        `${preprint} ${preprint === 1 ? 'item' : 'items'} converted to preprint`,
+        `• ${preprint} ${preprint === 1 ? "item" : "items"} converted to preprint`,
       );
     }
     if (skipped > 0) {
-      parts.push(
-        `${skipped} not arXiv (left unchanged)`,
-      );
+      parts.push(`• ${skipped} not arXiv (left unchanged)`);
     }
     if (failed > 0) {
       parts.push(
-        `${failed} could not be completed (see arXiv Process Error tag if applicable)`,
+        `• ${failed} could not be completed (see arXiv Process Error tag if applicable)`,
       );
     }
 
-    const unchanged = outcomes.filter((o) => o.outcome === 'unchanged').length;
     if (unchanged > 0 && published === 0 && preprint === 0 && failed === 0) {
       parts.push(
-        `${unchanged} arXiv ${unchanged === 1 ? 'item' : 'items'} left as-is (already non-journal or no published match)`,
+        `• ${unchanged} arXiv ${unchanged === 1 ? "item" : "items"} left as-is (already non-journal or no published match)`,
       );
     }
 
     if (parts.length === 0) {
-      return `Finished — ${total} item(s) checked. No changes applied.`;
+      return `📊 Finished — ${total} item(s) checked. • Success rate: ${successRate}%\n\nNo changes applied.`;
     }
 
-    return [`Finished — ${total} item(s) checked.`, parts.join(' · ') + '.'].join(
-      '\n',
-    );
+    return [
+      `📊 Finished — ${total} item(s) checked. • Success rate: ${successRate}%`,
+      ...parts,
+    ].join("\n");
   }
 }

@@ -1,7 +1,10 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis/OpenAlexAPI";
 import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
-import { buildAcceptLanguageHeader, matchesPreferredLanguage } from "@/utils/locale";
+import {
+  buildAcceptLanguageHeader,
+  matchesPreferredLanguage,
+} from "@/utils/locale";
 import {
   extractArxivIdFromItem,
   getCanonicalArxivDoiForItem,
@@ -217,7 +220,8 @@ export class FileFinder {
         attachment.isPDFAttachment?.() === true ||
         String(attachment.attachmentContentType ?? "").toLowerCase() ===
           "application/pdf" ||
-        (typeof filePath === "string" && filePath.toLowerCase().endsWith(".pdf"));
+        (typeof filePath === "string" &&
+          filePath.toLowerCase().endsWith(".pdf"));
       if (!isPdf) {
         continue;
       }
@@ -707,9 +711,24 @@ export class FileFinder {
     return null;
   }
 
+  private getUnpaywallEmail(): string {
+    try {
+      const configuredEmail = Zotero.Prefs.get(
+        "extensions.zotero.zotadata.email",
+      ) as string;
+      if (configuredEmail && configuredEmail.trim() !== "") {
+        return configuredEmail.trim();
+      }
+    } catch {
+      // Ignore - will use fallback
+    }
+    return UNPAYWALL_EMAIL;
+  }
+
   private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
     try {
-      const url = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${UNPAYWALL_EMAIL}`;
+      const email = this.getUnpaywallEmail();
+      const url = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${encodeURIComponent(email)}`;
       const response = await Zotero.HTTP.request("GET", url, {
         headers: this.buildRequestHeaders(),
         timeout: 15000,
@@ -1171,40 +1190,45 @@ export class FileFinder {
     const failed = results.filter((r) => r.outcome === "download_failed");
     const skipped = results.filter((r) => r.outcome === "skipped_not_regular");
 
+    const total = results.length;
+    const successCount = downloaded.length + alreadyHas.length;
+    const successRate =
+      total > 0 ? Math.round((successCount / total) * 100) : 0;
+
     const parts: string[] = [];
 
     if (downloaded.length > 0) {
       const sources = [...new Set(downloaded.map((r) => r.source))].join(", ");
       parts.push(
-        `${downloaded.length} PDF${downloaded.length !== 1 ? "s" : ""} downloaded (${sources})`,
+        `• ${downloaded.length} PDF${downloaded.length !== 1 ? "s" : ""} downloaded (${sources})`,
       );
     }
 
     if (alreadyHas.length > 0) {
-      parts.push(`${alreadyHas.length} already had files`);
+      parts.push(`• ${alreadyHas.length} already had files`);
     }
 
     if (notFound.length > 0) {
-      parts.push(`${notFound.length} — no open-access PDF found`);
+      parts.push(`• ${notFound.length} — no open-access PDF found`);
     }
 
     if (failed.length > 0) {
       parts.push(
-        `${failed.length} download${failed.length !== 1 ? "s" : ""} failed`,
+        `• ${failed.length} download${failed.length !== 1 ? "s" : ""} failed`,
       );
     }
 
     if (skipped.length > 0) {
-      parts.push(`${skipped.length} skipped (notes/attachments)`);
+      parts.push(`• ${skipped.length} skipped (notes/attachments)`);
     }
 
     if (parts.length === 0) {
-      return `Checked ${totalSelected} item(s). Nothing to do.`;
+      return `📊 Checked ${totalSelected} item(s). Nothing to do.`;
     }
 
     return [
-      `Find Files — ${totalSelected} item(s) checked.`,
-      parts.join(" · ") + ".",
+      `📊 Find Files — ${totalSelected} item(s) checked. • Success rate: ${successRate}%`,
+      ...parts,
     ].join("\n");
   }
 
