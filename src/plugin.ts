@@ -600,16 +600,18 @@ export class ZotadataPlugin {
 
         const currentEmail = Zotero.Prefs.get(
           "extensions.zotero.zotadata.email",
-        ) as string;
+        );
+        const currentEmailStr =
+          typeof currentEmail === "string" ? currentEmail : "";
 
         const prompt = win.prompt(
           "Configure Email for Zotadata\n\n" +
             "Your email is required for API access (Unpaywall, etc.) and will be stored locally in Zotero preferences.\n\n" +
             "Current email: " +
-            (currentEmail || "(not set)") +
+            (currentEmailStr || "(not set)") +
             "\n\n" +
             "Enter your email address (or leave empty to disable API features):",
-          currentEmail || "",
+          currentEmailStr || "",
         );
 
         if (prompt === null) {

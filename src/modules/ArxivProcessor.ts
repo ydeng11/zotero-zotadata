@@ -79,7 +79,6 @@ export class ArxivProcessor {
             await this.downloadPublishedVersion(item, publishedRef);
           } else {
             item.addTag("PDF Already Present", 1);
-            await item.saveTx();
           }
           item.addTag("Updated to Published Version", 1);
           await item.saveTx();
