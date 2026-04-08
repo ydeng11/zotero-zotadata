@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MetadataFetcher } from "@/modules/MetadataFetcher";
 import { createMockItem } from "../../../tests/__mocks__/zotero-items";
+import { validateMetadataMatch } from "@/utils/authorValidation";
 
 describe("MetadataFetcher legacy compatibility", () => {
   let fetcher: MetadataFetcher;
@@ -81,10 +82,12 @@ describe("MetadataFetcher legacy compatibility", () => {
         return "10.3000/found.doi";
       },
     );
-    vi.spyOn(fetcher as any, "searchDBLPForDOI").mockImplementation(async () => {
-      callOrder.push("dblp");
-      return null;
-    });
+    vi.spyOn(fetcher as any, "searchDBLPForDOI").mockImplementation(
+      async () => {
+        callOrder.push("dblp");
+        return null;
+      },
+    );
     vi.spyOn(fetcher as any, "searchGoogleScholarForDOI").mockImplementation(
       async () => {
         callOrder.push("googlescholar");
@@ -95,11 +98,7 @@ describe("MetadataFetcher legacy compatibility", () => {
     const discovered = await (fetcher as any).discoverDOI(item);
 
     expect(discovered).toBe("10.3000/found.doi");
-    expect(callOrder).toEqual([
-      "crossref",
-      "openalex",
-      "semanticscholar",
-    ]);
+    expect(callOrder).toEqual(["crossref", "openalex", "semanticscholar"]);
   });
 
   it("falls back to CrossRef metadata when translator lookup fails", async () => {
@@ -237,9 +236,7 @@ describe("MetadataFetcher legacy compatibility", () => {
 
     const result = await (fetcher as any).fetchDOIBasedMetadata(item);
 
-    expect(updateAuthorsSpy).toHaveBeenCalledWith(item, [
-      "Werner Hackenbruch",
-    ]);
+    expect(updateAuthorsSpy).toHaveBeenCalledWith(item, ["Werner Hackenbruch"]);
     expect(result.success).toBe(true);
     expect(result.changes).toContain("Updated authors: Werner Hackenbruch");
   });
@@ -275,11 +272,12 @@ describe("MetadataFetcher legacy compatibility", () => {
       creators: [{ firstName: "Jane", lastName: "Doe" }],
     });
 
-    (globalThis.Zotero.HTTP.request as unknown as ReturnType<typeof vi.fn>) =
-      vi.fn().mockResolvedValue({
+    (globalThis.Zotero.HTTP.request as unknown as ReturnType<typeof vi.fn>) = vi
+      .fn()
+      .mockResolvedValue({
         status: 200,
         responseText:
-          '<html><body>See https://doi.org/10.3000/test.doi and more text</body></html>',
+          "<html><body>See https://doi.org/10.3000/test.doi and more text</body></html>",
       });
 
     const doi = await (fetcher as any).searchGoogleScholarForDOI(item);
@@ -405,7 +403,9 @@ describe("MetadataFetcher legacy compatibility", () => {
       creators: [{ firstName: "Jane", lastName: "Doe" }],
     });
 
-    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue("10.1000/official");
+    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
+      "10.1000/official",
+    );
     vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
       false,
     );
@@ -430,5 +430,71 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
     expect(result.success).toBe(true);
     expect(result.changes).toContain("Updated DOI: 10.1000/official");
+  });
+});
+
+describe("MetadataFetcher GAN paper validation", () => {
+  it("rejects wrong paper with identical title but different authors", async () => {
+    const item = createMockItem({
+      title: "Generative Adversarial Nets",
+      extra: "arXiv: 1406.2661",
+      publicationTitle: "arXiv",
+      date: "2014",
+      creators: [
+        { firstName: "Ian J.", lastName: "Goodfellow", creatorType: "author" },
+        { firstName: "Jean", lastName: "Pouget-Abadie", creatorType: "author" },
+        { firstName: "Mehdi", lastName: "Mirza", creatorType: "author" },
+        { firstName: "Bing", lastName: "Xu", creatorType: "author" },
+        {
+          firstName: "David",
+          lastName: "Warde-Farley",
+          creatorType: "author",
+        },
+        { firstName: "Sherjil", lastName: "Ozair", creatorType: "author" },
+        { firstName: "Aaron", lastName: "Courville", creatorType: "author" },
+        { firstName: "Yoshua", lastName: "Bengio", creatorType: "author" },
+      ],
+    });
+
+    const wrongResult = {
+      title: "Generative Adversarial Nets",
+      authors: ["Raphael Labaca-Castro"],
+      year: 2023,
+      doi: "10.1007/978-3-658-40442-0_9",
+      confidence: 1,
+      source: "OpenAlex",
+    };
+
+    const validation = validateMetadataMatch(item, wrongResult);
+
+    expect(validation.accept).toBe(false);
+    expect(validation.reason).toContain("No authors match");
+  });
+
+  it("accepts correct paper with matching authors", async () => {
+    const item = createMockItem({
+      title: "Generative Adversarial Nets",
+      extra: "arXiv: 1406.2661",
+      publicationTitle: "arXiv",
+      date: "2014",
+      creators: [
+        { firstName: "Ian J.", lastName: "Goodfellow", creatorType: "author" },
+        { firstName: "Yoshua", lastName: "Bengio", creatorType: "author" },
+      ],
+    });
+
+    const correctResult = {
+      title: "Generative Adversarial Nets",
+      authors: ["Ian Goodfellow", "Yoshua Bengio"],
+      year: 2014,
+      doi: "10.5555/2969033.2969125",
+      confidence: 1,
+      source: "CrossRef",
+    };
+
+    const validation = validateMetadataMatch(item, correctResult);
+
+    expect(validation.accept).toBe(true);
+    expect(validation.matchedAuthors).toBeGreaterThanOrEqual(2);
   });
 });

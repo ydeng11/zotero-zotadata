@@ -13,6 +13,7 @@ import {
   normalizeDoi,
   parseDoiFromExtra,
 } from "@/utils/itemSearchQuery";
+import { validateMetadataMatch } from "@/utils/authorValidation";
 import type {
   CrossRefWork,
   ContextualError,
@@ -559,6 +560,12 @@ export class MetadataFetcher {
       }
     }
 
+    const arxivDoi = getCanonicalArxivDoiForItem(item);
+    if (arxivDoi && !options.publishedOnly) {
+      this.log(`No published DOI found, using arXiv DOI: ${arxivDoi}`);
+      return arxivDoi;
+    }
+
     return null;
   }
 
@@ -601,6 +608,22 @@ export class MetadataFetcher {
         workTitle &&
         this.titleSimilarity(workTitle, title) > 0.8
       ) {
+        const result = {
+          title: workTitle,
+          authors:
+            work.author?.map((a) =>
+              a.given ? `${a.given} ${a.family}` : a.family,
+            ) ?? [],
+          year: work.published?.["date-parts"]?.[0]?.[0],
+          doi,
+          confidence: 1,
+          source: "CrossRef",
+        };
+        const validation = validateMetadataMatch(item, result);
+        if (!validation.accept) {
+          this.log(`Rejected DOI ${doi}: ${validation.reason}`);
+          continue;
+        }
         return doi;
       }
     }
@@ -633,7 +656,7 @@ export class MetadataFetcher {
       includeDoi: !options.ignoreExistingDoi,
     });
     const results = await this.openAlexAPI.searchExact(query);
-    return this.pickDoiBySimilarity(results, title, 0.95, options);
+    return this.pickDoiBySimilarity(results, title, 0.95, options, item);
   }
 
   async searchOpenAlexTitleOnly(
@@ -645,7 +668,7 @@ export class MetadataFetcher {
       title,
       year: this.extractYear(item),
     });
-    return this.pickDoiBySimilarity(results, title, 0.9, options);
+    return this.pickDoiBySimilarity(results, title, 0.9, options, item);
   }
 
   async searchSemanticScholarForDOI(
@@ -1855,7 +1878,9 @@ export class MetadataFetcher {
     return this.titleSimilarity(metadataTitle, currentTitle) >= 0.9;
   }
 
-  private async discoverPublishedDoi(item: Zotero.Item): Promise<string | null> {
+  private async discoverPublishedDoi(
+    item: Zotero.Item,
+  ): Promise<string | null> {
     return this.discoverDOI(item, {
       ignoreExistingDoi: true,
       publishedOnly: true,
@@ -1867,17 +1892,30 @@ export class MetadataFetcher {
     title: string,
     minSimilarity: number,
     options: DOIDiscoveryOptions = {},
+    item?: Zotero.Item,
   ): string | null {
     for (const result of results) {
-      if (
-        result.doi &&
-        (!options.publishedOnly || !isArxivDoi(result.doi)) &&
-        result.title &&
-        this.titleSimilarity(result.title, title) > minSimilarity
-      ) {
-        return normalizeDoi(result.doi);
+      const doi = result.doi ? normalizeDoi(result.doi) : "";
+      if (!doi) continue;
+
+      if (options.publishedOnly && isArxivDoi(doi)) continue;
+
+      const resultTitle = result.title || "";
+      const similarity = this.titleSimilarity(resultTitle, title);
+
+      if (similarity < minSimilarity) continue;
+
+      if (item) {
+        const validation = validateMetadataMatch(item, result);
+        if (!validation.accept) {
+          this.log(`Rejected DOI ${doi}: ${validation.reason}`);
+          continue;
+        }
       }
+
+      return doi;
     }
+
     return null;
   }
 
@@ -2195,6 +2233,12 @@ export class MetadataFetcher {
           };
         }),
       );
+    }
+  }
+
+  private log(message: string): void {
+    if (typeof Zotero !== "undefined" && Zotero.log) {
+      Zotero.log(`Zotadata MetadataFetcher: ${message}`);
     }
   }
 }
