@@ -107,6 +107,32 @@ Right-click on selected items in your Zotero library to access:
 
 Select multiple items to process them all at once. A progress dialog will show the status of each operation.
 
+## Metadata Fetching
+
+### Author Disambiguation
+
+The plugin uses multi-factor validation to ensure correct metadata matching, especially for papers with identical titles:
+
+1. **Author Overlap**: Validates that search results share authors with the item
+2. **Author Count Similarity**: Rejects matches with drastically different author counts
+3. **Year Proximity**: Considers publication year in scoring
+4. **Title Similarity**: Uses word-based similarity scoring
+5. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+
+For best results, ensure your items have:
+
+- Complete author lists (not just first author)
+- Publication year
+- arXiv ID in Extra field (format: `arXiv: XXXX.XXXXX`)
+
+### Example: "Generative Adversarial Nets"
+
+This famous paper has multiple versions and even other papers with identical titles. The plugin correctly identifies it by:
+
+1. Matching multiple authors (Goodfellow, Bengio, etc.)
+2. Checking year (2014 vs 2023 for other papers)
+3. Falling back to arXiv DOI (10.48550/arxiv.1406.2661) if published DOI not found
+
 ## Success Rates & Expectations
 
 ### PDF Retrieval Reality
