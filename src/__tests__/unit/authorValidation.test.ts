@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeLastName,
   calculateAuthorOverlap,
+  validateMetadataMatch,
 } from "@/utils/authorValidation";
+import type { SearchResult } from "@/shared/core/types";
 
 describe("authorValidation", () => {
   describe("normalizeLastName", () => {
@@ -72,6 +74,118 @@ describe("authorValidation", () => {
 
       expect(result.matchCount).toBe(0);
       expect(result.overlapRatio).toBe(0);
+    });
+  });
+
+  describe("validateMetadataMatch", () => {
+    const createMockItem = (
+      authors: string[],
+      year: number,
+      title: string,
+    ) => ({
+      getCreators: () =>
+        authors.map((a) => ({
+          lastName: a,
+          firstName: "",
+          creatorType: "author",
+        })),
+      getField: (field: string) => (field === "title" ? title : String(year)),
+    });
+
+    it("accepts match with sufficient author overlap", () => {
+      const item = createMockItem(
+        ["Goodfellow", "Bengio", "Courville"],
+        2014,
+        "Generative Adversarial Nets",
+      );
+
+      const candidate: SearchResult = {
+        title: "Generative Adversarial Nets",
+        authors: ["Goodfellow", "Bengio", "Mirza"],
+        year: 2014,
+        doi: "10.1234/test",
+        confidence: 1,
+        source: "CrossRef",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(true);
+      expect(result.score).toBeGreaterThan(0.7);
+    });
+
+    it("rejects match with no author overlap", () => {
+      const item = createMockItem(
+        ["Goodfellow", "Bengio", "Courville", "Mirza", "Xu"],
+        2014,
+        "Generative Adversarial Nets",
+      );
+
+      const candidate: SearchResult = {
+        title: "Generative Adversarial Nets",
+        authors: ["Labaca-Castro"],
+        year: 2023,
+        doi: "10.1007/978-3-658-40442-0_9",
+        confidence: 1,
+        source: "OpenAlex",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
+      expect(result.reason).toContain("No authors match");
+    });
+
+    it("rejects match with large author count difference", () => {
+      const item = createMockItem(
+        [
+          "Goodfellow",
+          "Pouget-Abadie",
+          "Mirza",
+          "Xu",
+          "Warde-Farley",
+          "Ozair",
+          "Courville",
+          "Bengio",
+        ],
+        2014,
+        "Generative Adversarial Nets",
+      );
+
+      const candidate: SearchResult = {
+        title: "Generative Adversarial Nets",
+        authors: ["Goodfellow"],
+        year: 2023,
+        doi: "10.1007/978-3-658-40442-0_9",
+        confidence: 1,
+        source: "OpenAlex",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
+      expect(result.reason).toContain("Author count differs");
+    });
+
+    it("accepts match with year difference but strong author overlap", () => {
+      const item = createMockItem(
+        ["Goodfellow", "Bengio", "Courville"],
+        2014,
+        "Deep Learning",
+      );
+
+      const candidate: SearchResult = {
+        title: "Deep Learning",
+        authors: ["Goodfellow", "Bengio", "Courville"],
+        year: 2016,
+        doi: "10.1038/nature14539",
+        confidence: 1,
+        source: "CrossRef",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(true);
     });
   });
 });

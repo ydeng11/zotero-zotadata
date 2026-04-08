@@ -1,3 +1,12 @@
+import type { SearchResult } from "@/shared/core/types";
+
+interface ZoteroCreator {
+  firstName?: string;
+  lastName: string;
+  name?: string;
+  creatorType: string;
+}
+
 export function normalizeLastName(name: string): string {
   if (!name || typeof name !== "string") return "";
 
@@ -39,6 +48,14 @@ export interface AuthorOverlapResult {
   matchCount: number;
 }
 
+export interface MatchValidationResult {
+  accept: boolean;
+  score: number;
+  reason: string;
+  matchedAuthors: number;
+  authorOverlap: number;
+}
+
 export function calculateAuthorOverlap(
   authors1: string[],
   authors2: string[],
@@ -65,4 +82,100 @@ export function calculateAuthorOverlap(
     overlapRatio,
     matchCount: matchedAuthors.length,
   };
+}
+
+export function validateMetadataMatch(
+  item: {
+    getCreators: () => ZoteroCreator[];
+    getField: (field: string) => string;
+  },
+  candidate: SearchResult,
+): MatchValidationResult {
+  const itemAuthors = item
+    .getCreators()
+    .filter((c) => c.creatorType === "author")
+    .map((c) => c.lastName)
+    .filter(Boolean);
+
+  const candidateAuthors = candidate.authors || [];
+
+  const overlap = calculateAuthorOverlap(itemAuthors, candidateAuthors);
+
+  if (overlap.matchCount === 0 && itemAuthors.length > 0) {
+    return {
+      accept: false,
+      score: 0,
+      reason: "No authors match",
+      matchedAuthors: 0,
+      authorOverlap: 0,
+    };
+  }
+
+  const authorCountDiff = Math.abs(
+    itemAuthors.length - candidateAuthors.length,
+  );
+
+  if (authorCountDiff > 5) {
+    return {
+      accept: false,
+      score: 0,
+      reason: `Author count differs too much (${authorCountDiff})`,
+      matchedAuthors: overlap.matchCount,
+      authorOverlap: overlap.overlapRatio,
+    };
+  }
+
+  const itemYear = parseInt(item.getField("date") || "0");
+  const candidateYear = candidate.year || 0;
+  const yearDiff = Math.abs(itemYear - candidateYear);
+
+  const titleSimilarity = calculateTitleSimilarity(
+    item.getField("title") || "",
+    candidate.title,
+  );
+
+  const score =
+    0.3 * titleSimilarity +
+    0.2 * (overlap.overlapRatio >= 0.5 ? 1 : overlap.overlapRatio) +
+    0.15 * (authorCountDiff <= 2 ? 1 : authorCountDiff <= 4 ? 0.5 : 0) +
+    0.2 * overlap.overlapRatio +
+    0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0) +
+    0.05 * 0;
+
+  const accept = score >= 0.7 && overlap.matchCount >= 1;
+
+  return {
+    accept,
+    score,
+    reason: accept ? "Strong match" : `Weak match (score: ${score.toFixed(2)})`,
+    matchedAuthors: overlap.matchCount,
+    authorOverlap: overlap.overlapRatio,
+  };
+}
+
+function calculateTitleSimilarity(title1: string, title2: string): number {
+  const normalize = (s: string): string =>
+    s
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const words1 = new Set(
+    normalize(title1)
+      .split(" ")
+      .filter((w) => w.length > 2),
+  );
+  const words2 = new Set(
+    normalize(title2)
+      .split(" ")
+      .filter((w) => w.length > 2),
+  );
+
+  if (words1.size === 0 || words2.size === 0) return 0;
+
+  const intersection = new Set([...words1].filter((w) => words2.has(w)));
+  const union = new Set([...words1, ...words2]);
+
+  return union.size > 0 ? intersection.size / union.size : 0;
 }
