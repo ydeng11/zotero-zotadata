@@ -35,6 +35,8 @@ describe("GAN Paper Validation (Integration)", () => {
 
     vi.spyOn(CrossRefAPI.prototype, "fetchWorksByQuery").mockResolvedValue([]);
 
+    vi.spyOn(OpenAlexAPI.prototype, "searchExact").mockResolvedValue([]);
+
     vi.spyOn(OpenAlexAPI.prototype, "search").mockResolvedValue([
       {
         title: "Generative Adversarial Nets",
@@ -46,14 +48,17 @@ describe("GAN Paper Validation (Integration)", () => {
       },
     ]);
 
-    const result = await (fetcher as any).discoverDOI(item, {
-      ignoreExistingDoi: true,
-      publishedOnly: false,
-    });
+    const result = await fetcher.fetchMetadataForItem(item);
 
-    expect(result).not.toBe("10.1007/978-3-658-40442-0_9");
-
-    expect(result).toBe("10.48550/arxiv.1406.2661");
+    expect(result.success).toBe(true);
+    expect(result.item.setField).toHaveBeenCalledWith(
+      "DOI",
+      "10.48550/arxiv.1406.2661",
+    );
+    expect(result.item.setField).not.toHaveBeenCalledWith(
+      "DOI",
+      "10.1007/978-3-658-40442-0_9",
+    );
   });
 
   it("accepts correct paper when found with matching authors", async () => {
@@ -66,6 +71,7 @@ describe("GAN Paper Validation (Integration)", () => {
       creators: [
         { firstName: "Ian J.", lastName: "Goodfellow", creatorType: "author" },
         { firstName: "Yoshua", lastName: "Bengio", creatorType: "author" },
+        { firstName: "Aaron", lastName: "Courville", creatorType: "author" },
       ],
     });
 
@@ -76,19 +82,22 @@ describe("GAN Paper Validation (Integration)", () => {
         author: [
           { given: "Ian", family: "Goodfellow" },
           { given: "Yoshua", family: "Bengio" },
+          { given: "Aaron", family: "Courville" },
         ],
         published: { "date-parts": [[2014]] },
       },
     ]);
 
+    vi.spyOn(OpenAlexAPI.prototype, "searchExact").mockResolvedValue([]);
     vi.spyOn(OpenAlexAPI.prototype, "search").mockResolvedValue([]);
 
-    const result = await (fetcher as any).discoverDOI(item, {
-      ignoreExistingDoi: true,
-      publishedOnly: false,
-    });
+    const result = await fetcher.fetchMetadataForItem(item);
 
-    expect(result).toBe("10.5555/2969033.2969125");
+    expect(result.success).toBe(true);
+    expect(result.item.setField).toHaveBeenCalledWith(
+      "DOI",
+      "10.5555/2969033.2969125",
+    );
   });
 });
 
