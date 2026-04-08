@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
-import { AttachmentManager } from '@/features/attachment/AttachmentManager';
+import { describe, it, expect, vi } from "vitest";
+import { AttachmentManager } from "@/features/attachment/AttachmentManager";
 
-describe('AttachmentManager', () => {
-  it('should remove invalid attachment', async () => {
+describe("AttachmentManager", () => {
+  it("should remove invalid attachment", async () => {
     const manager = new AttachmentManager();
 
     const mockAttachment = {
@@ -17,9 +17,9 @@ describe('AttachmentManager', () => {
     expect(mockAttachment.eraseTx).toHaveBeenCalled();
   });
 
-  it('should move attachment to trash instead of deleting', async () => {
+  it("should move attachment to trash instead of deleting", async () => {
     const trash = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('Zotero', {
+    vi.stubGlobal("Zotero", {
       Items: {
         trash,
       },

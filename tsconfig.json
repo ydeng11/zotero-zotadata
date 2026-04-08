@@ -24,14 +24,6 @@
     },
     "typeRoots": ["./node_modules/@types", "./typings"]
   },
-  "include": [
-    "src/**/*",
-    "typings/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".scaffold",
-    "typings/i10n.d.ts"
-  ]
-} 
+  "include": ["src/**/*", "typings/**/*"],
+  "exclude": ["node_modules", "dist", ".scaffold", "typings/i10n.d.ts"]
+}

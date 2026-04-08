@@ -1,11 +1,18 @@
 // tests/unit/zotadata/batch-processing.test.ts
 // Tests for batch processing functions in zotadata.js
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createZotadataMethod, clearCache } from '../../helpers/extract-function';
-import { createMockItem, createMockAttachment, resetMockCounters } from '../../__mocks__/zotero-items';
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import {
+  createZotadataMethod,
+  clearCache,
+} from "../../helpers/extract-function";
+import {
+  createMockItem,
+  createMockAttachment,
+  resetMockCounters,
+} from "../../__mocks__/zotero-items";
 
-describe('processBatch', () => {
+describe("processBatch", () => {
   let processBatch: any;
 
   beforeEach(() => {
@@ -20,16 +27,18 @@ describe('processBatch', () => {
             changeHeadline: vi.fn(),
             show: vi.fn(),
             close: vi.fn(),
-            _progressIndicators: [{
-              setProgress: vi.fn(),
-              setText: vi.fn(),
-            }],
+            _progressIndicators: [
+              {
+                setProgress: vi.fn(),
+                setText: vi.fn(),
+              },
+            ],
           })),
         },
       }),
     };
 
-    processBatch = createZotadataMethod('processBatch', {
+    processBatch = createZotadataMethod("processBatch", {
       log: vi.fn(),
       createProgressWindow: vi.fn().mockReturnValue(null),
       updateProgressWindow: vi.fn(),
@@ -41,8 +50,10 @@ describe('processBatch', () => {
     vi.clearAllMocks();
   });
 
-  it('should process items in batches', async () => {
-    const items = Array(10).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
+  it("should process items in batches", async () => {
+    const items = Array(10)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
     const processFn = vi.fn().mockResolvedValue({ success: true });
 
     const result = await processBatch(items, processFn, { batchSize: 3 });
@@ -51,18 +62,19 @@ describe('processBatch', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should handle errors in processing', async () => {
+  it("should handle errors in processing", async () => {
     const items = [createMockItem({ id: 1 }), createMockItem({ id: 2 })];
-    const processFn = vi.fn()
+    const processFn = vi
+      .fn()
       .mockResolvedValueOnce({ success: true })
-      .mockRejectedValueOnce(new Error('Failed'));
+      .mockRejectedValueOnce(new Error("Failed"));
 
     const result = await processBatch(items, processFn, { batchSize: 1 });
 
     expect(result.errorCount).toBe(1);
   });
 
-  it('should call progress callback', async () => {
+  it("should call progress callback", async () => {
     const items = [createMockItem({ id: 1 }), createMockItem({ id: 2 })];
     const onProgress = vi.fn();
     const processFn = vi.fn().mockResolvedValue({ success: true });
@@ -75,8 +87,10 @@ describe('processBatch', () => {
     expect(onProgress).toHaveBeenCalled();
   });
 
-  it('should respect batch size setting', async () => {
-    const items = Array(6).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
+  it("should respect batch size setting", async () => {
+    const items = Array(6)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
     const processFn = vi.fn().mockResolvedValue({ success: true });
 
     await processBatch(items, processFn, { batchSize: 2 });
@@ -85,8 +99,10 @@ describe('processBatch', () => {
     expect(processFn).toHaveBeenCalledTimes(6);
   });
 
-  it('should add delay between batches', async () => {
-    const items = Array(4).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
+  it("should add delay between batches", async () => {
+    const items = Array(4)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
     const processFn = vi.fn().mockResolvedValue({ success: true });
     const delayBetweenBatches = 50;
 
@@ -98,24 +114,27 @@ describe('processBatch', () => {
     expect(duration).toBeGreaterThanOrEqual(delayBetweenBatches - 10); // Allow small margin
   });
 
-  it('should return correct result structure', async () => {
+  it("should return correct result structure", async () => {
     const items = [createMockItem({ id: 1 })];
-    const processFn = vi.fn().mockResolvedValue({ data: 'test' });
+    const processFn = vi.fn().mockResolvedValue({ data: "test" });
 
     const result = await processBatch(items, processFn, { batchSize: 1 });
 
-    expect(result).toHaveProperty('success');
-    expect(result).toHaveProperty('totalProcessed');
-    expect(result).toHaveProperty('errorCount');
-    expect(result).toHaveProperty('results');
+    expect(result).toHaveProperty("success");
+    expect(result).toHaveProperty("totalProcessed");
+    expect(result).toHaveProperty("errorCount");
+    expect(result).toHaveProperty("results");
     expect(Array.isArray(result.results)).toBe(true);
   });
 
-  it('should collect errors without stopping batch', async () => {
-    const items = Array(3).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
-    const processFn = vi.fn()
+  it("should collect errors without stopping batch", async () => {
+    const items = Array(3)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
+    const processFn = vi
+      .fn()
       .mockResolvedValueOnce({ success: true })
-      .mockRejectedValueOnce(new Error('Failed'))
+      .mockRejectedValueOnce(new Error("Failed"))
       .mockResolvedValueOnce({ success: true });
 
     const result = await processBatch(items, processFn, { batchSize: 1 });
@@ -125,8 +144,10 @@ describe('processBatch', () => {
     expect(result.totalProcessed).toBe(3);
   });
 
-  it('should call onBatchComplete callback after each batch', async () => {
-    const items = Array(4).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
+  it("should call onBatchComplete callback after each batch", async () => {
+    const items = Array(4)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
     const onBatchComplete = vi.fn();
     const processFn = vi.fn().mockResolvedValue({ success: true });
 
@@ -136,7 +157,7 @@ describe('processBatch', () => {
     expect(onBatchComplete).toHaveBeenCalledTimes(2);
   });
 
-  it('should indicate last batch in onBatchComplete callback', async () => {
+  it("should indicate last batch in onBatchComplete callback", async () => {
     const items = [createMockItem({ id: 1 }), createMockItem({ id: 2 })];
     const onBatchComplete = vi.fn();
     const processFn = vi.fn().mockResolvedValue({ success: true });
@@ -147,17 +168,19 @@ describe('processBatch', () => {
     expect(onBatchComplete).toHaveBeenCalledWith(
       expect.any(Array),
       expect.any(Array),
-      true
+      true,
     );
   });
 
-  it('should process items concurrently within a batch', async () => {
-    const items = Array(3).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
+  it("should process items concurrently within a batch", async () => {
+    const items = Array(3)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
     const processingOrder: number[] = [];
     const processFn = vi.fn().mockImplementation(async (item: any) => {
       processingOrder.push(item.id);
       // Small delay to simulate async work
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
       return { success: true };
     });
 
@@ -168,11 +191,14 @@ describe('processBatch', () => {
     expect(processingOrder.length).toBe(3);
   });
 
-  it('should calculate success rate correctly', async () => {
-    const items = Array(4).fill(null).map((_, i) => createMockItem({ id: i + 1 }));
-    const processFn = vi.fn()
+  it("should calculate success rate correctly", async () => {
+    const items = Array(4)
+      .fill(null)
+      .map((_, i) => createMockItem({ id: i + 1 }));
+    const processFn = vi
+      .fn()
       .mockResolvedValueOnce({ success: true })
-      .mockRejectedValueOnce(new Error('Failed'))
+      .mockRejectedValueOnce(new Error("Failed"))
       .mockResolvedValueOnce({ success: true })
       .mockResolvedValueOnce({ success: true });
 
@@ -183,7 +209,7 @@ describe('processBatch', () => {
     expect(result.successRate).toBe(75); // 3 out of 4
   });
 
-  it('should pass item index to processFn', async () => {
+  it("should pass item index to processFn", async () => {
     const items = [createMockItem({ id: 1 }), createMockItem({ id: 2 })];
     const processFn = vi.fn().mockResolvedValue({ success: true });
 
@@ -195,7 +221,7 @@ describe('processBatch', () => {
   });
 });
 
-describe('simpleAttachmentCheckBatch', () => {
+describe("simpleAttachmentCheckBatch", () => {
   let simpleAttachmentCheckBatch: any;
 
   beforeEach(() => {
@@ -214,16 +240,19 @@ describe('simpleAttachmentCheckBatch', () => {
       },
     };
 
-    simpleAttachmentCheckBatch = createZotadataMethod('simpleAttachmentCheckBatch', {
-      log: vi.fn(),
-    });
+    simpleAttachmentCheckBatch = createZotadataMethod(
+      "simpleAttachmentCheckBatch",
+      {
+        log: vi.fn(),
+      },
+    );
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should return stats for item with no attachments', async () => {
+  it("should return stats for item with no attachments", async () => {
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([]);
 
@@ -235,7 +264,7 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.processed).toBe(1);
   });
 
-  it('should remove broken file attachments', async () => {
+  it("should remove broken file attachments", async () => {
     const brokenAttachment = createMockAttachment({
       id: 1,
       linkMode: 2, // IMPORTED_FILE
@@ -244,7 +273,9 @@ describe('simpleAttachmentCheckBatch', () => {
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(brokenAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(brokenAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -252,7 +283,7 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(brokenAttachment.eraseTx).toHaveBeenCalled();
   });
 
-  it('should keep weblink attachments', async () => {
+  it("should keep weblink attachments", async () => {
     const weblinkAttachment = createMockAttachment({
       id: 1,
       linkMode: 1, // LINKED_URL
@@ -260,7 +291,9 @@ describe('simpleAttachmentCheckBatch', () => {
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(weblinkAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(weblinkAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -269,17 +302,19 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(weblinkAttachment.eraseTx).not.toHaveBeenCalled();
   });
 
-  it('should count valid file attachments', async () => {
+  it("should count valid file attachments", async () => {
     const validAttachment = createMockAttachment({
       id: 1,
       linkMode: 2, // IMPORTED_FILE
       fileExists: true,
-      filePath: '/path/to/file.pdf',
+      filePath: "/path/to/file.pdf",
     });
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(validAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(validAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -287,10 +322,10 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.removed).toBe(0);
   });
 
-  it('should handle errors gracefully', async () => {
+  it("should handle errors gracefully", async () => {
     const item = createMockItem();
     item.getAttachments = vi.fn().mockImplementation(() => {
-      throw new Error('Test error');
+      throw new Error("Test error");
     });
 
     const result = await simpleAttachmentCheckBatch(item);
@@ -299,7 +334,7 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.processed).toBe(1);
   });
 
-  it('should handle missing attachment object', async () => {
+  it("should handle missing attachment object", async () => {
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([999]);
     (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(null);
@@ -312,7 +347,7 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.errors).toBe(0);
   });
 
-  it('should handle attachment with no file path', async () => {
+  it("should handle attachment with no file path", async () => {
     const noPathAttachment = createMockAttachment({
       id: 1,
       linkMode: 2, // IMPORTED_FILE
@@ -321,7 +356,9 @@ describe('simpleAttachmentCheckBatch', () => {
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(noPathAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(noPathAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -329,17 +366,19 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(noPathAttachment.eraseTx).toHaveBeenCalled();
   });
 
-  it('should handle linked file attachments', async () => {
+  it("should handle linked file attachments", async () => {
     const linkedAttachment = createMockAttachment({
       id: 1,
       linkMode: 3, // LINKED_FILE
       fileExists: true,
-      filePath: '/path/to/linked/file.pdf',
+      filePath: "/path/to/linked/file.pdf",
     });
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(linkedAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(linkedAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -347,12 +386,12 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.removed).toBe(0);
   });
 
-  it('should process multiple attachments', async () => {
+  it("should process multiple attachments", async () => {
     const validAttachment = createMockAttachment({
       id: 1,
       linkMode: 2,
       fileExists: true,
-      filePath: '/path/to/file.pdf',
+      filePath: "/path/to/file.pdf",
     });
     const brokenAttachment = createMockAttachment({
       id: 2,
@@ -366,7 +405,8 @@ describe('simpleAttachmentCheckBatch', () => {
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1, 2, 3]);
-    (globalThis as any).Zotero.Items.get = vi.fn()
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
       .mockImplementation((id: number) => {
         if (id === 1) return validAttachment;
         if (id === 2) return brokenAttachment;
@@ -381,7 +421,7 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.weblinks).toBe(1);
   });
 
-  it('should handle unknown attachment link mode', async () => {
+  it("should handle unknown attachment link mode", async () => {
     const unknownAttachment = createMockAttachment({
       id: 1,
       linkMode: 99, // Unknown mode
@@ -389,7 +429,9 @@ describe('simpleAttachmentCheckBatch', () => {
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(unknownAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(unknownAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -398,21 +440,23 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.removed).toBe(0);
   });
 
-  it('should handle file check errors', async () => {
+  it("should handle file check errors", async () => {
     const errorAttachment = createMockAttachment({
       id: 1,
       linkMode: 2,
-      filePath: '/path/to/file.pdf',
+      filePath: "/path/to/file.pdf",
       fileExists: true,
     });
     // Override getFilePath to throw
     errorAttachment.getFilePath = vi.fn().mockImplementation(() => {
-      throw new Error('File access error');
+      throw new Error("File access error");
     });
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(errorAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(errorAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 
@@ -420,18 +464,22 @@ describe('simpleAttachmentCheckBatch', () => {
     expect(result.removed).toBe(1);
   });
 
-  it('should handle erase errors gracefully', async () => {
+  it("should handle erase errors gracefully", async () => {
     const brokenAttachment = createMockAttachment({
       id: 1,
       linkMode: 2,
       fileExists: false,
     });
     // Make eraseTx throw
-    brokenAttachment.eraseTx = vi.fn().mockRejectedValue(new Error('Erase failed'));
+    brokenAttachment.eraseTx = vi
+      .fn()
+      .mockRejectedValue(new Error("Erase failed"));
 
     const item = createMockItem();
     item.getAttachments = vi.fn().mockReturnValue([1]);
-    (globalThis as any).Zotero.Items.get = vi.fn().mockReturnValue(brokenAttachment);
+    (globalThis as any).Zotero.Items.get = vi
+      .fn()
+      .mockReturnValue(brokenAttachment);
 
     const result = await simpleAttachmentCheckBatch(item);
 

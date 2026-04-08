@@ -1,5 +1,5 @@
 // tests/__mocks__/zotero-translate.ts
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 export interface MockTranslatorConfig {
   found?: boolean;

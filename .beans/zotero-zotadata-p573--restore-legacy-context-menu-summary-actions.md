@@ -11,6 +11,7 @@ updated_at: 2026-04-07T03:10:23Z
 Bring the Zotero item context menu back in line with legacy zotadata.js summary actions.
 
 ## Todo
+
 - [x] Compare current context menu registration with legacy zotadata.js labels and order
 - [x] Propose the menu restoration approach and confirm desired behavior
 - [x] Add or update failing tests for the expected context menu entries

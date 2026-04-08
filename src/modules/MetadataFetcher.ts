@@ -599,35 +599,20 @@ export class MetadataFetcher {
         includeDoi: !options.ignoreExistingDoi,
       }),
     );
-    for (const work of works) {
-      const workTitle = Array.isArray(work.title) ? work.title[0] : work.title;
-      const doi = work.DOI ? normalizeDoi(work.DOI) : "";
-      if (
-        doi &&
-        (!options.publishedOnly || !isArxivDoi(doi)) &&
-        workTitle &&
-        this.titleSimilarity(workTitle, title) > 0.8
-      ) {
-        const result = {
-          title: workTitle,
-          authors:
-            work.author?.map((a) =>
-              a.given ? `${a.given} ${a.family}` : a.family,
-            ) ?? [],
-          year: work.published?.["date-parts"]?.[0]?.[0],
-          doi,
-          confidence: 1,
-          source: "CrossRef",
-        };
-        const validation = validateMetadataMatch(item, result);
-        if (!validation.accept) {
-          this.log(`Rejected DOI ${doi}: ${validation.reason}`);
-          continue;
-        }
-        return doi;
-      }
-    }
-    return null;
+
+    const results: SearchResult[] = works.map((work) => ({
+      title: Array.isArray(work.title) ? work.title[0] : work.title || "",
+      authors:
+        work.author?.map((a) =>
+          a.given ? `${a.given} ${a.family}` : a.family,
+        ) ?? [],
+      year: work.published?.["date-parts"]?.[0]?.[0],
+      doi: work.DOI ? normalizeDoi(work.DOI) : undefined,
+      confidence: 1,
+      source: "CrossRef",
+    }));
+
+    return this.pickDoiBySimilarity(results, title, 0.8, options, item);
   }
 
   async searchOpenAlexForDOI(

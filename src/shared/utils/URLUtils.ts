@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
+import { ErrorManager, ErrorType } from "@/shared/core";
 
 /**
  * URL validation result
@@ -13,7 +13,7 @@ interface URLValidationResult {
   security: {
     isHttps: boolean;
     suspiciousPatterns: string[];
-    trustLevel: 'high' | 'medium' | 'low';
+    trustLevel: "high" | "medium" | "low";
   };
 }
 
@@ -38,23 +38,23 @@ export class URLUtils {
 
   // Known file hosting domains
   private static readonly FILE_HOSTS = new Set([
-    'arxiv.org',
-    'biorxiv.org',
-    'medrxiv.org',
-    'psyarxiv.com',
-    'osf.io',
-    'zenodo.org',
-    'figshare.com',
-    'researchgate.net',
-    'academia.edu',
-    'sci-hub.se',
-    'sci-hub.st',
-    'sci-hub.ru',
-    'libgen.is',
-    'libgen.rs',
-    'libgen.li',
-    'b-ok.org',
-    'z-lib.org',
+    "arxiv.org",
+    "biorxiv.org",
+    "medrxiv.org",
+    "psyarxiv.com",
+    "osf.io",
+    "zenodo.org",
+    "figshare.com",
+    "researchgate.net",
+    "academia.edu",
+    "sci-hub.se",
+    "sci-hub.st",
+    "sci-hub.ru",
+    "libgen.is",
+    "libgen.rs",
+    "libgen.li",
+    "b-ok.org",
+    "z-lib.org",
   ]);
 
   // Suspicious URL patterns
@@ -67,9 +67,23 @@ export class URLUtils {
 
   // Common tracking parameters to remove
   private static readonly TRACKING_PARAMS = new Set([
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-    'fbclid', 'gclid', 'msclkid', 'ref', 'referrer', 'source',
-    '_ga', '_gl', 'mc_cid', 'mc_eid', 'campaign', 'medium',
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "fbclid",
+    "gclid",
+    "msclkid",
+    "ref",
+    "referrer",
+    "source",
+    "_ga",
+    "_gl",
+    "mc_cid",
+    "mc_eid",
+    "campaign",
+    "medium",
   ]);
 
   /**
@@ -78,26 +92,26 @@ export class URLUtils {
   static validateAndCleanURL(url: string): URLValidationResult {
     const result: URLValidationResult = {
       valid: false,
-      cleaned: '',
-      domain: '',
-      protocol: '',
+      cleaned: "",
+      domain: "",
+      protocol: "",
       errors: [],
       warnings: [],
       security: {
         isHttps: false,
         suspiciousPatterns: [],
-        trustLevel: 'low',
+        trustLevel: "low",
       },
     };
 
     try {
       // Basic URL validation and cleaning
-      let cleanedUrl = this.basicCleanURL(url);
+      const cleanedUrl = this.basicCleanURL(url);
 
       const parsedUrl = new URL(cleanedUrl);
       result.domain = parsedUrl.hostname;
       result.protocol = parsedUrl.protocol;
-      result.security.isHttps = parsedUrl.protocol === 'https:';
+      result.security.isHttps = parsedUrl.protocol === "https:";
 
       // Remove tracking parameters
       this.removeTrackingParameters(parsedUrl);
@@ -121,13 +135,14 @@ export class URLUtils {
       }
 
       if (result.security.suspiciousPatterns.length > 0) {
-        result.warnings.push('URL contains suspicious patterns');
-        result.security.trustLevel = 'low';
+        result.warnings.push("URL contains suspicious patterns");
+        result.security.trustLevel = "low";
       }
-
-         } catch (error: any) {
-       result.errors.push(`Invalid URL format: ${error?.message || 'Unknown error'}`);
-     }
+    } catch (error: any) {
+      result.errors.push(
+        `Invalid URL format: ${error?.message || "Unknown error"}`,
+      );
+    }
 
     return result;
   }
@@ -151,9 +166,11 @@ export class URLUtils {
         /file.*\.pdf/,
       ];
 
-      return directPatterns.some(pattern => pattern.test(path)) ||
-             parsedUrl.searchParams.has('download') ||
-             parsedUrl.searchParams.has('attachment');
+      return (
+        directPatterns.some((pattern) => pattern.test(path)) ||
+        parsedUrl.searchParams.has("download") ||
+        parsedUrl.searchParams.has("attachment")
+      );
     } catch {
       return false;
     }
@@ -175,17 +192,17 @@ export class URLUtils {
       const domain = parsedUrl.hostname.toLowerCase();
 
       // Extract filename from URL
-      const pathSegments = parsedUrl.pathname.split('/');
+      const pathSegments = parsedUrl.pathname.split("/");
       const lastSegment = pathSegments[pathSegments.length - 1];
 
-      if (lastSegment && lastSegment.includes('.')) {
+      if (lastSegment && lastSegment.includes(".")) {
         info.filename = decodeURIComponent(lastSegment);
       }
 
       // Domain-specific handling
-      if (domain.includes('arxiv.org')) {
+      if (domain.includes("arxiv.org")) {
         info.directDownload = true;
-        info.mimeType = 'application/pdf';
+        info.mimeType = "application/pdf";
         if (!info.filename) {
           const arxivId = this.extractArxivId(url);
           if (arxivId) {
@@ -194,30 +211,31 @@ export class URLUtils {
         }
       }
 
-      if (domain.includes('libgen')) {
+      if (domain.includes("libgen")) {
         info.requiresReferer = true;
         info.mirrors = this.getLibGenMirrors(url);
       }
 
-      if (domain.includes('sci-hub')) {
+      if (domain.includes("sci-hub")) {
         info.requiresReferer = true;
         info.directDownload = false; // Usually requires page parsing
       }
 
       // Check for file size in URL parameters
-      const sizeParam = parsedUrl.searchParams.get('size') ||
-                        parsedUrl.searchParams.get('filesize');
+      const sizeParam =
+        parsedUrl.searchParams.get("size") ||
+        parsedUrl.searchParams.get("filesize");
       if (sizeParam) {
         info.filesize = parseInt(sizeParam, 10);
       }
 
       // Check for MIME type in URL
-      const typeParam = parsedUrl.searchParams.get('type') ||
-                        parsedUrl.searchParams.get('mimetype');
+      const typeParam =
+        parsedUrl.searchParams.get("type") ||
+        parsedUrl.searchParams.get("mimetype");
       if (typeParam) {
         info.mimeType = typeParam;
       }
-
     } catch (error) {
       // URL parsing failed, return basic info
     }
@@ -234,22 +252,24 @@ export class URLUtils {
 
       // List of domains that support HTTPS
       const httpsSupported = [
-        'arxiv.org',
-        'biorxiv.org',
-        'medrxiv.org',
-        'zenodo.org',
-        'figshare.com',
-        'researchgate.net',
-        'academia.edu',
-        'doi.org',
-        'crossref.org',
-        'semanticscholar.org',
-        'openalex.org',
+        "arxiv.org",
+        "biorxiv.org",
+        "medrxiv.org",
+        "zenodo.org",
+        "figshare.com",
+        "researchgate.net",
+        "academia.edu",
+        "doi.org",
+        "crossref.org",
+        "semanticscholar.org",
+        "openalex.org",
       ];
 
-      if (parsedUrl.protocol === 'http:' &&
-          httpsSupported.some(domain => parsedUrl.hostname.includes(domain))) {
-        parsedUrl.protocol = 'https:';
+      if (
+        parsedUrl.protocol === "http:" &&
+        httpsSupported.some((domain) => parsedUrl.hostname.includes(domain))
+      ) {
+        parsedUrl.protocol = "https:";
         return parsedUrl.toString();
       }
 
@@ -267,7 +287,7 @@ export class URLUtils {
       const parsedUrl = new URL(url);
       return parsedUrl.hostname;
     } catch {
-      return '';
+      return "";
     }
   }
 
@@ -276,38 +296,41 @@ export class URLUtils {
    */
   static isTrustedAcademicSource(url: string): boolean {
     const trustedDomains = [
-      'arxiv.org',
-      'biorxiv.org',
-      'medrxiv.org',
-      'psyarxiv.com',
-      'osf.io',
-      'zenodo.org',
-      'figshare.com',
-      'ieee.org',
-      'acm.org',
-      'springer.com',
-      'nature.com',
-      'science.org',
-      'plos.org',
-      'frontiersin.org',
-      'mdpi.com',
-      'wiley.com',
-      'elsevier.com',
-      'taylor',
-      'sage',
-      'university',
-      '.edu',
-      '.ac.',
+      "arxiv.org",
+      "biorxiv.org",
+      "medrxiv.org",
+      "psyarxiv.com",
+      "osf.io",
+      "zenodo.org",
+      "figshare.com",
+      "ieee.org",
+      "acm.org",
+      "springer.com",
+      "nature.com",
+      "science.org",
+      "plos.org",
+      "frontiersin.org",
+      "mdpi.com",
+      "wiley.com",
+      "elsevier.com",
+      "taylor",
+      "sage",
+      "university",
+      ".edu",
+      ".ac.",
     ];
 
     const domain = this.extractDomain(url).toLowerCase();
-    return trustedDomains.some(trusted => domain.includes(trusted));
+    return trustedDomains.some((trusted) => domain.includes(trusted));
   }
 
   /**
    * Generate alternative URLs for file discovery
    */
-  static generateAlternativeURLs(originalUrl: string, title?: string): string[] {
+  static generateAlternativeURLs(
+    originalUrl: string,
+    title?: string,
+  ): string[] {
     const alternatives: string[] = [];
 
     try {
@@ -315,7 +338,7 @@ export class URLUtils {
       const domain = parsedUrl.hostname;
 
       // For arXiv, generate direct PDF URLs
-      if (domain.includes('arxiv.org')) {
+      if (domain.includes("arxiv.org")) {
         const arxivId = this.extractArxivId(originalUrl);
         if (arxivId) {
           alternatives.push(`https://arxiv.org/pdf/${arxivId}.pdf`);
@@ -324,8 +347,8 @@ export class URLUtils {
       }
 
       // For DOI URLs, generate CrossRef URLs
-      if (originalUrl.includes('doi.org/')) {
-        const doi = originalUrl.split('doi.org/')[1];
+      if (originalUrl.includes("doi.org/")) {
+        const doi = originalUrl.split("doi.org/")[1];
         if (doi) {
           alternatives.push(`https://api.crossref.org/works/${doi}`);
         }
@@ -340,7 +363,6 @@ export class URLUtils {
           `https://osf.io/search/?q=${encodedTitle}`,
         );
       }
-
     } catch (error) {
       // If URL parsing fails, return empty alternatives
     }
@@ -372,18 +394,20 @@ export class URLUtils {
       this.removeTrackingParameters(parsedUrl);
 
       // Normalize protocol
-      if (parsedUrl.protocol === 'http:') {
-        parsedUrl.protocol = 'https:';
+      if (parsedUrl.protocol === "http:") {
+        parsedUrl.protocol = "https:";
       }
 
       // Remove default ports
-      if ((parsedUrl.protocol === 'https:' && parsedUrl.port === '443') ||
-          (parsedUrl.protocol === 'http:' && parsedUrl.port === '80')) {
-        parsedUrl.port = '';
+      if (
+        (parsedUrl.protocol === "https:" && parsedUrl.port === "443") ||
+        (parsedUrl.protocol === "http:" && parsedUrl.port === "80")
+      ) {
+        parsedUrl.port = "";
       }
 
       // Normalize path
-      parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, '') || '/';
+      parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, "") || "/";
 
       // Sort search parameters
       const sortedParams = new URLSearchParams();
@@ -422,20 +446,15 @@ export class URLUtils {
    * Get LibGen mirror URLs
    */
   private static getLibGenMirrors(url: string): string[] {
-    const mirrors = [
-      'libgen.is',
-      'libgen.rs',
-      'libgen.li',
-      'libgen.st',
-    ];
+    const mirrors = ["libgen.is", "libgen.rs", "libgen.li", "libgen.st"];
 
     try {
       const parsedUrl = new URL(url);
       const currentDomain = parsedUrl.hostname;
 
       return mirrors
-        .filter(mirror => mirror !== currentDomain)
-        .map(mirror => {
+        .filter((mirror) => mirror !== currentDomain)
+        .map((mirror) => {
           const mirrorUrl = new URL(url);
           mirrorUrl.hostname = mirror;
           return mirrorUrl.toString();
@@ -452,21 +471,21 @@ export class URLUtils {
     let cleaned = url.trim();
 
     // Remove common URL prefixes that might be accidentally included
-    cleaned = cleaned.replace(/^(URL:|Link:|Download:|File:)\s*/i, '');
+    cleaned = cleaned.replace(/^(URL:|Link:|Download:|File:)\s*/i, "");
 
     // Handle URLs that might be missing protocol
-    if (!/^https?:\/\//i.test(cleaned) && cleaned.includes('.')) {
-      cleaned = 'https://' + cleaned;
+    if (!/^https?:\/\//i.test(cleaned) && cleaned.includes(".")) {
+      cleaned = "https://" + cleaned;
     }
 
     // Remove trailing punctuation
-    cleaned = cleaned.replace(/[.,;!?]+$/, '');
+    cleaned = cleaned.replace(/[.,;!?]+$/, "");
 
     // Decode HTML entities
     cleaned = cleaned
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
 
@@ -486,28 +505,31 @@ export class URLUtils {
    * Check if protocol is valid for downloads
    */
   private static isValidProtocol(protocol: string): boolean {
-    return ['http:', 'https:', 'ftp:', 'ftps:'].includes(protocol);
+    return ["http:", "https:", "ftp:", "ftps:"].includes(protocol);
   }
 
   /**
    * Analyze URL security
    */
-  private static analyzeURLSecurity(result: URLValidationResult, parsedUrl: URL): void {
+  private static analyzeURLSecurity(
+    result: URLValidationResult,
+    parsedUrl: URL,
+  ): void {
     const domain = parsedUrl.hostname.toLowerCase();
 
     // Check if it's a trusted domain
     if (this.isTrustedAcademicSource(parsedUrl.toString())) {
-      result.security.trustLevel = 'high';
+      result.security.trustLevel = "high";
     } else if (this.FILE_HOSTS.has(domain)) {
-      result.security.trustLevel = 'medium';
+      result.security.trustLevel = "medium";
     } else {
-      result.security.trustLevel = 'low';
-      result.warnings.push('Unknown or untrusted domain');
+      result.security.trustLevel = "low";
+      result.warnings.push("Unknown or untrusted domain");
     }
 
     // Check for HTTPS
-    if (!result.security.isHttps && result.security.trustLevel !== 'low') {
-      result.warnings.push('URL uses HTTP instead of HTTPS');
+    if (!result.security.isHttps && result.security.trustLevel !== "low") {
+      result.warnings.push("URL uses HTTP instead of HTTPS");
     }
 
     // Check for suspicious patterns
@@ -515,7 +537,7 @@ export class URLUtils {
     for (const pattern of this.SUSPICIOUS_PATTERNS) {
       if (pattern.test(url)) {
         result.security.suspiciousPatterns.push(pattern.source);
-        result.security.trustLevel = 'low';
+        result.security.trustLevel = "low";
       }
     }
   }

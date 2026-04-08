@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 type ZoteroHTTP = typeof Zotero.HTTP;
 
@@ -14,7 +14,10 @@ export type FixtureLoader = (url: string) => MockResponse | null;
 const fixtures: Map<string, MockResponse> = new Map();
 const fixtureLoaders: FixtureLoader[] = [];
 
-export function registerFixture(urlPattern: string | RegExp, response: MockResponse) {
+export function registerFixture(
+  urlPattern: string | RegExp,
+  response: MockResponse,
+) {
   fixtures.set(urlPattern.toString(), response);
 }
 
@@ -40,7 +43,7 @@ export function createMockHTTP() {
   return {
     request: vi.fn(async (_method: string, url: string, _options?: any) => {
       for (const [pattern, response] of fixtures) {
-        if (url.match(pattern.replace(/^\/|\/$/g, ''))) {
+        if (url.match(pattern.replace(/^\/|\/$/g, ""))) {
           return response;
         }
       }
@@ -50,8 +53,8 @@ export function createMockHTTP() {
       }
       return {
         status: 404,
-        responseText: '{}',
-        response: '{}',
+        responseText: "{}",
+        response: "{}",
         getResponseHeader: () => null,
       };
     }),
@@ -78,16 +81,16 @@ export function createLiveHTTP(): ZoteroHTTP {
           signal: withTimeout(options?.timeout),
         });
 
-        const responseType = options?.responseType ?? 'text';
+        const responseType = options?.responseType ?? "text";
         const responseBody =
-          responseType === 'arraybuffer'
+          responseType === "arraybuffer"
             ? await response.arrayBuffer()
             : await response.text();
 
         return {
           status: response.status,
           responseText:
-            typeof responseBody === 'string'
+            typeof responseBody === "string"
               ? responseBody
               : new TextDecoder().decode(new Uint8Array(responseBody)),
           response: responseBody,

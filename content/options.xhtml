@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
 
-<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-      xmlns:html="http://www.w3.org/1999/xhtml"
-      onload="ZotadataPreferences.init();">
-
+<vbox
+  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  onload="ZotadataPreferences.init()"
+>
   <script>
     <![CDATA[
       var ZotadataPreferences = {
@@ -40,46 +41,65 @@
 
     <grid>
       <columns>
-        <column/>
-        <column flex="1"/>
+        <column />
+        <column flex="1" />
       </columns>
       <rows>
         <row align="center">
-          <label value="Email (for Unpaywall):" control="email-textbox"/>
-          <html:input id="email-textbox"
-                      type="email"
-                      placeholder="your@email.com"
-                      preference="extensions.zotadata.unpaywallEmail"/>
+          <label value="Email (for Unpaywall):" control="email-textbox" />
+          <html:input
+            id="email-textbox"
+            type="email"
+            placeholder="your@email.com"
+            preference="extensions.zotadata.unpaywallEmail"
+          />
         </row>
         <row align="center">
-          <label value="CORE API Key:" control="core-api-key-textbox"/>
-          <html:input id="core-api-key-textbox"
-                      type="text"
-                      placeholder="Optional: CORE API Key"
-                      preference="extensions.zotadata.coreApiKey"/>
+          <label value="CORE API Key:" control="core-api-key-textbox" />
+          <html:input
+            id="core-api-key-textbox"
+            type="text"
+            placeholder="Optional: CORE API Key"
+            preference="extensions.zotadata.coreApiKey"
+          />
         </row>
       </rows>
     </grid>
 
-    <description>Email is required for Unpaywall API access. CORE API key is optional for higher rate limits.</description>
+    <description
+      >Email is required for Unpaywall API access. CORE API key is optional for
+      higher rate limits.</description
+    >
   </groupbox>
 
   <groupbox>
     <label><html:h2>Behavior Settings</html:h2></label>
 
-    <checkbox id="update-existing-checkbox" label="Update existing metadata" preference="extensions.zotadata.updateExistingMetadata"/>
-    <checkbox id="auto-download-checkbox" label="Automatically download when items are added" preference="extensions.zotadata.autoDownloadOnAdd"/>
+    <checkbox
+      id="update-existing-checkbox"
+      label="Update existing metadata"
+      preference="extensions.zotadata.updateExistingMetadata"
+    />
+    <checkbox
+      id="auto-download-checkbox"
+      label="Automatically download when items are added"
+      preference="extensions.zotadata.autoDownloadOnAdd"
+    />
   </groupbox>
 
   <groupbox>
     <label><html:h2>About</html:h2></label>
 
-    <description>Enhance Zotero with intelligent metadata discovery and automated file management.</description>
+    <description
+      >Enhance Zotero with intelligent metadata discovery and automated file
+      management.</description
+    >
     <description>
-      <label class="text-link"
-             value="Visit Homepage"
-             href="https://github.com/your-username/zotero-zotadata"/>
+      <label
+        class="text-link"
+        value="Visit Homepage"
+        href="https://github.com/your-username/zotero-zotadata"
+      />
     </description>
   </groupbox>
-
-</vbox> 
+</vbox>

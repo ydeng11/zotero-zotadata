@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
+import { ErrorManager, ErrorType } from "@/shared/core";
 
 /**
  * File type detection result
@@ -29,22 +29,34 @@ export class FileUtils {
 
   // Supported file types for attachments
   private static readonly SUPPORTED_TYPES = new Map([
-    ['application/pdf', { ext: '.pdf', category: 'document' }],
-    ['application/epub+zip', { ext: '.epub', category: 'document' }],
-    ['text/html', { ext: '.html', category: 'document' }],
-    ['text/plain', { ext: '.txt', category: 'document' }],
-    ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', { ext: '.docx', category: 'document' }],
-    ['application/msword', { ext: '.doc', category: 'document' }],
-    ['application/rtf', { ext: '.rtf', category: 'document' }],
+    ["application/pdf", { ext: ".pdf", category: "document" }],
+    ["application/epub+zip", { ext: ".epub", category: "document" }],
+    ["text/html", { ext: ".html", category: "document" }],
+    ["text/plain", { ext: ".txt", category: "document" }],
+    [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      { ext: ".docx", category: "document" },
+    ],
+    ["application/msword", { ext: ".doc", category: "document" }],
+    ["application/rtf", { ext: ".rtf", category: "document" }],
   ]);
 
   // File signatures for type detection
   private static readonly FILE_SIGNATURES = new Map([
-    ['PDF', { signature: [0x25, 0x50, 0x44, 0x46], mimeType: 'application/pdf' }],
-    ['EPUB', { signature: [0x50, 0x4B, 0x03, 0x04], mimeType: 'application/epub+zip' }],
-    ['ZIP', { signature: [0x50, 0x4B, 0x03, 0x04], mimeType: 'application/zip' }],
-    ['HTML', { signature: [0x3C, 0x21, 0x44, 0x4F], mimeType: 'text/html' }], // <!DO
-    ['HTML2', { signature: [0x3C, 0x68, 0x74, 0x6D], mimeType: 'text/html' }], // <htm
+    [
+      "PDF",
+      { signature: [0x25, 0x50, 0x44, 0x46], mimeType: "application/pdf" },
+    ],
+    [
+      "EPUB",
+      { signature: [0x50, 0x4b, 0x03, 0x04], mimeType: "application/epub+zip" },
+    ],
+    [
+      "ZIP",
+      { signature: [0x50, 0x4b, 0x03, 0x04], mimeType: "application/zip" },
+    ],
+    ["HTML", { signature: [0x3c, 0x21, 0x44, 0x4f], mimeType: "text/html" }], // <!DO
+    ["HTML2", { signature: [0x3c, 0x68, 0x74, 0x6d], mimeType: "text/html" }], // <htm
   ]);
 
   /**
@@ -53,7 +65,7 @@ export class FileUtils {
   static validateFile(
     data: ArrayBuffer,
     expectedType?: string,
-    maxSize = 100 * 1024 * 1024 // 100MB default
+    maxSize = 100 * 1024 * 1024, // 100MB default
   ): FileValidationResult {
     const result: FileValidationResult = {
       valid: true,
@@ -65,13 +77,15 @@ export class FileUtils {
     // Check file size
     if (data.byteLength === 0) {
       result.valid = false;
-      result.errors.push('File is empty');
+      result.errors.push("File is empty");
       return result;
     }
 
     if (data.byteLength > maxSize) {
       result.valid = false;
-      result.errors.push(`File size (${this.formatFileSize(data.byteLength)}) exceeds maximum (${this.formatFileSize(maxSize)})`);
+      result.errors.push(
+        `File size (${this.formatFileSize(data.byteLength)}) exceeds maximum (${this.formatFileSize(maxSize)})`,
+      );
       return result;
     }
 
@@ -79,21 +93,27 @@ export class FileUtils {
     result.fileType = this.detectFileType(data);
 
     if (!result.fileType.isSupported) {
-      result.warnings.push(`File type ${result.fileType.mimeType} may not be supported`);
+      result.warnings.push(
+        `File type ${result.fileType.mimeType} may not be supported`,
+      );
     }
 
     // Check against expected type
     if (expectedType && result.fileType.mimeType !== expectedType) {
       if (result.fileType.confidence < 0.8) {
-        result.warnings.push(`Expected ${expectedType}, detected ${result.fileType.mimeType} (low confidence)`);
+        result.warnings.push(
+          `Expected ${expectedType}, detected ${result.fileType.mimeType} (low confidence)`,
+        );
       } else {
         result.valid = false;
-        result.errors.push(`Expected ${expectedType}, but file appears to be ${result.fileType.mimeType}`);
+        result.errors.push(
+          `Expected ${expectedType}, but file appears to be ${result.fileType.mimeType}`,
+        );
       }
     }
 
     // Specific validation based on file type
-    if (result.fileType.mimeType === 'application/pdf') {
+    if (result.fileType.mimeType === "application/pdf") {
       const pdfValidation = this.validatePDF(data);
       if (!pdfValidation.valid) {
         result.valid = false;
@@ -126,8 +146,8 @@ export class FileUtils {
     // Fallback: try to detect text files
     if (this.isTextFile(view)) {
       return {
-        mimeType: 'text/plain',
-        extension: '.txt',
+        mimeType: "text/plain",
+        extension: ".txt",
         isSupported: true,
         confidence: 0.6,
       };
@@ -135,8 +155,8 @@ export class FileUtils {
 
     // Unknown file type
     return {
-      mimeType: 'application/octet-stream',
-      extension: '.bin',
+      mimeType: "application/octet-stream",
+      extension: ".bin",
       isSupported: false,
       confidence: 0.1,
     };
@@ -152,7 +172,7 @@ export class FileUtils {
     // Check PDF header
     const pdfSignature = [0x25, 0x50, 0x44, 0x46]; // %PDF
     if (!this.matchesSignature(view, pdfSignature)) {
-      errors.push('Missing PDF header signature');
+      errors.push("Missing PDF header signature");
     }
 
     // Check PDF version
@@ -160,12 +180,12 @@ export class FileUtils {
       const versionBytes = view.slice(5, 8);
       const version = String.fromCharCode(...versionBytes);
       if (!/^\d\.\d$/.test(version)) {
-        errors.push('Invalid PDF version format');
+        errors.push("Invalid PDF version format");
       }
     }
 
     // Check for PDF trailer (%%EOF)
-    const trailerSignature = [0x25, 0x25, 0x45, 0x4F, 0x46]; // %%EOF
+    const trailerSignature = [0x25, 0x25, 0x45, 0x4f, 0x46]; // %%EOF
     let hasTrailer = false;
 
     // Search in last 1024 bytes
@@ -178,12 +198,12 @@ export class FileUtils {
     }
 
     if (!hasTrailer) {
-      errors.push('Missing PDF trailer (%%EOF)');
+      errors.push("Missing PDF trailer (%%EOF)");
     }
 
     // Check minimum file size (valid PDFs are usually at least 1KB)
     if (view.length < 1024) {
-      errors.push('PDF file appears to be too small to be valid');
+      errors.push("PDF file appears to be too small to be valid");
     }
 
     return {
@@ -198,25 +218,25 @@ export class FileUtils {
   static generateSafeFilename(
     title: string,
     extension?: string,
-    maxLength = 255
+    maxLength = 255,
   ): string {
     // Remove or replace invalid characters
     let filename = title
-      .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid characters
-      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/[<>:"/\\|?*]/g, "_") // Replace invalid characters
+      .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
     // Remove leading/trailing dots and spaces
-    filename = filename.replace(/^[.\s]+|[.\s]+$/g, '');
+    filename = filename.replace(/^[.\s]+|[.\s]+$/g, "");
 
     // Ensure filename isn't empty
     if (!filename) {
-      filename = 'attachment';
+      filename = "attachment";
     }
 
     // Add extension if provided
     if (extension) {
-      const ext = extension.startsWith('.') ? extension : `.${extension}`;
+      const ext = extension.startsWith(".") ? extension : `.${extension}`;
       filename += ext;
     }
 
@@ -224,7 +244,7 @@ export class FileUtils {
     if (filename.length > maxLength) {
       const extLength = extension ? extension.length + 1 : 0;
       const maxBase = maxLength - extLength;
-      const base = filename.substring(0, maxBase - 3) + '...';
+      const base = filename.substring(0, maxBase - 3) + "...";
       filename = extension ? base + extension : base;
     }
 
@@ -242,26 +262,28 @@ export class FileUtils {
 
     // Common MIME type to extension mappings
     const commonTypes: Record<string, string> = {
-      'text/plain': '.txt',
-      'text/html': '.html',
-      'text/css': '.css',
-      'text/javascript': '.js',
-      'application/json': '.json',
-      'application/xml': '.xml',
-      'image/jpeg': '.jpg',
-      'image/png': '.png',
-      'image/gif': '.gif',
-      'image/svg+xml': '.svg',
+      "text/plain": ".txt",
+      "text/html": ".html",
+      "text/css": ".css",
+      "text/javascript": ".js",
+      "application/json": ".json",
+      "application/xml": ".xml",
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/gif": ".gif",
+      "image/svg+xml": ".svg",
     };
 
-    return commonTypes[mimeType] || '.bin';
+    return commonTypes[mimeType] || ".bin";
   }
 
   /**
    * Get MIME type from file extension
    */
   static getMimeTypeFromExtension(extension: string): string {
-    const ext = extension.toLowerCase().startsWith('.') ? extension.toLowerCase() : `.${extension.toLowerCase()}`;
+    const ext = extension.toLowerCase().startsWith(".")
+      ? extension.toLowerCase()
+      : `.${extension.toLowerCase()}`;
 
     for (const [mimeType, info] of this.SUPPORTED_TYPES) {
       if (info.ext === ext) {
@@ -271,21 +293,21 @@ export class FileUtils {
 
     // Common extension to MIME type mappings
     const commonExtensions: Record<string, string> = {
-      '.txt': 'text/plain',
-      '.html': 'text/html',
-      '.htm': 'text/html',
-      '.css': 'text/css',
-      '.js': 'text/javascript',
-      '.json': 'application/json',
-      '.xml': 'application/xml',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.svg': 'image/svg+xml',
+      ".txt": "text/plain",
+      ".html": "text/html",
+      ".htm": "text/html",
+      ".css": "text/css",
+      ".js": "text/javascript",
+      ".json": "application/json",
+      ".xml": "application/xml",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".svg": "image/svg+xml",
     };
 
-    return commonExtensions[ext] || 'application/octet-stream';
+    return commonExtensions[ext] || "application/octet-stream";
   }
 
   /**
@@ -299,13 +321,13 @@ export class FileUtils {
    * Format file size in human-readable format
    */
   static formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
 
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   }
 
   /**
@@ -319,12 +341,16 @@ export class FileUtils {
   /**
    * Download blob as file (for testing/debugging)
    */
-  static downloadBlob(data: ArrayBuffer, filename: string, mimeType: string): void {
+  static downloadBlob(
+    data: ArrayBuffer,
+    filename: string,
+    mimeType: string,
+  ): void {
     const blob = new Blob([data], { type: mimeType });
     const url = URL.createObjectURL(blob);
 
     try {
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
@@ -338,7 +364,10 @@ export class FileUtils {
   /**
    * Compare file contents
    */
-  static compareFiles(file1: ArrayBuffer, file2: ArrayBuffer): {
+  static compareFiles(
+    file1: ArrayBuffer,
+    file2: ArrayBuffer,
+  ): {
     identical: boolean;
     similarity: number;
     sizeDifference: number;
@@ -384,9 +413,9 @@ export class FileUtils {
       const textMatches = text.match(/BT\s+(.*?)\s+ET/gs);
       if (textMatches) {
         return textMatches
-          .map(match => match.replace(/BT\s+|\s+ET/g, ''))
-          .join(' ')
-          .replace(/\s+/g, ' ')
+          .map((match) => match.replace(/BT\s+|\s+ET/g, ""))
+          .join(" ")
+          .replace(/\s+/g, " ")
           .trim();
       }
 
@@ -399,7 +428,10 @@ export class FileUtils {
   /**
    * Check if signature matches at beginning of data
    */
-  private static matchesSignature(data: Uint8Array, signature: number[]): boolean {
+  private static matchesSignature(
+    data: Uint8Array,
+    signature: number[],
+  ): boolean {
     if (data.length < signature.length) return false;
 
     for (let i = 0; i < signature.length; i++) {
@@ -421,12 +453,17 @@ export class FileUtils {
 
     for (const byte of sample) {
       // Count printable ASCII and common UTF-8 characters
-      if ((byte >= 32 && byte <= 126) || byte === 9 || byte === 10 || byte === 13) {
+      if (
+        (byte >= 32 && byte <= 126) ||
+        byte === 9 ||
+        byte === 10 ||
+        byte === 13
+      ) {
         textBytes++;
       }
     }
 
     // If more than 80% are text characters, consider it text
-    return (textBytes / sample.length) > 0.8;
+    return textBytes / sample.length > 0.8;
   }
 }

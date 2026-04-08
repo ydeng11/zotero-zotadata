@@ -9,9 +9,11 @@ updated_at: 2026-04-05T23:08:01Z
 ---
 
 ## Goal
+
 Adjust arXiv DOI precedence so an item keeps an existing non-arXiv DOI as the more official version, and only falls back to the canonical arXiv DOI when no non-arXiv DOI is present.
 
 ## Tasks
+
 - [x] Add regression coverage for non-arXiv DOI precedence in metadata fetch and file retrieval
 - [x] Update DOI precedence logic to keep existing non-arXiv DOIs ahead of canonical arXiv DOI fallback
 - [x] Run targeted verification and summarize the changes

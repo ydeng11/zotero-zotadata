@@ -8,14 +8,17 @@
  * Zotero plugins (e.g. zotero-format-metadata) and works with packaged chrome.manifest.
  */
 
-const FTL_STEMS = ['mainWindow', 'addon', 'preferences'] as const;
-const DEFAULT_LOCALE = 'en-US';
+const FTL_STEMS = ["mainWindow", "addon", "preferences"] as const;
+const DEFAULT_LOCALE = "en-US";
 
 export function registerWindowFluent(win: Window): void {
   const ref = addon.data.config.addonRef;
-  const moz = (win as unknown as { MozXULElement?: { insertFTLIfNeeded?: (href: string) => void } })
-    .MozXULElement;
-  if (typeof moz?.insertFTLIfNeeded !== 'function') {
+  const moz = (
+    win as unknown as {
+      MozXULElement?: { insertFTLIfNeeded?: (href: string) => void };
+    }
+  ).MozXULElement;
+  if (typeof moz?.insertFTLIfNeeded !== "function") {
     return;
   }
 
@@ -36,7 +39,7 @@ type LocaleServices = {
 };
 
 function getTrimmedLocale(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') {
+  if (typeof value !== "string") {
     return null;
   }
 
@@ -56,7 +59,9 @@ export function getPreferredLocale(): string {
     return zoteroLocale;
   }
 
-  const appLocale = getTrimmedLocale(runtime.Services?.locale?.appLocaleAsBCP47);
+  const appLocale = getTrimmedLocale(
+    runtime.Services?.locale?.appLocaleAsBCP47,
+  );
   if (appLocale) {
     return appLocale;
   }
@@ -64,7 +69,9 @@ export function getPreferredLocale(): string {
   return DEFAULT_LOCALE;
 }
 
-export function getPrimaryLanguageSubtag(locale: string | null | undefined): string | null {
+export function getPrimaryLanguageSubtag(
+  locale: string | null | undefined,
+): string | null {
   if (!locale) {
     return null;
   }
@@ -78,7 +85,9 @@ export function getPrimaryLanguageSubtag(locale: string | null | undefined): str
   return primary || null;
 }
 
-export function matchesPreferredLanguage(language: string | null | undefined): boolean {
+export function matchesPreferredLanguage(
+  language: string | null | undefined,
+): boolean {
   const candidateLanguage = getPrimaryLanguageSubtag(language);
   if (!candidateLanguage) {
     return true;
@@ -88,7 +97,9 @@ export function matchesPreferredLanguage(language: string | null | undefined): b
   return candidateLanguage === preferredLanguage;
 }
 
-export function buildAcceptLanguageHeader(locale = getPreferredLocale()): string {
+export function buildAcceptLanguageHeader(
+  locale = getPreferredLocale(),
+): string {
   const primaryLanguage = getPrimaryLanguageSubtag(locale);
   if (!primaryLanguage) {
     return `${DEFAULT_LOCALE},en;q=0.9`;

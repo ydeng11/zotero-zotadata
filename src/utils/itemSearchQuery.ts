@@ -92,9 +92,7 @@ export function isArxivPreprintLikeItem(item: Zotero.Item): boolean {
 /**
  * Resolve the canonical arXiv DOI when the item still represents the preprint.
  */
-export function getCanonicalArxivDoiForItem(
-  item: Zotero.Item,
-): string | null {
+export function getCanonicalArxivDoiForItem(item: Zotero.Item): string | null {
   if (!isArxivPreprintLikeItem(item)) {
     return null;
   }

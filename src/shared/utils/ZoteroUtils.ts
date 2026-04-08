@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
-import { XUL_NAMESPACE, PLATFORM_VERSION_CREATE_XUL } from '@/constants/Menus';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import { XUL_NAMESPACE, PLATFORM_VERSION_CREATE_XUL } from "@/constants/Menus";
 
 /**
  * Zotero item type information
@@ -61,29 +61,34 @@ export class ZoteroUtils {
 
   // Zotero item types that can have attachments
   private static readonly ATTACHABLE_ITEM_TYPES = new Set([
-    'journalArticle',
-    'book',
-    'bookSection',
-    'conferencePaper',
-    'thesis',
-    'manuscript',
-    'report',
-    'webpage',
-    'document',
-    'preprint',
+    "journalArticle",
+    "book",
+    "bookSection",
+    "conferencePaper",
+    "thesis",
+    "manuscript",
+    "report",
+    "webpage",
+    "document",
+    "preprint",
   ]);
 
   // Field mappings for common metadata updates
   private static readonly FIELD_MAPPINGS: FieldMapping[] = [
-    { zoteroField: 'title', sourceField: 'title', priority: 1 },
-    { zoteroField: 'DOI', sourceField: 'doi', priority: 2 },
-    { zoteroField: 'date', sourceField: 'year', transform: (year: number) => year?.toString(), priority: 3 },
-    { zoteroField: 'publicationTitle', sourceField: 'journal', priority: 4 },
-    { zoteroField: 'volume', sourceField: 'volume', priority: 5 },
-    { zoteroField: 'issue', sourceField: 'issue', priority: 6 },
-    { zoteroField: 'pages', sourceField: 'pages', priority: 7 },
-    { zoteroField: 'abstractNote', sourceField: 'abstract', priority: 8 },
-    { zoteroField: 'url', sourceField: 'url', priority: 9 },
+    { zoteroField: "title", sourceField: "title", priority: 1 },
+    { zoteroField: "DOI", sourceField: "doi", priority: 2 },
+    {
+      zoteroField: "date",
+      sourceField: "year",
+      transform: (year: number) => year?.toString(),
+      priority: 3,
+    },
+    { zoteroField: "publicationTitle", sourceField: "journal", priority: 4 },
+    { zoteroField: "volume", sourceField: "volume", priority: 5 },
+    { zoteroField: "issue", sourceField: "issue", priority: 6 },
+    { zoteroField: "pages", sourceField: "pages", priority: 7 },
+    { zoteroField: "abstractNote", sourceField: "abstract", priority: 8 },
+    { zoteroField: "url", sourceField: "url", priority: 9 },
   ];
 
   /**
@@ -97,9 +102,9 @@ export class ZoteroUtils {
       }
 
       const selectedItems = zoteroPane.getSelectedItems();
-      return selectedItems.filter(item => item && !item.isNote());
+      return selectedItems.filter((item) => item && !item.isNote());
     } catch (error) {
-      console.error('Failed to get selected items:', error);
+      console.error("Failed to get selected items:", error);
       return [];
     }
   }
@@ -109,7 +114,7 @@ export class ZoteroUtils {
    */
   static getSelectedAttachableItems(): Zotero.Item[] {
     const selectedItems = this.getSelectedItems();
-    return selectedItems.filter(item => this.canItemHaveAttachments(item));
+    return selectedItems.filter((item) => this.canItemHaveAttachments(item));
   }
 
   /**
@@ -132,50 +137,53 @@ export class ZoteroUtils {
       // Check if item exists and is valid
       if (!item || !item.id) {
         result.valid = false;
-        result.errors.push('Invalid item: item is null or has no ID');
+        result.errors.push("Invalid item: item is null or has no ID");
         return result;
       }
 
       // Check item type
       result.canProcessForAttachments = this.canItemHaveAttachments(item);
       if (!result.canProcessForAttachments) {
-        result.warnings.push(`Item type '${result.itemType.name}' typically cannot have attachments`);
+        result.warnings.push(
+          `Item type '${result.itemType.name}' typically cannot have attachments`,
+        );
       }
 
       // Check title
-      const title = item.getField('title');
+      const title = item.getField("title");
       result.hasTitle = !!title && title.trim().length > 0;
       if (!result.hasTitle) {
-        result.warnings.push('Item has no title');
+        result.warnings.push("Item has no title");
       }
 
       // Check authors
       const creators = item.getCreators();
       result.hasAuthors = creators && creators.length > 0;
       if (!result.hasAuthors) {
-        result.warnings.push('Item has no authors');
+        result.warnings.push("Item has no authors");
       }
 
       // Check year
-      const date = item.getField('date');
+      const date = item.getField("date");
       result.hasYear = !!date && /\d{4}/.test(date);
       if (!result.hasYear) {
-        result.warnings.push('Item has no publication year');
+        result.warnings.push("Item has no publication year");
       }
 
       // Check DOI
-      const doi = item.getField('DOI');
+      const doi = item.getField("DOI");
       result.hasDOI = !!doi && doi.trim().length > 0;
       if (!result.hasDOI) {
-        result.warnings.push('Item has no DOI');
+        result.warnings.push("Item has no DOI");
       }
 
       // Overall validation
       if (!result.hasTitle && !result.hasDOI) {
         result.valid = false;
-        result.errors.push('Item must have either a title or DOI for processing');
+        result.errors.push(
+          "Item must have either a title or DOI for processing",
+        );
       }
-
     } catch (error) {
       result.valid = false;
       result.errors.push(`Error validating item: ${error.message}`);
@@ -187,7 +195,9 @@ export class ZoteroUtils {
   /**
    * Get detailed attachment information
    */
-  static async getAttachmentInfo(attachmentId: number): Promise<AttachmentInfo | null> {
+  static async getAttachmentInfo(
+    attachmentId: number,
+  ): Promise<AttachmentInfo | null> {
     try {
       const attachment = Zotero.Items.get(attachmentId);
       if (!attachment || !attachment.isAttachment()) {
@@ -196,20 +206,26 @@ export class ZoteroUtils {
 
       const info: AttachmentInfo = {
         id: attachmentId,
-        title: attachment.getField('title') || 'Untitled Attachment',
+        title: attachment.getField("title") || "Untitled Attachment",
         linkMode: attachment.attachmentLinkMode,
         fileExists: false,
       };
 
       // Get URL for URL attachments
-      if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_URL) {
-        info.url = attachment.getField('url');
+      if (
+        attachment.attachmentLinkMode ===
+        Zotero.Attachments.LINK_MODE_LINKED_URL
+      ) {
+        info.url = attachment.getField("url");
       }
 
       // Get file information for file attachments
-      if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
-          attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE) {
-
+      if (
+        attachment.attachmentLinkMode ===
+          Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
+        attachment.attachmentLinkMode ===
+          Zotero.Attachments.LINK_MODE_LINKED_FILE
+      ) {
         const fp = attachment.getFilePath();
         if (fp) {
           info.filePath = fp;
@@ -239,7 +255,10 @@ export class ZoteroUtils {
 
       return info;
     } catch (error) {
-      console.error(`Failed to get attachment info for ${attachmentId}:`, error);
+      console.error(
+        `Failed to get attachment info for ${attachmentId}:`,
+        error,
+      );
       return null;
     }
   }
@@ -268,7 +287,7 @@ export class ZoteroUtils {
     data: ArrayBuffer,
     filename: string,
     mimeType: string,
-    source?: string
+    source?: string,
   ): Promise<Zotero.Item | null> {
     try {
       const parentItem = Zotero.Items.get(parentItemId);
@@ -276,7 +295,7 @@ export class ZoteroUtils {
         throw this.errorManager.createError(
           ErrorType.ZOTERO_ERROR,
           `Parent item ${parentItemId} not found`,
-          { parentItemId }
+          { parentItemId },
         );
       }
 
@@ -322,15 +341,15 @@ export class ZoteroUtils {
       if (!attachment) {
         throw this.errorManager.createError(
           ErrorType.ZOTERO_ERROR,
-          'Failed to create attachment with available methods',
-          { parentItemId, filename, mimeType }
+          "Failed to create attachment with available methods",
+          { parentItemId, filename, mimeType },
         );
       }
 
       // Add source information if provided
       if (source && attachment) {
         try {
-          attachment.setField('title', `${filename} (${source})`);
+          attachment.setField("title", `${filename} (${source})`);
           await attachment.saveTx();
         } catch (error) {
           // Non-critical error
@@ -342,9 +361,9 @@ export class ZoteroUtils {
       const contextualError = this.errorManager.createFromUnknown(
         error,
         ErrorType.ZOTERO_ERROR,
-        { operation: 'createAttachmentFromData', parentItemId, filename }
+        { operation: "createAttachmentFromData", parentItemId, filename },
       );
-      console.error('Failed to create attachment:', contextualError);
+      console.error("Failed to create attachment:", contextualError);
       return null;
     }
   }
@@ -355,7 +374,7 @@ export class ZoteroUtils {
   static async updateItemMetadata(
     item: Zotero.Item,
     metadata: Record<string, any>,
-    options: { overwrite?: boolean; source?: string } = {}
+    options: { overwrite?: boolean; source?: string } = {},
   ): Promise<{ updated: boolean; changes: string[]; errors: string[] }> {
     const result = {
       updated: false,
@@ -390,11 +409,15 @@ export class ZoteroUtils {
           // Only update if value is different
           if (newValue !== currentValue) {
             item.setField(mapping.zoteroField, newValue);
-            result.changes.push(`${mapping.zoteroField}: "${currentValue}" -> "${newValue}"`);
+            result.changes.push(
+              `${mapping.zoteroField}: "${currentValue}" -> "${newValue}"`,
+            );
             result.updated = true;
           }
         } catch (error) {
-          result.errors.push(`Failed to update ${mapping.zoteroField}: ${error.message}`);
+          result.errors.push(
+            `Failed to update ${mapping.zoteroField}: ${error.message}`,
+          );
         }
       }
 
@@ -405,13 +428,15 @@ export class ZoteroUtils {
 
           if (existingCreators.length === 0 || overwrite) {
             const newCreators = metadata.authors.map((author: any) => ({
-              firstName: author.given || author.firstName || '',
-              lastName: author.family || author.lastName || author.name || '',
-              creatorType: 'author',
+              firstName: author.given || author.firstName || "",
+              lastName: author.family || author.lastName || author.name || "",
+              creatorType: "author",
             }));
 
             item.setCreators(newCreators);
-            result.changes.push(`authors: Updated ${newCreators.length} authors`);
+            result.changes.push(
+              `authors: Updated ${newCreators.length} authors`,
+            );
             result.updated = true;
           }
         } catch (error) {
@@ -433,7 +458,6 @@ export class ZoteroUtils {
           }
         }
       }
-
     } catch (error) {
       result.errors.push(`Failed to update metadata: ${error.message}`);
     }
@@ -444,15 +468,18 @@ export class ZoteroUtils {
   /**
    * Add note to item
    */
-  static async addNoteToItem(item: Zotero.Item, noteText: string): Promise<Zotero.Item | null> {
+  static async addNoteToItem(
+    item: Zotero.Item,
+    noteText: string,
+  ): Promise<Zotero.Item | null> {
     try {
-      const note = new Zotero.Item('note');
+      const note = new Zotero.Item("note");
       note.setNote(noteText);
       note.parentID = item.id;
       await note.saveTx();
       return note;
     } catch (error) {
-      console.error('Failed to add note to item:', error);
+      console.error("Failed to add note to item:", error);
       return null;
     }
   }
@@ -476,7 +503,7 @@ export class ZoteroUtils {
     } catch (error) {
       return {
         id: 0,
-        name: 'unknown',
+        name: "unknown",
         isRegularItem: false,
         isAttachment: false,
         isNote: false,
@@ -499,19 +526,19 @@ export class ZoteroUtils {
 
     try {
       // DOI
-      const doi = item.getField('DOI');
+      const doi = item.getField("DOI");
       if (doi) {
         identifiers.doi = doi.trim();
       }
 
       // ISBN
-      const isbn = item.getField('ISBN');
+      const isbn = item.getField("ISBN");
       if (isbn) {
         identifiers.isbn = isbn.trim();
       }
 
       // PMID
-      const extra = item.getField('extra');
+      const extra = item.getField("extra");
       if (extra) {
         const pmidMatch = extra.match(/PMID:\s*(\d+)/i);
         if (pmidMatch) {
@@ -526,13 +553,12 @@ export class ZoteroUtils {
       }
 
       // URL
-      const url = item.getField('url');
+      const url = item.getField("url");
       if (url) {
         identifiers.url = url.trim();
       }
-
     } catch (error) {
-      console.error('Failed to extract identifiers:', error);
+      console.error("Failed to extract identifiers:", error);
     }
 
     return identifiers;
@@ -541,24 +567,29 @@ export class ZoteroUtils {
   /**
    * Format item citation for display
    */
-  static formatItemCitation(item: Zotero.Item, style: 'short' | 'full' = 'short'): string {
+  static formatItemCitation(
+    item: Zotero.Item,
+    style: "short" | "full" = "short",
+  ): string {
     try {
-      const title = item.getField('title') || 'Untitled';
+      const title = item.getField("title") || "Untitled";
       const creators = item.getCreators();
-      const year = item.getField('date')?.match(/\d{4}/)?.[0];
+      const year = item.getField("date")?.match(/\d{4}/)?.[0];
 
-      if (style === 'short') {
+      if (style === "short") {
         const firstAuthor = creators[0];
         const authorName = firstAuthor
-          ? `${firstAuthor.lastName}${creators.length > 1 ? ' et al.' : ''}`
-          : 'Unknown Author';
+          ? `${firstAuthor.lastName}${creators.length > 1 ? " et al." : ""}`
+          : "Unknown Author";
 
-        return `${authorName}${year ? ` (${year})` : ''}: ${title.substring(0, 50)}${title.length > 50 ? '...' : ''}`;
+        return `${authorName}${year ? ` (${year})` : ""}: ${title.substring(0, 50)}${title.length > 50 ? "..." : ""}`;
       } else {
-        const authorNames = creators.map(c => `${c.firstName} ${c.lastName}`).join(', ');
-        const publication = item.getField('publicationTitle');
+        const authorNames = creators
+          .map((c) => `${c.firstName} ${c.lastName}`)
+          .join(", ");
+        const publication = item.getField("publicationTitle");
 
-        let citation = `${authorNames}${year ? ` (${year})` : ''}. ${title}.`;
+        let citation = `${authorNames}${year ? ` (${year})` : ""}. ${title}.`;
         if (publication) {
           citation += ` ${publication}.`;
         }
@@ -566,14 +597,17 @@ export class ZoteroUtils {
         return citation;
       }
     } catch (error) {
-      return 'Error formatting citation';
+      return "Error formatting citation";
     }
   }
 
   /**
    * Create temporary file from data (simplified implementation)
    */
-  private static async createTempFile(data: ArrayBuffer, filename: string): Promise<any> {
+  private static async createTempFile(
+    data: ArrayBuffer,
+    filename: string,
+  ): Promise<any> {
     // This is a simplified implementation
     // In a real plugin, you would use Zotero's file utilities
     try {
@@ -588,7 +622,7 @@ export class ZoteroUtils {
       throw this.errorManager.createError(
         ErrorType.FILE_ERROR,
         `Failed to create temporary file: ${error.message}`,
-        { filename }
+        { filename },
       );
     }
   }
@@ -600,19 +634,20 @@ export class ZoteroUtils {
   static createXULElement(
     doc: Document,
     tagName: string,
-    attributes: Record<string, string | (() => void)> = {}
+    attributes: Record<string, string | (() => void)> = {},
   ): Element {
     // Use createXULElement for newer platforms, fallback to createElementNS
     // Note: createXULElement requires type assertion as it's not in standard DOM types
-    const element = Zotero.platformMajorVersion >= PLATFORM_VERSION_CREATE_XUL
-      ? (doc as any).createXULElement(tagName)
-      : doc.createElementNS(XUL_NAMESPACE, tagName);
+    const element =
+      Zotero.platformMajorVersion >= PLATFORM_VERSION_CREATE_XUL
+        ? (doc as any).createXULElement(tagName)
+        : doc.createElementNS(XUL_NAMESPACE, tagName);
 
     // Apply attributes
     for (const [key, value] of Object.entries(attributes)) {
-      if (key === 'oncommand' && typeof value === 'function') {
+      if (key === "oncommand" && typeof value === "function") {
         // Handle oncommand as event listener
-        element.addEventListener('command', value);
+        element.addEventListener("command", value);
       } else {
         element.setAttribute(key, String(value));
       }
@@ -625,6 +660,6 @@ export class ZoteroUtils {
    * Check if Zotero 8+ MenuManager API is available
    */
   static hasNewMenuAPI(): boolean {
-    return typeof Zotero.MenuManager?.registerMenu === 'function';
+    return typeof Zotero.MenuManager?.registerMenu === "function";
   }
 }

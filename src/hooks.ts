@@ -1,6 +1,6 @@
-import pkg from '../package.json';
-import { ZotadataPlugin } from './plugin';
-import { registerWindowFluent } from '@/utils/locale';
+import pkg from "../package.json";
+import { ZotadataPlugin } from "./plugin";
+import { registerWindowFluent } from "@/utils/locale";
 
 async function onStartup(): Promise<void> {
   await Promise.all([
@@ -15,7 +15,7 @@ async function onStartup(): Promise<void> {
   await plugin.init({
     id: addon.data.config.addonID,
     version: pkg.version,
-    rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
+    rootURI: typeof rootURI !== "undefined" ? rootURI : "",
   });
 
   await Promise.all(
@@ -50,7 +50,10 @@ async function onNotify(
   // Reserved for future notifier wiring
 }
 
-async function onPrefsEvent(_type: string, _data: { [key: string]: unknown }): Promise<void> {
+async function onPrefsEvent(
+  _type: string,
+  _data: { [key: string]: unknown },
+): Promise<void> {
   // Reserved for preferences pane
 }
 

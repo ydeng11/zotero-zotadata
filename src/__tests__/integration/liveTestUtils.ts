@@ -26,7 +26,7 @@ function extractMessage(error: unknown): string {
     return error.message;
   }
 
-  if (typeof error === 'string') {
+  if (typeof error === "string") {
     return error;
   }
 
@@ -64,7 +64,7 @@ export function maybeSkipTransientDownloadFailure(
   context: SkipContext,
   result: DownloadFailureLike,
 ): void {
-  if (result.outcome !== 'download_failed' || !result.error) {
+  if (result.outcome !== "download_failed" || !result.error) {
     return;
   }
 

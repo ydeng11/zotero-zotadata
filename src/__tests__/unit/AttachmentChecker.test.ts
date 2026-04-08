@@ -1,19 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AttachmentChecker } from '@/features/attachment/AttachmentChecker';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AttachmentChecker } from "@/features/attachment/AttachmentChecker";
 
-describe('AttachmentChecker', () => {
+describe("AttachmentChecker", () => {
   let checker: AttachmentChecker;
 
   beforeEach(() => {
     checker = new AttachmentChecker();
   });
 
-  it('should check single item attachments', async () => {
+  it("should check single item attachments", async () => {
     const mockAttachments = new Map<number, any>();
     mockAttachments.set(10, {
       id: 10,
       attachmentLinkMode: 0,
-      getFilePath: () => '/path/to/file.pdf',
+      getFilePath: () => "/path/to/file.pdf",
       getFile: () => ({ exists: () => true }),
     });
 
@@ -30,7 +30,7 @@ describe('AttachmentChecker', () => {
     };
 
     // Mock Zotero.Items.get globally for AttachmentManager
-    vi.stubGlobal('Zotero', {
+    vi.stubGlobal("Zotero", {
       Items: {
         get: vi.fn((id: number) => mockAttachments.get(id)),
         trash: vi.fn().mockResolvedValue(undefined),
@@ -47,12 +47,12 @@ describe('AttachmentChecker', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should handle invalid attachments by moving to trash', async () => {
+  it("should handle invalid attachments by moving to trash", async () => {
     const mockAttachments = new Map<number, any>();
     mockAttachments.set(20, {
       id: 20,
       attachmentLinkMode: 0,
-      getFilePath: () => '/path/to/missing.pdf',
+      getFilePath: () => "/path/to/missing.pdf",
       getFile: () => ({ exists: () => false }),
     });
 
@@ -62,7 +62,7 @@ describe('AttachmentChecker', () => {
     };
 
     const trash = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal('Zotero', {
+    vi.stubGlobal("Zotero", {
       Items: {
         get: vi.fn((id: number) => mockAttachments.get(id)),
         trash,
@@ -78,7 +78,7 @@ describe('AttachmentChecker', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should generate results message', () => {
+  it("should generate results message", () => {
     const message = checker.generateResultsMessage({
       valid: 5,
       removed: 2,
@@ -86,12 +86,12 @@ describe('AttachmentChecker', () => {
       errors: 0,
     });
 
-    expect(message).toContain('5 valid');
-    expect(message).toContain('2 invalid');
-    expect(message).toContain('1 web link');
+    expect(message).toContain("5 valid");
+    expect(message).toContain("2 invalid");
+    expect(message).toContain("1 web link");
   });
 
-  it('should generate message for multiple items', () => {
+  it("should generate message for multiple items", () => {
     const message = checker.generateResultsMessage(
       {
         valid: 10,
@@ -99,21 +99,21 @@ describe('AttachmentChecker', () => {
         weblinks: 2,
         errors: 0,
       },
-      5
+      5,
     );
 
-    expect(message).toContain('Checked 5 items');
-    expect(message).toContain('10 valid');
-    expect(message).toContain('3 invalid');
+    expect(message).toContain("Checked 5 items");
+    expect(message).toContain("10 valid");
+    expect(message).toContain("3 invalid");
   });
 
-  it('should handle item with no attachments', async () => {
+  it("should handle item with no attachments", async () => {
     const mockItem = {
       id: 3,
       getAttachments: () => [],
     };
 
-    vi.stubGlobal('Zotero', {
+    vi.stubGlobal("Zotero", {
       Items: {
         get: vi.fn(),
       },

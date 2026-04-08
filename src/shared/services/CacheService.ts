@@ -1,5 +1,5 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
-import type { CacheConfig } from '@/shared/core/types';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import type { CacheConfig } from "@/shared/core/types";
 
 /**
  * Cache entry with metadata
@@ -84,7 +84,12 @@ export class CacheService {
       this.stats.persistentHits++;
 
       // Promote to memory cache
-      this.setMemoryCache(normalizedKey, persistentEntry.data, persistentEntry.ttl, persistentEntry.tags);
+      this.setMemoryCache(
+        normalizedKey,
+        persistentEntry.data,
+        persistentEntry.ttl,
+        persistentEntry.tags,
+      );
 
       return persistentEntry.data;
     }
@@ -98,7 +103,12 @@ export class CacheService {
   /**
    * Set item in cache
    */
-  async set<T>(key: string, data: T, ttl?: number, tags: string[] = []): Promise<void> {
+  async set<T>(
+    key: string,
+    data: T,
+    ttl?: number,
+    tags: string[] = [],
+  ): Promise<void> {
     const normalizedKey = this.normalizeKey(key);
     const cacheTtl = ttl || this.config.ttl;
 
@@ -140,11 +150,14 @@ export class CacheService {
     // Clear by pattern or tags
     const keysToDelete: string[] = [];
 
-    for (const [key, entry] of [...this.memoryCache.entries(), ...this.persistentCache.entries()]) {
+    for (const [key, entry] of [
+      ...this.memoryCache.entries(),
+      ...this.persistentCache.entries(),
+    ]) {
       let shouldDelete = false;
 
       if (pattern) {
-        if (typeof pattern === 'string') {
+        if (typeof pattern === "string") {
           shouldDelete = key.includes(pattern);
         } else {
           shouldDelete = pattern.test(key);
@@ -152,7 +165,8 @@ export class CacheService {
       }
 
       if (tags && tags.length > 0) {
-        shouldDelete = shouldDelete || tags.some(tag => entry.tags.includes(tag));
+        shouldDelete =
+          shouldDelete || tags.some((tag) => entry.tags.includes(tag));
       }
 
       if (shouldDelete) {
@@ -172,13 +186,17 @@ export class CacheService {
    * Get cache statistics
    */
   getStats(): CacheStats {
-    const memoryHitRate = this.stats.memoryHits + this.stats.memoryMisses > 0
-      ? this.stats.memoryHits / (this.stats.memoryHits + this.stats.memoryMisses)
-      : 0;
+    const memoryHitRate =
+      this.stats.memoryHits + this.stats.memoryMisses > 0
+        ? this.stats.memoryHits /
+          (this.stats.memoryHits + this.stats.memoryMisses)
+        : 0;
 
-    const persistentHitRate = this.stats.persistentHits + this.stats.persistentMisses > 0
-      ? this.stats.persistentHits / (this.stats.persistentHits + this.stats.persistentMisses)
-      : 0;
+    const persistentHitRate =
+      this.stats.persistentHits + this.stats.persistentMisses > 0
+        ? this.stats.persistentHits /
+          (this.stats.persistentHits + this.stats.persistentMisses)
+        : 0;
 
     return {
       memoryCache: {
@@ -232,10 +250,14 @@ export class CacheService {
   async optimize(): Promise<void> {
     // Optimize memory cache
     if (this.memoryCache.size > this.MEMORY_CACHE_SIZE) {
-      const entries = Array.from(this.memoryCache.entries())
-        .sort((a, b) => a[1].hitCount - b[1].hitCount);
+      const entries = Array.from(this.memoryCache.entries()).sort(
+        (a, b) => a[1].hitCount - b[1].hitCount,
+      );
 
-      const toRemove = entries.slice(0, this.memoryCache.size - this.MEMORY_CACHE_SIZE);
+      const toRemove = entries.slice(
+        0,
+        this.memoryCache.size - this.MEMORY_CACHE_SIZE,
+      );
       for (const [key] of toRemove) {
         this.memoryCache.delete(key);
         this.stats.evictions++;
@@ -244,10 +266,14 @@ export class CacheService {
 
     // Optimize persistent cache
     if (this.persistentCache.size > this.PERSISTENT_CACHE_SIZE) {
-      const entries = Array.from(this.persistentCache.entries())
-        .sort((a, b) => a[1].hitCount - b[1].hitCount);
+      const entries = Array.from(this.persistentCache.entries()).sort(
+        (a, b) => a[1].hitCount - b[1].hitCount,
+      );
 
-      const toRemove = entries.slice(0, this.persistentCache.size - this.PERSISTENT_CACHE_SIZE);
+      const toRemove = entries.slice(
+        0,
+        this.persistentCache.size - this.PERSISTENT_CACHE_SIZE,
+      );
       for (const [key] of toRemove) {
         this.persistentCache.delete(key);
         this.stats.evictions++;
@@ -260,18 +286,18 @@ export class CacheService {
    */
   async savePersistentCache(): Promise<void> {
     try {
-      if (typeof Zotero !== 'undefined' && Zotero.File) {
+      if (typeof Zotero !== "undefined" && Zotero.File) {
         const cacheData = Object.fromEntries(this.persistentCache.entries());
         const jsonData = JSON.stringify(cacheData, null, 2);
 
         // In a real implementation, this would save to a file
         // For now, we'll use localStorage as a fallback
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('attachment-finder-cache', jsonData);
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("attachment-finder-cache", jsonData);
         }
       }
     } catch (error) {
-      console.warn('Failed to save persistent cache:', error);
+      console.warn("Failed to save persistent cache:", error);
     }
   }
 
@@ -280,8 +306,8 @@ export class CacheService {
    */
   private async loadPersistentCache(): Promise<void> {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const jsonData = localStorage.getItem('attachment-finder-cache');
+      if (typeof localStorage !== "undefined") {
+        const jsonData = localStorage.getItem("attachment-finder-cache");
         if (jsonData) {
           const cacheData = JSON.parse(jsonData);
           this.persistentCache = new Map(Object.entries(cacheData));
@@ -291,14 +317,19 @@ export class CacheService {
         }
       }
     } catch (error) {
-      console.warn('Failed to load persistent cache:', error);
+      console.warn("Failed to load persistent cache:", error);
     }
   }
 
   /**
    * Private helper methods
    */
-  private setMemoryCache<T>(key: string, data: T, ttl: number, tags: string[]): void {
+  private setMemoryCache<T>(
+    key: string,
+    data: T,
+    ttl: number,
+    tags: string[],
+  ): void {
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
@@ -316,7 +347,12 @@ export class CacheService {
     }
   }
 
-  private setPersistentCache<T>(key: string, data: T, ttl: number, tags: string[]): void {
+  private setPersistentCache<T>(
+    key: string,
+    data: T,
+    ttl: number,
+    tags: string[],
+  ): void {
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
@@ -335,7 +371,7 @@ export class CacheService {
   }
 
   private isValid(entry: CacheEntry<any>, now: number = Date.now()): boolean {
-    return (now - entry.timestamp) < entry.ttl;
+    return now - entry.timestamp < entry.ttl;
   }
 
   private shouldPersist<T>(data: T, ttl: number): boolean {
@@ -367,29 +403,36 @@ export class CacheService {
         if (value !== null) {
           results.set(key, value);
         }
-      })
+      }),
     );
 
     return results;
   }
 
-  async setMultiple<T>(entries: Map<string, T>, ttl?: number, tags: string[] = []): Promise<void> {
+  async setMultiple<T>(
+    entries: Map<string, T>,
+    ttl?: number,
+    tags: string[] = [],
+  ): Promise<void> {
     await Promise.allSettled(
       Array.from(entries.entries()).map(([key, value]) =>
-        this.set(key, value, ttl, tags)
-      )
+        this.set(key, value, ttl, tags),
+      ),
     );
   }
 
   /**
    * Cache warming (preload frequently accessed data)
    */
-  async warmCache<T>(loader: () => Promise<Map<string, T>>, ttl?: number): Promise<void> {
+  async warmCache<T>(
+    loader: () => Promise<Map<string, T>>,
+    ttl?: number,
+  ): Promise<void> {
     try {
       const data = await loader();
-      await this.setMultiple(data, ttl, ['warm']);
+      await this.setMultiple(data, ttl, ["warm"]);
     } catch (error) {
-      console.warn('Failed to warm cache:', error);
+      console.warn("Failed to warm cache:", error);
     }
   }
 

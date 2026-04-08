@@ -1,13 +1,13 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
-import { FileUtils } from '@/shared/utils/FileUtils';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import { FileUtils } from "@/shared/utils/FileUtils";
 import type {
   DownloadOptions,
   DownloadResult,
   QueueItem,
   QueueConfig,
   ProgressInfo,
-  Resource
-} from '@/shared/core/types';
+  Resource,
+} from "@/shared/core/types";
 
 /**
  * Download item for queue management
@@ -34,7 +34,7 @@ class ManagedDownload implements Resource {
   constructor(
     public readonly id: string,
     public readonly url: string,
-    public readonly options: DownloadOptions = {}
+    public readonly options: DownloadOptions = {},
   ) {
     this.abortController = new AbortController();
   }
@@ -137,16 +137,16 @@ export class DownloadManager {
       onProgress?: (progress: ProgressInfo) => void;
       onComplete?: (result: DownloadResult) => void;
       onError?: (error: Error) => void;
-    } = {}
+    } = {},
   ): Promise<string> {
     const id = `download_${this.nextId++}`;
-    
+
     const queueItem: DownloadQueueItem = {
       id,
       data: {
         url,
         options,
-        source: 'queue',
+        source: "queue",
       },
       priority: 1,
       retries: 0,
@@ -168,11 +168,11 @@ export class DownloadManager {
    */
   async downloadFile(
     url: string,
-    options: DownloadOptions = {}
+    options: DownloadOptions = {},
   ): Promise<DownloadResult> {
     const id = `direct_${this.nextId++}`;
     const managedDownload = new ManagedDownload(id, url, options);
-    
+
     try {
       this.activeDownloads.set(id, managedDownload);
       return await this.executeDownload(managedDownload);
@@ -197,7 +197,7 @@ export class DownloadManager {
     }
 
     // Remove from queue
-    const queueIndex = this.queue.findIndex(item => item.id === id);
+    const queueIndex = this.queue.findIndex((item) => item.id === id);
     if (queueIndex >= 0) {
       this.queue.splice(queueIndex, 1);
       this.stats.cancelled++;
@@ -212,11 +212,13 @@ export class DownloadManager {
    */
   async cancelAllDownloads(): Promise<void> {
     // Cancel active downloads
-    const activePromises = Array.from(this.activeDownloads.values()).map(async (download) => {
-      download.cancel();
-      await download.cleanup();
-    });
-    
+    const activePromises = Array.from(this.activeDownloads.values()).map(
+      async (download) => {
+        download.cancel();
+        await download.cleanup();
+      },
+    );
+
     await Promise.allSettled(activePromises);
     this.activeDownloads.clear();
 
@@ -254,7 +256,10 @@ export class DownloadManager {
     this.isProcessing = true;
 
     try {
-      while (this.queue.length > 0 && this.activeDownloads.size < this.config.concurrency) {
+      while (
+        this.queue.length > 0 &&
+        this.activeDownloads.size < this.config.concurrency
+      ) {
         const queueItem = this.queue.shift();
         if (!queueItem) break;
 
@@ -277,13 +282,13 @@ export class DownloadManager {
 
     try {
       this.activeDownloads.set(id, managedDownload);
-      
+
       // Execute download with progress tracking
       const result = await this.executeDownload(managedDownload, onProgress);
-      
+
       this.stats.completed++;
       this.stats.totalBytes += result.fileSize;
-      
+
       if (onComplete) {
         onComplete(result);
       }
@@ -292,26 +297,32 @@ export class DownloadManager {
         error,
         ErrorType.NETWORK_ERROR,
         {
-          operation: 'queueDownload',
+          operation: "queueDownload",
           url: data.url,
           downloadId: id,
-        }
+        },
       );
 
       await this.errorManager.handleError(contextualError);
 
       // Retry logic
-      if (queueItem.retries < queueItem.maxRetries && contextualError.retryable) {
+      if (
+        queueItem.retries < queueItem.maxRetries &&
+        contextualError.retryable
+      ) {
         queueItem.retries++;
-        
+
         // Add back to queue with delay
-        setTimeout(() => {
-          this.queue.unshift(queueItem);
-          this.processQueue();
-        }, this.config.retryDelay * Math.pow(2, queueItem.retries));
+        setTimeout(
+          () => {
+            this.queue.unshift(queueItem);
+            this.processQueue();
+          },
+          this.config.retryDelay * Math.pow(2, queueItem.retries),
+        );
       } else {
         this.stats.failed++;
-        
+
         if (onError) {
           onError(contextualError);
         }
@@ -319,7 +330,7 @@ export class DownloadManager {
     } finally {
       this.activeDownloads.delete(id);
       await managedDownload.cleanup();
-      
+
       // Continue processing queue
       this.processQueue();
     }
@@ -330,7 +341,7 @@ export class DownloadManager {
    */
   private async executeDownload(
     managedDownload: ManagedDownload,
-    onProgress?: (progress: ProgressInfo) => void
+    onProgress?: (progress: ProgressInfo) => void,
   ): Promise<DownloadResult> {
     const { url, options } = managedDownload;
 
@@ -340,24 +351,24 @@ export class DownloadManager {
         if (!this.isValidUrl(url)) {
           throw this.errorManager.createError(
             ErrorType.VALIDATION_ERROR,
-            'Invalid URL provided',
-            { url }
+            "Invalid URL provided",
+            { url },
           );
         }
 
         // Check file size if enabled
         if (options.validateSize && options.maxFileSize) {
-          const headResponse = await this.makeRequest('HEAD', url, {
+          const headResponse = await this.makeRequest("HEAD", url, {
             signal: managedDownload.getAbortSignal(),
             timeout: 10000,
           });
 
-          const contentLength = headResponse.headers.get('content-length');
+          const contentLength = headResponse.headers.get("content-length");
           if (contentLength && parseInt(contentLength) > options.maxFileSize) {
             throw this.errorManager.createError(
               ErrorType.VALIDATION_ERROR,
               `File size (${contentLength} bytes) exceeds limit (${options.maxFileSize} bytes)`,
-              { url, fileSize: contentLength, limit: options.maxFileSize }
+              { url, fileSize: contentLength, limit: options.maxFileSize },
             );
           }
         }
@@ -367,13 +378,13 @@ export class DownloadManager {
           onProgress({
             current: 0,
             total: 1,
-            message: 'Starting download...',
+            message: "Starting download...",
             cancellable: true,
           });
         }
 
         // Make download request
-        const response = await this.makeRequest('GET', url, {
+        const response = await this.makeRequest("GET", url, {
           signal: managedDownload.getAbortSignal(),
           timeout: options.timeout || 30000,
         });
@@ -382,7 +393,7 @@ export class DownloadManager {
           throw this.errorManager.createError(
             ErrorType.NETWORK_ERROR,
             `HTTP ${response.status}: ${response.statusText}`,
-            { url, status: response.status }
+            { url, status: response.status },
           );
         }
 
@@ -390,22 +401,27 @@ export class DownloadManager {
         const data = await this.readResponseWithProgress(
           response,
           onProgress,
-          managedDownload.getAbortSignal()
+          managedDownload.getAbortSignal(),
         );
 
         // Validate downloaded content
-        if (!this.validateDownloadedContent(data, response.headers.get('content-type'))) {
+        if (
+          !this.validateDownloadedContent(
+            data,
+            response.headers.get("content-type"),
+          )
+        ) {
           throw this.errorManager.createError(
             ErrorType.VALIDATION_ERROR,
-            'Downloaded content appears to be invalid',
-            { url, contentType: response.headers.get('content-type') }
+            "Downloaded content appears to be invalid",
+            { url, contentType: response.headers.get("content-type") },
           );
         }
 
         const result: DownloadResult = {
           success: true,
           url,
-          source: 'DownloadManager',
+          source: "DownloadManager",
           fileSize: data.byteLength,
           data,
         };
@@ -414,7 +430,7 @@ export class DownloadManager {
           onProgress({
             current: 1,
             total: 1,
-            message: 'Download completed',
+            message: "Download completed",
             cancellable: false,
           });
         }
@@ -423,10 +439,10 @@ export class DownloadManager {
       },
       ErrorType.NETWORK_ERROR,
       {
-        operation: 'executeDownload',
+        operation: "executeDownload",
         url,
         downloadId: managedDownload.id,
-      }
+      },
     );
   }
 
@@ -440,22 +456,22 @@ export class DownloadManager {
       signal?: AbortSignal;
       timeout?: number;
       headers?: Record<string, string>;
-    } = {}
+    } = {},
   ): Promise<Response> {
     try {
       // Use Zotero's HTTP request if available, otherwise fallback to fetch
-      if (typeof Zotero !== 'undefined' && Zotero.HTTP) {
+      if (typeof Zotero !== "undefined" && Zotero.HTTP) {
         const response = await Zotero.HTTP.request(method, url, {
           timeout: options.timeout || 30000,
           headers: {
-            'User-Agent': 'Zotero Zotadata/1.0',
+            "User-Agent": "Zotero Zotadata/1.0",
             ...options.headers,
           },
-          responseType: 'arraybuffer',
+          responseType: "arraybuffer",
         });
 
         const statusText =
-          (response as { statusText?: string }).statusText ?? '';
+          (response as { statusText?: string }).statusText ?? "";
         return new Response(response.response as ArrayBuffer, {
           status: response.status,
           statusText: statusText || undefined,
@@ -466,17 +482,17 @@ export class DownloadManager {
           method,
           signal: options.signal,
           headers: {
-            'User-Agent': 'Zotero Zotadata/1.0',
+            "User-Agent": "Zotero Zotadata/1.0",
             ...options.headers,
           },
         });
       }
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         throw this.errorManager.createError(
           ErrorType.NETWORK_ERROR,
-          'Download was cancelled',
-          { url }
+          "Download was cancelled",
+          { url },
         );
       }
       throw error;
@@ -489,31 +505,31 @@ export class DownloadManager {
   private async readResponseWithProgress(
     response: Response,
     onProgress?: (progress: ProgressInfo) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<ArrayBuffer> {
-    const contentLength = response.headers.get('content-length');
+    const contentLength = response.headers.get("content-length");
     const total = contentLength ? parseInt(contentLength) : 0;
 
     if (response.arrayBuffer) {
       // Simple case - read entire response
       const data = await response.arrayBuffer();
-      
+
       if (onProgress && total > 0) {
         onProgress({
           current: total,
           total,
-          message: 'Download completed',
+          message: "Download completed",
           cancellable: false,
         });
       }
-      
+
       return data;
     }
 
     // Stream reading with progress (if supported)
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('Response body not readable');
+      throw new Error("Response body not readable");
     }
 
     const chunks: Uint8Array[] = [];
@@ -522,13 +538,13 @@ export class DownloadManager {
     try {
       while (true) {
         if (signal?.aborted) {
-          throw new Error('Download was cancelled');
+          throw new Error("Download was cancelled");
         }
 
         const { done, value } = await reader.read();
-        
+
         if (done) break;
-        
+
         chunks.push(value);
         receivedLength += value.length;
 
@@ -536,7 +552,7 @@ export class DownloadManager {
           onProgress({
             current: receivedLength,
             total: total || receivedLength,
-            message: `Downloaded ${FileUtils.formatFileSize(receivedLength)}${total ? ` of ${FileUtils.formatFileSize(total)}` : ''}`,
+            message: `Downloaded ${FileUtils.formatFileSize(receivedLength)}${total ? ` of ${FileUtils.formatFileSize(total)}` : ""}`,
             cancellable: true,
           });
         }
@@ -559,13 +575,16 @@ export class DownloadManager {
   /**
    * Validate downloaded content
    */
-  private validateDownloadedContent(data: ArrayBuffer, contentType?: string | null): boolean {
+  private validateDownloadedContent(
+    data: ArrayBuffer,
+    contentType?: string | null,
+  ): boolean {
     if (data.byteLength === 0) {
       return false;
     }
 
     // Basic validation for PDF files
-    if (contentType?.includes('pdf') || this.isPDFData(data)) {
+    if (contentType?.includes("pdf") || this.isPDFData(data)) {
       return this.validatePDF(data);
     }
 
@@ -579,13 +598,13 @@ export class DownloadManager {
   private isPDFData(data: ArrayBuffer): boolean {
     const view = new Uint8Array(data);
     const pdfSignature = [0x25, 0x50, 0x44, 0x46]; // %PDF
-    
+
     if (view.length < 4) return false;
-    
+
     for (let i = 0; i < 4; i++) {
       if (view[i] !== pdfSignature[i]) return false;
     }
-    
+
     return true;
   }
 
@@ -594,10 +613,10 @@ export class DownloadManager {
    */
   private validatePDF(data: ArrayBuffer): boolean {
     if (!this.isPDFData(data)) return false;
-    
+
     const view = new Uint8Array(data);
-    const endSignature = [0x25, 0x25, 0x45, 0x4F, 0x46]; // %%EOF
-    
+    const endSignature = [0x25, 0x25, 0x45, 0x4f, 0x46]; // %%EOF
+
     // Check for PDF end marker in last 1024 bytes
     const searchStart = Math.max(0, view.length - 1024);
     for (let i = searchStart; i <= view.length - 5; i++) {
@@ -610,7 +629,7 @@ export class DownloadManager {
       }
       if (match) return true;
     }
-    
+
     return false;
   }
 
@@ -620,9 +639,9 @@ export class DownloadManager {
   private isValidUrl(url: string): boolean {
     try {
       const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
     } catch {
       return false;
     }
   }
-} 
+}

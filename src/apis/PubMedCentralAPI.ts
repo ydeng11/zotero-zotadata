@@ -1,7 +1,7 @@
-import { APIService } from '@/services';
-import { ErrorManager, ErrorType } from '@/shared/core';
-import type { APIResponse, SearchResult, PMCEntry } from '@/shared/core/types';
-import { URLUtils, StringUtils } from '@/shared/utils';
+import { APIService } from "@/services";
+import { ErrorManager, ErrorType } from "@/shared/core";
+import type { APIResponse, SearchResult, PMCEntry } from "@/shared/core/types";
+import { URLUtils, StringUtils } from "@/shared/utils";
 
 /**
  * PMC search options
@@ -9,8 +9,14 @@ import { URLUtils, StringUtils } from '@/shared/utils';
 interface PMCSearchOptions {
   retmax?: number;
   retstart?: number;
-  sort?: 'relevance' | 'pub date' | 'first author' | 'last author' | 'journal' | 'title';
-  datetype?: 'pdat' | 'mdat' | 'edat';
+  sort?:
+    | "relevance"
+    | "pub date"
+    | "first author"
+    | "last author"
+    | "journal"
+    | "title";
+  datetype?: "pdat" | "mdat" | "edat";
   mindate?: string;
   maxdate?: string;
   field?: string;
@@ -49,39 +55,46 @@ export class PubMedCentralAPI extends APIService {
 
   // PMC subject areas
   private static readonly SUBJECT_AREAS = {
-    'medicine': 'Medicine',
-    'biology': 'Biology',
-    'biochemistry': 'Biochemistry',
-    'genetics': 'Genetics',
-    'immunology': 'Immunology',
-    'neuroscience': 'Neuroscience',
-    'pharmacology': 'Pharmacology',
-    'physiology': 'Physiology',
-    'public-health': 'Public Health',
-    'veterinary': 'Veterinary Medicine',
+    medicine: "Medicine",
+    biology: "Biology",
+    biochemistry: "Biochemistry",
+    genetics: "Genetics",
+    immunology: "Immunology",
+    neuroscience: "Neuroscience",
+    pharmacology: "Pharmacology",
+    physiology: "Physiology",
+    "public-health": "Public Health",
+    veterinary: "Veterinary Medicine",
   };
 
   constructor(addonData: any) {
     // NCBI rate limit: 3 requests per second without API key, 10 with API key
-    super('https://eutils.ncbi.nlm.nih.gov/entrez/eutils', { requests: 3, window: 1000 }, addonData.cache, addonData.logger);
+    super(
+      "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+      { requests: 3, window: 1000 },
+      addonData.cache,
+      addonData.logger,
+    );
     this.errorManager = new ErrorManager();
   }
 
   /**
    * Search PMC by identifier (PMID, PMCID, DOI)
    */
-  async searchByIdentifier(identifier: string): Promise<APIResponse<PMCEntry[]>> {
+  async searchByIdentifier(
+    identifier: string,
+  ): Promise<APIResponse<PMCEntry[]>> {
     try {
       const cleanId = this.cleanIdentifier(identifier);
-      
+
       // Determine identifier type and build query
       let searchTerm: string;
       if (this.isPMID(cleanId)) {
-        searchTerm = cleanId + '[pmid]';
+        searchTerm = cleanId + "[pmid]";
       } else if (this.isPMCID(cleanId)) {
-        searchTerm = cleanId + '[pmcid]';
+        searchTerm = cleanId + "[pmcid]";
       } else if (this.isDOI(cleanId)) {
-        searchTerm = cleanId + '[doi]';
+        searchTerm = cleanId + "[doi]";
       } else {
         // Fallback to general search
         searchTerm = cleanId;
@@ -89,22 +102,25 @@ export class PubMedCentralAPI extends APIService {
 
       return await this.searchByQuery(searchTerm, { retmax: 5 });
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'PMC', operation: 'searchByIdentifier', identifier }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "PMC",
+        operation: "searchByIdentifier",
+        identifier,
+      });
     }
   }
 
   /**
    * Search PMC by query
    */
-  async searchByQuery(query: string, options: PMCSearchOptions = {}): Promise<APIResponse<PMCEntry[]>> {
+  async searchByQuery(
+    query: string,
+    options: PMCSearchOptions = {},
+  ): Promise<APIResponse<PMCEntry[]>> {
     try {
       // First, search for PMCIDs
       const searchResponse = await this.esearch(query, options);
-      
+
       if (!searchResponse.data.esearchresult.idlist.length) {
         return {
           ...searchResponse,
@@ -113,10 +129,12 @@ export class PubMedCentralAPI extends APIService {
       }
 
       // Then get detailed information for found articles
-      const summaryResponse = await this.esummary(searchResponse.data.esearchresult.idlist);
-      
+      const summaryResponse = await this.esummary(
+        searchResponse.data.esearchresult.idlist,
+      );
+
       const entries = this.processSummaryResults(summaryResponse.data);
-      
+
       return {
         data: entries,
         status: summaryResponse.status,
@@ -125,24 +143,28 @@ export class PubMedCentralAPI extends APIService {
         timestamp: summaryResponse.timestamp,
       };
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'PMC', operation: 'searchByQuery', query }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "PMC",
+        operation: "searchByQuery",
+        query,
+      });
     }
   }
 
   /**
    * Search for papers by title and authors
    */
-  async searchPaper(title: string, authors?: string[], options: PMCSearchOptions = {}): Promise<APIResponse<PMCEntry[]>> {
+  async searchPaper(
+    title: string,
+    authors?: string[],
+    options: PMCSearchOptions = {},
+  ): Promise<APIResponse<PMCEntry[]>> {
     try {
       let searchQuery = `"${title}"[title]`;
-      
+
       if (authors && authors.length > 0) {
-        const authorQueries = authors.map(author => `"${author}"[author]`);
-        searchQuery += ` AND (${authorQueries.join(' OR ')})`;
+        const authorQueries = authors.map((author) => `"${author}"[author]`);
+        searchQuery += ` AND (${authorQueries.join(" OR ")})`;
       }
 
       // Limit to open access if requested
@@ -152,15 +174,16 @@ export class PubMedCentralAPI extends APIService {
 
       return await this.searchByQuery(searchQuery, {
         retmax: 10,
-        sort: 'relevance',
+        sort: "relevance",
         ...options,
       });
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'PMC', operation: 'searchPaper', title, authors }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "PMC",
+        operation: "searchPaper",
+        title,
+        authors,
+      });
     }
   }
 
@@ -204,14 +227,18 @@ export class PubMedCentralAPI extends APIService {
    */
   convertToSearchResult(entry: PMCEntry): SearchResult {
     return {
-      title: entry.title || 'Unknown Title',
+      title: entry.title || "Unknown Title",
       authors: entry.authors || [],
       year: entry.pubdate ? this.extractYear(entry.pubdate) : undefined,
       doi: entry.doi,
-      url: entry.pmcid ? (this.getFullTextUrl(entry.pmcid) || undefined) : (this.getPubMedUrl(entry.pmid || '') || undefined),
-      pdfUrl: entry.pmcid ? (this.getPDFUrl(entry.pmcid) || undefined) : undefined,
+      url: entry.pmcid
+        ? this.getFullTextUrl(entry.pmcid) || undefined
+        : this.getPubMedUrl(entry.pmid || "") || undefined,
+      pdfUrl: entry.pmcid
+        ? this.getPDFUrl(entry.pmcid) || undefined
+        : undefined,
       confidence: this.calculateConfidence(entry),
-      source: 'PMC',
+      source: "PMC",
     };
   }
 
@@ -226,28 +253,28 @@ export class PubMedCentralAPI extends APIService {
    * Abstract method implementations
    */
   async search(query: any): Promise<PMCEntry[]> {
-    if (typeof query === 'string') {
+    if (typeof query === "string") {
       const response = await this.searchByQuery(query);
       return response.data;
     }
-    
-    if (query && typeof query === 'object') {
+
+    if (query && typeof query === "object") {
       if (query.pmid || query.pmcid || query.doi) {
         const identifier = query.pmid || query.pmcid || query.doi;
         const response = await this.searchByIdentifier(identifier);
         return response.data;
       }
-      
+
       if (query.title) {
         const response = await this.searchPaper(query.title, query.authors);
         return response.data;
       }
     }
-    
+
     throw this.errorManager.createError(
       ErrorType.VALIDATION_ERROR,
-      'Invalid search query format',
-      { query }
+      "Invalid search query format",
+      { query },
     );
   }
 
@@ -258,8 +285,8 @@ export class PubMedCentralAPI extends APIService {
     rateLimit: any;
   } {
     return {
-      name: 'PubMed Central',
-      version: '1.0',
+      name: "PubMed Central",
+      version: "1.0",
       baseUrl: this.baseUrl,
       rateLimit: this.rateLimitConfig,
     };
@@ -268,44 +295,49 @@ export class PubMedCentralAPI extends APIService {
   /**
    * Private helper methods
    */
-  private async esearch(query: string, options: PMCSearchOptions): Promise<APIResponse<PMCSearchResponse>> {
+  private async esearch(
+    query: string,
+    options: PMCSearchOptions,
+  ): Promise<APIResponse<PMCSearchResponse>> {
     const {
       retmax = 20,
       retstart = 0,
-      sort = 'relevance',
-      datetype = 'pdat',
+      sort = "relevance",
+      datetype = "pdat",
       mindate,
       maxdate,
     } = options;
 
     const params = new URLSearchParams();
-    params.append('db', 'pmc');
-    params.append('term', query);
-    params.append('retmode', 'json');
-    params.append('retmax', Math.min(retmax, 100).toString()); // PMC limit
-    params.append('retstart', retstart.toString());
-    params.append('sort', sort);
-    
+    params.append("db", "pmc");
+    params.append("term", query);
+    params.append("retmode", "json");
+    params.append("retmax", Math.min(retmax, 100).toString()); // PMC limit
+    params.append("retstart", retstart.toString());
+    params.append("sort", sort);
+
     if (datetype) {
-      params.append('datetype', datetype);
+      params.append("datetype", datetype);
     }
-    
+
     if (mindate) {
-      params.append('mindate', mindate);
+      params.append("mindate", mindate);
     }
-    
+
     if (maxdate) {
-      params.append('maxdate', maxdate);
+      params.append("maxdate", maxdate);
     }
 
     // Add email parameter for better rate limits (optional)
-    params.append('email', 'zotero@example.com');
+    params.append("email", "zotero@example.com");
 
     const endpoint = `/esearch.fcgi?${params.toString()}`;
     return this.request<PMCSearchResponse>(endpoint);
   }
 
-  private async esummary(pmcids: string[]): Promise<APIResponse<PMCSummaryResponse>> {
+  private async esummary(
+    pmcids: string[],
+  ): Promise<APIResponse<PMCSummaryResponse>> {
     if (pmcids.length === 0) {
       return {
         data: { result: { uids: [] } },
@@ -317,10 +349,10 @@ export class PubMedCentralAPI extends APIService {
     }
 
     const params = new URLSearchParams();
-    params.append('db', 'pmc');
-    params.append('id', pmcids.join(','));
-    params.append('retmode', 'json');
-    params.append('email', 'zotero@example.com');
+    params.append("db", "pmc");
+    params.append("id", pmcids.join(","));
+    params.append("retmode", "json");
+    params.append("email", "zotero@example.com");
 
     const endpoint = `/esummary.fcgi?${params.toString()}`;
     return this.request<PMCSummaryResponse>(endpoint);
@@ -328,14 +360,14 @@ export class PubMedCentralAPI extends APIService {
 
   private processSummaryResults(summaryData: PMCSummaryResponse): PMCEntry[] {
     const entries: PMCEntry[] = [];
-    
+
     if (!summaryData.result || !summaryData.result.uids) {
       return entries;
     }
 
     for (const uid of summaryData.result.uids) {
       const articleData = summaryData.result[uid];
-      if (articleData && typeof articleData === 'object') {
+      if (articleData && typeof articleData === "object") {
         const entry = this.createPMCEntry(articleData);
         if (entry) {
           entries.push(entry);
@@ -351,12 +383,14 @@ export class PubMedCentralAPI extends APIService {
       const entry: PMCEntry = {
         pmid: articleData.pmid?.toString(),
         pmcid: this.extractPMCID(articleData.pmcid),
-        title: this.cleanText(articleData.title || ''),
+        title: this.cleanText(articleData.title || ""),
         authors: this.parseAuthors(articleData.authors),
-        journal: this.cleanText(articleData.fulljournalname || articleData.source || ''),
-        pubdate: articleData.pubdate || articleData.epubdate || '',
+        journal: this.cleanText(
+          articleData.fulljournalname || articleData.source || "",
+        ),
+        pubdate: articleData.pubdate || articleData.epubdate || "",
         doi: this.extractDOI(articleData.doi),
-        abstract: this.cleanText(articleData.abstract || ''),
+        abstract: this.cleanText(articleData.abstract || ""),
         keywords: this.parseKeywords(articleData.keywords),
       };
 
@@ -373,44 +407,44 @@ export class PubMedCentralAPI extends APIService {
 
   private parseAuthors(authorsData: any): string[] {
     if (!authorsData) return [];
-    
-    if (typeof authorsData === 'string') {
+
+    if (typeof authorsData === "string") {
       return authorsData
         .split(/[,;]/)
-        .map(author => this.cleanText(author))
-        .filter(author => author.length > 0);
+        .map((author) => this.cleanText(author))
+        .filter((author) => author.length > 0);
     }
-    
+
     if (Array.isArray(authorsData)) {
       return authorsData
-        .map(author => this.cleanText(author.name || author.toString()))
-        .filter(author => author.length > 0);
+        .map((author) => this.cleanText(author.name || author.toString()))
+        .filter((author) => author.length > 0);
     }
-    
+
     return [];
   }
 
   private parseKeywords(keywordsData: any): string[] {
     if (!keywordsData) return [];
-    
-    if (typeof keywordsData === 'string') {
+
+    if (typeof keywordsData === "string") {
       return keywordsData
         .split(/[,;]/)
-        .map(keyword => this.cleanText(keyword))
-        .filter(keyword => keyword.length > 0);
+        .map((keyword) => this.cleanText(keyword))
+        .filter((keyword) => keyword.length > 0);
     }
-    
+
     if (Array.isArray(keywordsData)) {
       return keywordsData
-        .map(keyword => this.cleanText(keyword.toString()))
-        .filter(keyword => keyword.length > 0);
+        .map((keyword) => this.cleanText(keyword.toString()))
+        .filter((keyword) => keyword.length > 0);
     }
-    
+
     return [];
   }
 
   private isPMID(str: string): boolean {
-    return /^\d{8,}$/.test(str.replace(/\D/g, ''));
+    return /^\d{8,}$/.test(str.replace(/\D/g, ""));
   }
 
   private isPMCID(str: string): boolean {
@@ -423,42 +457,42 @@ export class PubMedCentralAPI extends APIService {
 
   private extractPMCID(input: string): string | null {
     if (!input) return null;
-    
+
     const match = input.match(/PMC(\d+)/i);
     if (match) {
       return `PMC${match[1]}`;
     }
-    
+
     // If it's just a number, assume it's a PMCID
     if (/^\d+$/.test(input)) {
       return `PMC${input}`;
     }
-    
+
     return null;
   }
 
   private extractDOI(input: string): string | undefined {
     if (!input) return undefined;
-    
+
     const match = input.match(/(10\.\d+\/[^\s]+)/);
     return match ? match[1] : undefined;
   }
 
   private extractYear(dateStr: string): number | undefined {
     if (!dateStr) return undefined;
-    
+
     const match = dateStr.match(/\b(19|20)\d{2}\b/);
     return match ? parseInt(match[0], 10) : undefined;
   }
 
   private cleanIdentifier(identifier: string): string {
-    return identifier.trim().replace(/\s+/g, '');
+    return identifier.trim().replace(/\s+/g, "");
   }
 
   private cleanText(text: string): string {
     return text
-      .replace(/\s+/g, ' ')
-      .replace(/^\s+|\s+$/g, '')
+      .replace(/\s+/g, " ")
+      .replace(/^\s+|\s+$/g, "")
       .trim();
   }
 
@@ -490,4 +524,4 @@ export class PubMedCentralAPI extends APIService {
 
     return Math.min(confidence, 0.9); // Cap at 0.9
   }
-} 
+}

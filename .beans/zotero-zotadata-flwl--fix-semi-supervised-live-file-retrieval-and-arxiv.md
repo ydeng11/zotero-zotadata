@@ -9,9 +9,11 @@ updated_at: 2026-04-06T05:19:47Z
 ---
 
 ## Goal
+
 Fix the live Semi-Supervised PDF regression so a mismatched non-arXiv DOI does not outrank the arXiv PDF, and adjust the live arXiv processor test to reflect the current absence of a discoverable non-preprint published version.
 
 ## Tasks
+
 - [x] Add failing regression coverage for mismatched DOI validation in file retrieval and for the Semi-Supervised live arXiv workflow expectation
 - [x] Update file retrieval to validate non-arXiv DOI matches before using DOI-based OA sources
 - [x] Update the live arXiv workflow test to assert the correct fallback behavior when no published version is discoverable

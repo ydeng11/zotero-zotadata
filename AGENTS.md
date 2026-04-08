@@ -43,16 +43,16 @@ zotero-zotadata/
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| Language | TypeScript 5.8 |
-| Runtime | Zotero (Firefox/XULRunner) |
-| Build | esbuild (via zotero-plugin-scaffold) |
-| Testing | Vitest |
-| Linting | ESLint 9 + typescript-eslint |
-| Formatting | Prettier |
-| Types | zotero-types, @types/node |
-| Toolkit | zotero-plugin-toolkit |
+| Category   | Technology                           |
+| ---------- | ------------------------------------ |
+| Language   | TypeScript 5.8                       |
+| Runtime    | Zotero (Firefox/XULRunner)           |
+| Build      | esbuild (via zotero-plugin-scaffold) |
+| Testing    | Vitest                               |
+| Linting    | ESLint 9 + typescript-eslint         |
+| Formatting | Prettier                             |
+| Types      | zotero-types, @types/node            |
+| Toolkit    | zotero-plugin-toolkit                |
 
 ## TypeScript Standards
 
@@ -78,10 +78,10 @@ export interface SearchResult {
 }
 
 // Use type for unions, primitives, and utility types
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 // Use const assertions for readonly arrays
-const ENABLED_APIS = ['CrossRef', 'OpenAlex'] as const;
+const ENABLED_APIS = ["CrossRef", "OpenAlex"] as const;
 ```
 
 ### Error Handling
@@ -102,9 +102,9 @@ const ENABLED_APIS = ['CrossRef', 'OpenAlex'] as const;
 - Group imports: external → internal → types
 
 ```typescript
-import { ErrorManager, ErrorType } from '@/core';
-import { MetadataFetcher } from '@/modules/MetadataFetcher';
-import type { AddonData, PluginConfig } from '@/core/types';
+import { ErrorManager, ErrorType } from "@/core";
+import { MetadataFetcher } from "@/modules/MetadataFetcher";
+import type { AddonData, PluginConfig } from "@/core/types";
 ```
 
 ### Class Structure
@@ -140,10 +140,10 @@ class ExampleService {
 const items = Zotero.getActiveZoteroPane().getSelectedItems();
 
 // Get preferences
-const value = Zotero.Prefs.get('extensions.zotero.zotadata.key');
+const value = Zotero.Prefs.get("extensions.zotero.zotadata.key");
 
 // Log to Zotero console
-Zotero.log('Message');
+Zotero.log("Message");
 ```
 
 ### XUL Element Creation

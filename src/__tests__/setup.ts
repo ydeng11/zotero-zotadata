@@ -1,16 +1,22 @@
 // src/__tests__/setup.ts
 // Mock Zotero 8 globals for testing
 
-import { beforeEach } from 'vitest';
-import { createLiveHTTP, createMockHTTP } from '../../tests/__mocks__/zotero-http';
-import { createMockPrefs, clearPrefs } from '../../tests/__mocks__/zotero-prefs';
+import { beforeEach } from "vitest";
+import {
+  createLiveHTTP,
+  createMockHTTP,
+} from "../../tests/__mocks__/zotero-http";
+import {
+  createMockPrefs,
+  clearPrefs,
+} from "../../tests/__mocks__/zotero-prefs";
 import {
   getAllMockItems,
   getMockItemById,
   installLiveAttachmentAdapters,
   resetMockCounters,
   trashMockItems,
-} from '../../tests/__mocks__/zotero-items';
+} from "../../tests/__mocks__/zotero-items";
 
 /** Recorded calls for Zotero 8 MenuManager (Vitest assertions). */
 const menuManagerRegisterCalls: Array<{
@@ -27,10 +33,10 @@ function resetMenuManagerMocks(): void {
 }
 
 const ITEM_TYPE_NAMES: Record<number, string> = {
-  1: 'journalArticle',
-  2: 'book',
-  3: 'conferencePaper',
-  4: 'preprint',
+  1: "journalArticle",
+  2: "book",
+  3: "conferencePaper",
+  4: "preprint",
 };
 
 const ITEM_TYPE_IDS = Object.fromEntries(
@@ -38,7 +44,7 @@ const ITEM_TYPE_IDS = Object.fromEntries(
 ) as Record<string, number>;
 
 function isLiveAPIMode(): boolean {
-  return process.env.LIVE_API_TESTS === '1';
+  return process.env.LIVE_API_TESTS === "1";
 }
 
 function resetItemAccessors(): void {
@@ -64,7 +70,7 @@ function installDefaultAttachmentAdapters(): void {
   initializationPromise: Promise.resolve(),
   unlockPromise: Promise.resolve(),
   uiReadyPromise: Promise.resolve(),
-  locale: 'en-US',
+  locale: "en-US",
   getMainWindows: () => [],
   getActiveZoteroPane: () => null,
   platformMajorVersion: 140,
@@ -85,13 +91,13 @@ function installDefaultAttachmentAdapters(): void {
   HTTP: {
     request: async () => ({
       status: 200,
-      responseText: '{}',
-      response: '{}',
+      responseText: "{}",
+      response: "{}",
       getResponseHeader: () => null,
     }),
   },
   ItemTypes: {
-    getName: (id: number) => ITEM_TYPE_NAMES[id] ?? 'journalArticle',
+    getName: (id: number) => ITEM_TYPE_NAMES[id] ?? "journalArticle",
     getID: (name: string) => ITEM_TYPE_IDS[name] ?? 1,
   },
   CreatorTypes: {
@@ -119,15 +125,15 @@ function installDefaultAttachmentAdapters(): void {
     },
   },
   Notifier: {
-    registerObserver: () => 'test-id',
+    registerObserver: () => "test-id",
     unregisterObserver: () => {},
   },
   Utilities: {
     cleanURL: (url: string) => url,
     cleanDOI: (doi: string) =>
       doi
-        .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '')
-        .replace(/^doi:\s*/i, '')
+        .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
+        .replace(/^doi:\s*/i, "")
         .trim(),
     cleanISBN: (isbn: string) => isbn,
   },
@@ -136,7 +142,7 @@ function installDefaultAttachmentAdapters(): void {
 // Mock Services global (auto-imported in Firefox 128+)
 (globalThis as any).Services = {
   locale: {
-    appLocaleAsBCP47: 'en-US',
+    appLocaleAsBCP47: "en-US",
   },
   wm: {
     addListener: () => {},
@@ -163,7 +169,7 @@ function installDefaultAttachmentAdapters(): void {
 };
 
 // Mock document.createXULElement for DOM tests
-if (typeof document !== 'undefined') {
+if (typeof document !== "undefined") {
   (document as any).createXULElement = document.createElement.bind(document);
 }
 
@@ -189,8 +195,8 @@ beforeEach(() => {
   clearPrefs();
   resetMockCounters();
   resetItemAccessors();
-  (globalThis as any).Zotero.locale = 'en-US';
-  (globalThis as any).Services.locale.appLocaleAsBCP47 = 'en-US';
+  (globalThis as any).Zotero.locale = "en-US";
+  (globalThis as any).Services.locale.appLocaleAsBCP47 = "en-US";
   if (isLiveAPIMode()) {
     installLiveAttachmentAdapters();
   } else {

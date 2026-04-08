@@ -6,9 +6,9 @@ import {
 
 describe("itemSearchQuery", () => {
   it("parses DOI from Extra when not in the DOI field", () => {
-    expect(
-      parseDoiFromExtra(`Publisher: Foo\nDOI: 10.1000/182\n`),
-    ).toMatch(/^10\.1000\/182$/);
+    expect(parseDoiFromExtra(`Publisher: Foo\nDOI: 10.1000/182\n`)).toMatch(
+      /^10\.1000\/182$/,
+    );
     expect(parseDoiFromExtra("https://doi.org/10.1038/s41586-020-2649-2")).toBe(
       "10.1038/s41586-020-2649-2",
     );

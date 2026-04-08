@@ -1,5 +1,5 @@
-import { ErrorType } from './ErrorTypes';
-import type { ContextualError } from '../types';
+import { ErrorType } from "./ErrorTypes";
+import type { ContextualError } from "../types";
 
 /**
  * Application error class with contextual information
@@ -18,7 +18,7 @@ export class AppError extends Error implements ContextualError {
     cause?: Error,
   ) {
     super(message);
-    this.name = 'AppError';
+    this.name = "AppError";
     this.type = type;
     this.context = context ?? {};
     this.timestamp = new Date().toISOString();

@@ -1,7 +1,7 @@
-import { config } from '../package.json';
-import type { ZotadataPlugin } from './plugin';
-import hooks from './hooks';
-import { createZToolkit } from './utils/ztoolkit';
+import { config } from "../package.json";
+import type { ZotadataPlugin } from "./plugin";
+import hooks from "./hooks";
+import { createZToolkit } from "./utils/ztoolkit";
 
 type ZToolkit = ReturnType<typeof createZToolkit>;
 
@@ -9,7 +9,7 @@ class Addon {
   public data: {
     alive: boolean;
     config: typeof config;
-    env: 'development' | 'production';
+    env: "development" | "production";
     initialized?: boolean;
     ztoolkit: ZToolkit;
     plugin?: ZotadataPlugin;

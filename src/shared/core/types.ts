@@ -25,7 +25,7 @@ export interface MetadataResult {
 export interface DownloadOptions {
   timeout?: number;
   headers?: Record<string, string>;
-  responseType?: 'text' | 'json' | 'arraybuffer';
+  responseType?: "text" | "json" | "arraybuffer";
   validateSize?: boolean;
   maxFileSize?: number;
 }
@@ -58,8 +58,8 @@ export interface CacheConfig {
 }
 
 // Re-export ErrorType from ErrorTypes for backward compatibility
-export { ErrorType } from './errors/ErrorTypes';
-import type { ErrorType } from './errors/ErrorTypes';
+export { ErrorType } from "./errors/ErrorTypes";
+import type { ErrorType } from "./errors/ErrorTypes";
 
 /** Runtime errors produced by ErrorManager / AppError (extends Error). */
 export interface ContextualError extends Error {
@@ -90,12 +90,12 @@ export interface MetadataFetchResult {
 
 /** Per-item result for arXiv batch processing (drives summary copy). */
 export type ArxivProcessOutcome =
-  | 'updated_published'
-  | 'converted_preprint'
-  | 'unchanged'
-  | 'skipped_not_arxiv'
-  | 'failed_metadata'
-  | 'failed_exception';
+  | "updated_published"
+  | "converted_preprint"
+  | "unchanged"
+  | "skipped_not_arxiv"
+  | "failed_metadata"
+  | "failed_exception";
 
 // arXiv processing result
 export interface ArxivProcessResult {
@@ -162,7 +162,7 @@ export interface ProgressInfo {
   cancellable: boolean;
 }
 
-export type AttachmentType = 'pdf' | 'html' | 'epub' | 'other';
+export type AttachmentType = "pdf" | "html" | "epub" | "other";
 
 export interface AttachmentInfo {
   type: AttachmentType;
@@ -177,16 +177,16 @@ export interface CrossRefWork {
   type?: string;
   DOI: string;
   title: string[];
-  'original-title'?: string[];
+  "original-title"?: string[];
   language?: string;
   author?: Array<{
     given?: string;
     family: string;
   }>;
   published?: {
-    'date-parts': number[][];
+    "date-parts": number[][];
   };
-  'container-title'?: string[];
+  "container-title"?: string[];
   volume?: string;
   issue?: string;
   page?: string;
@@ -244,7 +244,7 @@ export interface ArxivEntry {
   published: string;
   summary: string;
   doi?: string;
-  'journal-ref'?: string;
+  "journal-ref"?: string;
   categories: string[];
   pdf_url: string;
 }
@@ -280,7 +280,15 @@ export interface UIConfig {
 }
 
 // Utility types
-export type ItemType = 'journalArticle' | 'book' | 'bookSection' | 'conferencePaper' | 'preprint' | 'thesis' | 'report' | 'other';
+export type ItemType =
+  | "journalArticle"
+  | "book"
+  | "bookSection"
+  | "conferencePaper"
+  | "preprint"
+  | "thesis"
+  | "report"
+  | "other";
 
 export interface ItemInfo {
   id: number;
@@ -298,7 +306,7 @@ export interface ItemInfo {
   extra?: string;
 }
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogEntry {
   level: LogLevel;
@@ -335,15 +343,15 @@ export interface QueueConfig {
 
 // Event system
 export type EventType =
-  | 'download:start'
-  | 'download:progress'
-  | 'download:complete'
-  | 'download:error'
-  | 'metadata:found'
-  | 'metadata:updated'
-  | 'attachment:created'
-  | 'attachment:removed'
-  | 'error:occurred';
+  | "download:start"
+  | "download:progress"
+  | "download:complete"
+  | "download:error"
+  | "metadata:found"
+  | "metadata:updated"
+  | "attachment:created"
+  | "attachment:removed"
+  | "error:occurred";
 
 export interface EventData {
   type: EventType;
@@ -366,11 +374,11 @@ export interface PluginLifecycle {
 
 /** Per-item outcome for the "Find Missing Files" command. */
 export type FileFinderOutcome =
-  | 'downloaded'
-  | 'already_has_file'
-  | 'no_source_found'
-  | 'download_failed'
-  | 'skipped_not_regular';
+  | "downloaded"
+  | "already_has_file"
+  | "no_source_found"
+  | "download_failed"
+  | "skipped_not_regular";
 
 export interface FileFinderResult {
   item: Zotero.Item;

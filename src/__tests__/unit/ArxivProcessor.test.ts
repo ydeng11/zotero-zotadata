@@ -87,7 +87,9 @@ describe("ArxivProcessor legacy compatibility", () => {
     mockCrossRefAPI.fetchWorksByArxivId.mockResolvedValue([
       {
         DOI: "10.4414/saez.2003.09782",
-        title: ["Stiftung fur die berufliche Vorsorge der Leitenden Spitalarzte der Schweiz"],
+        title: [
+          "Stiftung fur die berufliche Vorsorge der Leitenden Spitalarzte der Schweiz",
+        ],
         type: "journal-article",
         language: "de",
         "container-title": ["Schweizerische Arztezeitung"],
@@ -136,7 +138,9 @@ describe("ArxivProcessor legacy compatibility", () => {
   it("rejects locale-conflicting CrossRef metadata during update", async () => {
     mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue({
       DOI: "10.4414/saez.2003.09782",
-      title: ["Stiftung fur die berufliche Vorsorge der Leitenden Spitalarzte der Schweiz"],
+      title: [
+        "Stiftung fur die berufliche Vorsorge der Leitenden Spitalarzte der Schweiz",
+      ],
       type: "journal-article",
       language: "de",
       "container-title": ["Schweizerische Arztezeitung"],

@@ -1,6 +1,6 @@
-import { ErrorType } from './ErrorTypes';
-import { AppError } from './AppError';
-import type { ContextualError, LogLevel } from '../types';
+import { ErrorType } from "./ErrorTypes";
+import { AppError } from "./AppError";
+import type { ContextualError, LogLevel } from "../types";
 
 export { ErrorType, AppError };
 export type { ContextualError };
@@ -24,17 +24,17 @@ export class ErrorManager {
   createError(
     type: ErrorType,
     message: string,
-    context: Record<string, any> = {}
+    context: Record<string, any> = {},
   ): ContextualError {
     const error = new Error(message) as ContextualError;
-    error.name = 'ContextualError';
+    error.name = "ContextualError";
     error.type = type;
     error.context = {
       ...context,
       userAgent:
-        typeof navigator !== 'undefined' && navigator.userAgent
+        typeof navigator !== "undefined" && navigator.userAgent
           ? navigator.userAgent
-          : 'Node',
+          : "Node",
       timestamp: new Date().toISOString(),
     };
     error.timestamp = new Date().toISOString();
@@ -73,15 +73,15 @@ export class ErrorManager {
   createFromUnknown(
     unknown: unknown,
     type: ErrorType = ErrorType.ZOTERO_ERROR,
-    context: Record<string, any> = {}
+    context: Record<string, any> = {},
   ): ContextualError {
-    let message = 'Unknown error occurred';
+    let message = "Unknown error occurred";
 
     if (unknown instanceof Error) {
       message = unknown.message;
-    } else if (typeof unknown === 'string') {
+    } else if (typeof unknown === "string") {
       message = unknown;
-    } else if (unknown && typeof unknown === 'object') {
+    } else if (unknown && typeof unknown === "object") {
       message = JSON.stringify(unknown);
     }
 
@@ -130,12 +130,12 @@ export class ErrorManager {
     const stats = {} as Record<ErrorType, number>;
 
     // Initialize all error types
-    Object.values(ErrorType).forEach(type => {
+    Object.values(ErrorType).forEach((type) => {
       stats[type] = 0;
     });
 
     // Count occurrences
-    this.errorLog.forEach(error => {
+    this.errorLog.forEach((error) => {
       stats[error.type]++;
     });
 
@@ -162,14 +162,18 @@ export class ErrorManager {
   private logToZotero(error: ContextualError): void {
     const logLevel = this.getLogLevel(error.type);
     const ctx = error.context ?? {};
-    const contextStr = Object.keys(ctx).length > 0
-      ? ` Context: ${JSON.stringify(ctx, null, 2)}`
-      : '';
+    const contextStr =
+      Object.keys(ctx).length > 0
+        ? ` Context: ${JSON.stringify(ctx, null, 2)}`
+        : "";
 
     const message = `[${error.type}] ${error.message}${contextStr}`;
 
-    if (typeof Zotero !== 'undefined' && Zotero.log) {
-      Zotero.log(`Zotadata Error: ${message}`, this.getZoteroLogLevel(logLevel));
+    if (typeof Zotero !== "undefined" && Zotero.log) {
+      Zotero.log(
+        `Zotadata Error: ${message}`,
+        this.getZoteroLogLevel(logLevel),
+      );
     } else {
       console.error(`Zotadata Error: ${message}`);
     }
@@ -179,33 +183,40 @@ export class ErrorManager {
     switch (errorType) {
       case ErrorType.NETWORK_ERROR:
       case ErrorType.TIMEOUT:
-        return 'warn';
+        return "warn";
       case ErrorType.RATE_LIMIT:
-        return 'info';
+        return "info";
       case ErrorType.VALIDATION_ERROR:
       case ErrorType.FILE_ERROR:
       case ErrorType.API_ERROR:
       case ErrorType.ZOTERO_ERROR:
-        return 'error';
+        return "error";
       default:
-        return 'error';
+        return "error";
     }
   }
 
   private getZoteroLogLevel(level: LogLevel): number {
     switch (level) {
-      case 'debug': return 5;
-      case 'info': return 4;
-      case 'warn': return 3;
-      case 'error': return 2;
-      default: return 2;
+      case "debug":
+        return 5;
+      case "info":
+        return 4;
+      case "warn":
+        return 3;
+      case "error":
+        return 2;
+      default:
+        return 2;
     }
   }
 
   private shouldNotifyUser(error: ContextualError): boolean {
     // Don't notify for rate limits or network timeouts
     if (
-      [ErrorType.RATE_LIMIT, ErrorType.TIMEOUT].includes(error.type as ErrorType)
+      [ErrorType.RATE_LIMIT, ErrorType.TIMEOUT].includes(
+        error.type as ErrorType,
+      )
     ) {
       return false;
     }
@@ -222,7 +233,7 @@ export class ErrorManager {
     const userMessage = this.createUserFriendlyMessage(error);
 
     try {
-      if (typeof Zotero !== 'undefined' && Zotero.getMainWindows) {
+      if (typeof Zotero !== "undefined" && Zotero.getMainWindows) {
         const windows = Zotero.getMainWindows();
         if (windows.length > 0) {
           const window = windows[0];
@@ -235,8 +246,8 @@ export class ErrorManager {
       }
     } catch (notificationError) {
       // Fallback to console if notification fails
-      console.error('Failed to notify user:', notificationError);
-      console.error('Original error:', userMessage);
+      console.error("Failed to notify user:", notificationError);
+      console.error("Original error:", userMessage);
     }
   }
 
@@ -252,7 +263,7 @@ export class ErrorManager {
     }
 
     if (error.retryable) {
-      message += '\n\nThis operation can be retried.';
+      message += "\n\nThis operation can be retried.";
     }
 
     return message;
@@ -261,21 +272,21 @@ export class ErrorManager {
   private getUserFriendlyErrorMessage(type: ErrorType): string {
     switch (type) {
       case ErrorType.NETWORK_ERROR:
-        return 'Network connection failed. Please check your internet connection.';
+        return "Network connection failed. Please check your internet connection.";
       case ErrorType.RATE_LIMIT:
-        return 'API rate limit reached. Please wait a moment before trying again.';
+        return "API rate limit reached. Please wait a moment before trying again.";
       case ErrorType.TIMEOUT:
-        return 'Operation timed out. The server may be slow or unavailable.';
+        return "Operation timed out. The server may be slow or unavailable.";
       case ErrorType.VALIDATION_ERROR:
-        return 'Invalid data encountered. Please check the item information.';
+        return "Invalid data encountered. Please check the item information.";
       case ErrorType.FILE_ERROR:
-        return 'File operation failed. Please check file permissions and disk space.';
+        return "File operation failed. Please check file permissions and disk space.";
       case ErrorType.API_ERROR:
-        return 'External service error. The API may be temporarily unavailable.';
+        return "External service error. The API may be temporarily unavailable.";
       case ErrorType.ZOTERO_ERROR:
-        return 'Zotero operation failed. Please check your Zotero installation.';
+        return "Zotero operation failed. Please check your Zotero installation.";
       default:
-        return 'An unexpected error occurred.';
+        return "An unexpected error occurred.";
     }
   }
 
@@ -296,15 +307,14 @@ export class ErrorManager {
       info.push(`API: ${context.api}`);
     }
 
-    return info.length > 0 ? info.join(', ') : null;
+    return info.length > 0 ? info.join(", ") : null;
   }
 
   private shouldReportTelemetry(error: ContextualError): boolean {
     // Only report serious errors, not user errors or rate limits
-    return ![
-      ErrorType.RATE_LIMIT,
-      ErrorType.VALIDATION_ERROR,
-    ].includes(error.type as ErrorType);
+    return ![ErrorType.RATE_LIMIT, ErrorType.VALIDATION_ERROR].includes(
+      error.type as ErrorType,
+    );
   }
 
   private async reportTelemetry(error: ContextualError): Promise<void> {
@@ -315,7 +325,7 @@ export class ErrorManager {
       // Example: await this.telemetryService.reportError(error);
     } catch (telemetryError) {
       // Silently fail telemetry to avoid error loops
-      console.debug('Telemetry reporting failed:', telemetryError);
+      console.debug("Telemetry reporting failed:", telemetryError);
     }
   }
 }

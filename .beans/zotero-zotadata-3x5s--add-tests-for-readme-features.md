@@ -13,6 +13,7 @@ Create tests verifying README-described features: mock Zotero items for given pu
 ## Notes\n- Plan-phase blocked: .planning directory missing; need to run $gsd-new-project to init planning before generating plans/tests.
 
 ## Todo
+
 - [x] Tighten typed Zotero item and attachment mock factories
 - [x] Add live HTTP and live attachment adapters in test setup
 - [x] Add publication fixtures and live README workflow integration tests
@@ -23,6 +24,5 @@ Create tests verifying README-described features: mock Zotero items for given pu
 ## Summary of Changes
 
 Added an opt-in live integration test lane for README workflows, upgraded the shared Zotero item mocks to typed registry-backed factories, installed real HTTP and live attachment adapters for `LIVE_API_TESTS=1`, added publication fixtures for the requested examples, and verified both the default and live test suites plus type-checking.
-
 
 Follow-up: adjusted live test helpers so transient `download_failed` results from live PDF retrieval are skipped instead of failing the suite; added unit coverage for that helper path.

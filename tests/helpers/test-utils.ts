@@ -1,8 +1,8 @@
 // tests/helpers/test-utils.ts
 // Shared test utilities for zotadata tests
 
-import { vi } from 'vitest';
-import { createMockHTTP, clearFixtures } from '../__mocks__/zotero-http';
+import { vi } from "vitest";
+import { createMockHTTP, clearFixtures } from "../__mocks__/zotero-http";
 
 /**
  * Item type IDs used by Zotero
@@ -84,10 +84,10 @@ export function setupZoteroMock(config: ZoteroMockConfig = {}) {
       },
       getName: (id: number) => {
         const names: Record<number, string> = {
-          [ItemTypeID.JOURNAL_ARTICLE]: 'journalArticle',
-          [ItemTypeID.BOOK]: 'book',
-          [ItemTypeID.CONFERENCE_PAPER]: 'conferencePaper',
-          [ItemTypeID.PREPRINT]: 'preprint',
+          [ItemTypeID.JOURNAL_ARTICLE]: "journalArticle",
+          [ItemTypeID.BOOK]: "book",
+          [ItemTypeID.CONFERENCE_PAPER]: "conferencePaper",
+          [ItemTypeID.PREPRINT]: "preprint",
         };
         return names[id] ?? null;
       },

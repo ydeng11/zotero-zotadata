@@ -11,6 +11,7 @@ updated_at: 2026-04-05T14:14:12Z
 Behavior-preserving cleanup pass on the recently modified Zotadata code.
 
 ## Todo
+
 - [x] Review current diff and repo guidance
 - [x] Simplify recently modified code without changing behavior
 - [x] Run relevant verification commands

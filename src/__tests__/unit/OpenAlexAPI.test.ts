@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { OpenAlexAPI } from '@/features/metadata/apis';
-import type { SearchQuery, OpenAlexWork } from '@/shared/core/types';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { OpenAlexAPI } from "@/features/metadata/apis";
+import type { SearchQuery, OpenAlexWork } from "@/shared/core/types";
 
 // Mock Zotero HTTP (wired in beforeEach after setup.ts resets HTTP)
 const mockZoteroHTTP = {
   request: vi.fn(),
 };
 
-describe('OpenAlexAPI', () => {
+describe("OpenAlexAPI", () => {
   let openAlexAPI: OpenAlexAPI;
 
   beforeEach(() => {
@@ -22,25 +22,25 @@ describe('OpenAlexAPI', () => {
     vi.clearAllMocks();
   });
 
-  describe('search', () => {
-    it('should search for works with title and authors', async () => {
+  describe("search", () => {
+    it("should search for works with title and authors", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [
             {
-              id: 'https://openalex.org/W123456789',
-              display_name: 'Machine Learning Applications in Healthcare',
+              id: "https://openalex.org/W123456789",
+              display_name: "Machine Learning Applications in Healthcare",
               authorships: [
-                { author: { display_name: 'John Smith' } },
-                { author: { display_name: 'Jane Doe' } },
+                { author: { display_name: "John Smith" } },
+                { author: { display_name: "Jane Doe" } },
               ],
               publication_year: 2023,
-              doi: 'https://doi.org/10.1000/test.doi',
+              doi: "https://doi.org/10.1000/test.doi",
               open_access: {
                 is_oa: true,
-                oa_url: 'https://example.com/pdf',
+                oa_url: "https://example.com/pdf",
               },
             } as OpenAlexWork,
           ],
@@ -55,8 +55,8 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       const query: SearchQuery = {
-        title: 'Machine Learning Applications in Healthcare',
-        authors: ['John Smith', 'Jane Doe'],
+        title: "Machine Learning Applications in Healthcare",
+        authors: ["John Smith", "Jane Doe"],
         year: 2023,
       };
 
@@ -64,20 +64,20 @@ describe('OpenAlexAPI', () => {
 
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
-        title: 'Machine Learning Applications in Healthcare',
-        authors: ['John Smith', 'Jane Doe'],
+        title: "Machine Learning Applications in Healthcare",
+        authors: ["John Smith", "Jane Doe"],
         year: 2023,
-        doi: '10.1000/test.doi',
-        source: 'OpenAlex',
-        pdfUrl: 'https://example.com/pdf',
+        doi: "10.1000/test.doi",
+        source: "OpenAlex",
+        pdfUrl: "https://example.com/pdf",
       });
       expect(results[0].confidence).toBeGreaterThan(0.5);
     });
 
-    it('should handle empty search results', async () => {
+    it("should handle empty search results", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [],
           meta: {
@@ -91,7 +91,7 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       const query: SearchQuery = {
-        title: 'Nonexistent Paper Title',
+        title: "Nonexistent Paper Title",
       };
 
       const results = await openAlexAPI.search(query);
@@ -99,22 +99,22 @@ describe('OpenAlexAPI', () => {
       expect(results).toHaveLength(0);
     });
 
-    it('should handle API errors gracefully', async () => {
-      mockZoteroHTTP.request.mockRejectedValue(new Error('Network error'));
+    it("should handle API errors gracefully", async () => {
+      mockZoteroHTTP.request.mockRejectedValue(new Error("Network error"));
 
       const query: SearchQuery = {
-        title: 'Test Title',
+        title: "Test Title",
       };
 
-      await expect(openAlexAPI.search(query)).rejects.toThrow('Network error');
+      await expect(openAlexAPI.search(query)).rejects.toThrow("Network error");
     });
   });
 
-  describe('searchExact', () => {
-    it('uses a single combined filter for title, author, and year', async () => {
+  describe("searchExact", () => {
+    it("uses a single combined filter for title, author, and year", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [],
         }),
@@ -124,33 +124,31 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       await openAlexAPI.searchExact({
-        title: 'Semi-Supervised Learning with Deep Generative Models',
-        authors: ['Diederik P. Kingma'],
+        title: "Semi-Supervised Learning with Deep Generative Models",
+        authors: ["Diederik P. Kingma"],
         year: 2014,
       });
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
 
       expect(requestUrl).toContain(
-        'filter=title.search%3ASemi+Supervised+Learning+with+Deep+Generative+Models%2Cauthorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014',
+        "filter=title.search%3ASemi+Supervised+Learning+with+Deep+Generative+Models%2Cauthorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014",
       );
-      expect(requestUrl).not.toContain('&filter=publication_year%3A2014');
+      expect(requestUrl).not.toContain("&filter=publication_year%3A2014");
     });
   });
 
-  describe('getWorkByDOI', () => {
-    it('should fetch work by DOI', async () => {
+  describe("getWorkByDOI", () => {
+    it("should fetch work by DOI", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
-          id: 'https://openalex.org/W123456789',
-          display_name: 'Test Paper',
-          authorships: [
-            { author: { display_name: 'Test Author' } },
-          ],
+          id: "https://openalex.org/W123456789",
+          display_name: "Test Paper",
+          authorships: [{ author: { display_name: "Test Author" } }],
           publication_year: 2023,
-          doi: 'https://doi.org/10.1000/test.doi',
+          doi: "https://doi.org/10.1000/test.doi",
           open_access: {
             is_oa: false,
           },
@@ -160,40 +158,38 @@ describe('OpenAlexAPI', () => {
 
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
-      const result = await openAlexAPI.getWorkByDOI('10.1000/test.doi');
+      const result = await openAlexAPI.getWorkByDOI("10.1000/test.doi");
 
       expect(result).toBeDefined();
-      expect(result!.title).toBe('Test Paper');
-      expect(result!.doi).toBe('10.1000/test.doi');
+      expect(result!.title).toBe("Test Paper");
+      expect(result!.doi).toBe("10.1000/test.doi");
       expect(result!.confidence).toBe(1.0); // Exact DOI match
     });
 
-    it('should return null for non-existent DOI', async () => {
+    it("should return null for non-existent DOI", async () => {
       mockZoteroHTTP.request.mockRejectedValue({ status: 404 });
 
-      const result = await openAlexAPI.getWorkByDOI('10.1000/nonexistent.doi');
+      const result = await openAlexAPI.getWorkByDOI("10.1000/nonexistent.doi");
 
       expect(result).toBeNull();
     });
   });
 
-  describe('searchOpenAccess', () => {
-    it('should filter for open access papers', async () => {
+  describe("searchOpenAccess", () => {
+    it("should filter for open access papers", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [
             {
-              id: 'https://openalex.org/W123456789',
-              display_name: 'Open Access Paper',
-              authorships: [
-                { author: { display_name: 'Test Author' } },
-              ],
+              id: "https://openalex.org/W123456789",
+              display_name: "Open Access Paper",
+              authorships: [{ author: { display_name: "Test Author" } }],
               publication_year: 2023,
               open_access: {
                 is_oa: true,
-                oa_url: 'https://example.com/pdf',
+                oa_url: "https://example.com/pdf",
               },
             } as OpenAlexWork,
           ],
@@ -204,35 +200,33 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       const query: SearchQuery = {
-        title: 'Open Access Paper',
+        title: "Open Access Paper",
       };
 
       const results = await openAlexAPI.searchOpenAccess(query);
 
       expect(results).toHaveLength(1);
-      expect(results[0].pdfUrl).toBe('https://example.com/pdf');
+      expect(results[0].pdfUrl).toBe("https://example.com/pdf");
       expect(results[0].confidence).toBeGreaterThan(0.6); // Open access bonus
     });
   });
 
-  describe('confidence calculation', () => {
-    it('should assign high confidence for exact matches', async () => {
+  describe("confidence calculation", () => {
+    it("should assign high confidence for exact matches", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [
             {
-              id: 'https://openalex.org/W123456789',
-              display_name: 'Exact Title Match',
-              authorships: [
-                { author: { display_name: 'Exact Author' } },
-              ],
+              id: "https://openalex.org/W123456789",
+              display_name: "Exact Title Match",
+              authorships: [{ author: { display_name: "Exact Author" } }],
               publication_year: 2023,
-              doi: 'https://doi.org/10.1000/exact.doi',
+              doi: "https://doi.org/10.1000/exact.doi",
               open_access: {
                 is_oa: true,
-                oa_url: 'https://example.com/pdf',
+                oa_url: "https://example.com/pdf",
               },
             } as OpenAlexWork,
           ],
@@ -243,10 +237,10 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       const query: SearchQuery = {
-        title: 'Exact Title Match',
-        authors: ['Exact Author'],
+        title: "Exact Title Match",
+        authors: ["Exact Author"],
         year: 2023,
-        doi: '10.1000/exact.doi',
+        doi: "10.1000/exact.doi",
       };
 
       const results = await openAlexAPI.search(query);
@@ -254,18 +248,16 @@ describe('OpenAlexAPI', () => {
       expect(results[0].confidence).toBe(1.0); // Perfect match
     });
 
-    it('should assign lower confidence for partial matches', async () => {
+    it("should assign lower confidence for partial matches", async () => {
       const mockResponse = {
         status: 200,
-        statusText: 'OK',
+        statusText: "OK",
         responseText: JSON.stringify({
           results: [
             {
-              id: 'https://openalex.org/W123456789',
-              display_name: 'Completely Different Title',
-              authorships: [
-                { author: { display_name: 'Different Author' } },
-              ],
+              id: "https://openalex.org/W123456789",
+              display_name: "Completely Different Title",
+              authorships: [{ author: { display_name: "Different Author" } }],
               publication_year: 2020,
               open_access: {
                 is_oa: false,
@@ -279,8 +271,8 @@ describe('OpenAlexAPI', () => {
       mockZoteroHTTP.request.mockResolvedValue(mockResponse);
 
       const query: SearchQuery = {
-        title: 'Original Title',
-        authors: ['Original Author'],
+        title: "Original Title",
+        authors: ["Original Author"],
         year: 2023,
       };
 
@@ -291,16 +283,16 @@ describe('OpenAlexAPI', () => {
     });
   });
 
-  describe('API info', () => {
-    it('should return correct API information', () => {
+  describe("API info", () => {
+    it("should return correct API information", () => {
       const apiInfo = openAlexAPI.getApiInfo();
 
       expect(apiInfo).toEqual({
-        name: 'OpenAlex',
-        version: '1.0',
-        baseUrl: 'https://api.openalex.org',
+        name: "OpenAlex",
+        version: "1.0",
+        baseUrl: "https://api.openalex.org",
         rateLimit: { requests: 100, window: 1000 },
       });
     });
   });
-}); 
+});

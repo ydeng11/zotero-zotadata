@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 export interface MockCreator {
   firstName?: string;
@@ -61,19 +61,19 @@ type MockZoteroItem = Zotero.Item & {
 };
 
 const ITEM_FIELDS = [
-  'DOI',
-  'ISBN',
-  'abstractNote',
-  'date',
-  'extra',
-  'issue',
-  'pages',
-  'proceedingsTitle',
-  'publicationTitle',
-  'repository',
-  'title',
-  'url',
-  'volume',
+  "DOI",
+  "ISBN",
+  "abstractNote",
+  "date",
+  "extra",
+  "issue",
+  "pages",
+  "proceedingsTitle",
+  "publicationTitle",
+  "repository",
+  "title",
+  "url",
+  "volume",
 ] as const;
 
 const itemRegistry = new Map<number, Zotero.Item>();
@@ -83,11 +83,14 @@ let attachmentCounter = 1000;
 function normalizeCreators(creators: MockCreator[] = []): MockCreator[] {
   return creators.map((creator) => ({
     ...creator,
-    creatorType: creator.creatorType ?? 'author',
+    creatorType: creator.creatorType ?? "author",
   }));
 }
 
-function sanitizeFilePath(filePath: string | null | undefined, id: number): string | null {
+function sanitizeFilePath(
+  filePath: string | null | undefined,
+  id: number,
+): string | null {
   if (filePath === undefined) {
     return `/tmp/mock-${id}.pdf`;
   }
@@ -99,7 +102,10 @@ function getMockItemFields(item: Zotero.Item): Record<string, string> {
   return (item as MockZoteroItem).__mockFields;
 }
 
-function addAttachmentToParent(parentID: number | undefined, attachmentID: number): void {
+function addAttachmentToParent(
+  parentID: number | undefined,
+  attachmentID: number,
+): void {
   if (!parentID) {
     return;
   }
@@ -114,7 +120,10 @@ function addAttachmentToParent(parentID: number | undefined, attachmentID: numbe
   }
 }
 
-function removeAttachmentFromParent(parentID: number | undefined, attachmentID: number): void {
+function removeAttachmentFromParent(
+  parentID: number | undefined,
+  attachmentID: number,
+): void {
   if (!parentID) {
     return;
   }
@@ -124,18 +133,20 @@ function removeAttachmentFromParent(parentID: number | undefined, attachmentID: 
     return;
   }
 
-  parent.__mockAttachmentIds = parent.__mockAttachmentIds.filter((id) => id !== attachmentID);
+  parent.__mockAttachmentIds = parent.__mockAttachmentIds.filter(
+    (id) => id !== attachmentID,
+  );
 }
 
 function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
   const id = config.id ?? ++itemCounter;
   const fields = Object.fromEntries(
     ITEM_FIELDS.map((field) => {
-      if (field === 'title') {
-        return [field, String(config.title ?? 'Test Title')];
+      if (field === "title") {
+        return [field, String(config.title ?? "Test Title")];
       }
 
-      return [field, String(config[field] ?? '')];
+      return [field, String(config[field] ?? "")];
     }),
   ) as Record<string, string>;
   const creators = normalizeCreators(config.creators);
@@ -149,24 +160,26 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
     itemTypeID: config.itemTypeID ?? 1,
     parentID: config.parentID ?? 0,
     attachmentLinkMode: 0,
-    attachmentContentType: '',
+    attachmentContentType: "",
     __mockAttachmentIds: attachmentIds,
     __mockCreators: creators,
     __mockFields: fields,
     __mockFileExists: true,
     __mockFilePath: filePath,
-    __mockNote: config.note ?? '',
+    __mockNote: config.note ?? "",
     __mockTags: tags,
 
-    getField: vi.fn((fieldName: string) => fields[fieldName] ?? ''),
+    getField: vi.fn((fieldName: string) => fields[fieldName] ?? ""),
     setField: vi.fn((fieldName: string, value: string) => {
-      fields[fieldName] = String(value ?? '');
+      fields[fieldName] = String(value ?? "");
     }),
     setType: vi.fn((typeID: number) => {
       item.itemTypeID = typeID;
     }),
     addTag: vi.fn((tag: string, type = 0) => {
-      if (!tags.some((existing) => existing.tag === tag && existing.type === type)) {
+      if (
+        !tags.some((existing) => existing.tag === tag && existing.type === type)
+      ) {
         tags.push({ tag, type });
       }
     }),
@@ -176,7 +189,9 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
       tags.splice(0, tags.length, ...remaining);
       return remaining.length !== originalLength;
     }),
-    hasTag: vi.fn((tag: string) => tags.some((existing) => existing.tag === tag)),
+    hasTag: vi.fn((tag: string) =>
+      tags.some((existing) => existing.tag === tag),
+    ),
 
     save: vi.fn(async () => {}),
     saveTx: vi.fn(async () => {}),
@@ -198,7 +213,7 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
     setCreator: vi.fn((index: number, creator: MockCreator) => {
       creators[index] = {
         ...creator,
-        creatorType: creator.creatorType ?? 'author',
+        creatorType: creator.creatorType ?? "author",
       };
     }),
     numCreators: vi.fn(() => creators.length),
@@ -216,7 +231,7 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
           title: options.title ?? fields.title,
           url: options.url,
           filePath: options.path ?? undefined,
-          contentType: options.contentType ?? 'application/pdf',
+          contentType: options.contentType ?? "application/pdf",
           linkMode: 0,
           fileExists: true,
         });
@@ -237,7 +252,7 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
     isPDFAttachment: vi.fn(
       () =>
         item.isAttachment() &&
-        item.attachmentContentType.toLowerCase() === 'application/pdf',
+        item.attachmentContentType.toLowerCase() === "application/pdf",
     ),
     setNote: vi.fn((note: string) => {
       item.__mockNote = note;
@@ -261,11 +276,11 @@ export function createMockZoteroAttachment(
     id,
     isAttachment: true,
     isRegularItem: false,
-    title: config.title ?? 'Attachment',
+    title: config.title ?? "Attachment",
   }) as MockZoteroItem;
 
   attachment.attachmentLinkMode = config.linkMode ?? 2;
-  attachment.attachmentContentType = config.contentType ?? 'application/pdf';
+  attachment.attachmentContentType = config.contentType ?? "application/pdf";
   attachment.parentID = config.parentID ?? 0;
   attachment.__mockFilePath = sanitizeFilePath(config.filePath, id);
   attachment.__mockFileExists =
@@ -310,9 +325,15 @@ export async function trashMockItems(ids: number | number[]): Promise<void> {
   }
 }
 
-function sanitizeAttachmentFileName(fileName: string | undefined, fallbackId: number): string {
-  const baseName = (fileName ?? `attachment-${fallbackId}.pdf`).replace(/\s+/g, '-');
-  return baseName.endsWith('.pdf') ? baseName : `${baseName}.pdf`;
+function sanitizeAttachmentFileName(
+  fileName: string | undefined,
+  fallbackId: number,
+): string {
+  const baseName = (fileName ?? `attachment-${fallbackId}.pdf`).replace(
+    /\s+/g,
+    "-",
+  );
+  return baseName.endsWith(".pdf") ? baseName : `${baseName}.pdf`;
 }
 
 function isPdfLike(data: Uint8Array): boolean {
@@ -320,10 +341,10 @@ function isPdfLike(data: Uint8Array): boolean {
     return false;
   }
 
-  const header = new TextDecoder('ascii', { fatal: false }).decode(
+  const header = new TextDecoder("ascii", { fatal: false }).decode(
     data.slice(0, 8),
   );
-  return header.startsWith('%PDF-');
+  return header.startsWith("%PDF-");
 }
 
 function toUint8Array(data: ArrayBuffer | Uint8Array): Uint8Array {
@@ -333,8 +354,8 @@ function toUint8Array(data: ArrayBuffer | Uint8Array): Uint8Array {
 async function fetchPdfBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url, {
     headers: {
-      Accept: 'application/pdf,*/*',
-      'User-Agent': 'Zotero Zotadata Live Tests',
+      Accept: "application/pdf,*/*",
+      "User-Agent": "Zotero Zotadata Live Tests",
     },
   });
 
@@ -355,14 +376,14 @@ export function installLiveAttachmentAdapters(): void {
   zotero.Attachments.importFromURL = async (options) => {
     const bytes = await fetchPdfBytes(options.url);
     if (!isPdfLike(bytes)) {
-      throw new Error('Downloaded file is not a valid PDF');
+      throw new Error("Downloaded file is not a valid PDF");
     }
 
     const attachment = createMockZoteroAttachment({
       parentID: options.parentItemID,
       libraryID: options.libraryID,
-      title: options.title ?? options.fileBaseName ?? 'Downloaded PDF',
-      contentType: options.contentType ?? 'application/pdf',
+      title: options.title ?? options.fileBaseName ?? "Downloaded PDF",
+      contentType: options.contentType ?? "application/pdf",
       filePath: `/live/${sanitizeAttachmentFileName(options.fileBaseName ?? options.title, attachmentCounter + 1)}`,
       fileExists: true,
       linkMode:
@@ -371,19 +392,19 @@ export function installLiveAttachmentAdapters(): void {
         0,
     }) as MockZoteroItem;
 
-    attachment.setField('url', options.url);
+    attachment.setField("url", options.url);
     return attachment;
   };
 
   zotero.Attachments.importFromBuffer = async (options) => {
     const bytes = toUint8Array(options.buffer);
     if (!isPdfLike(bytes)) {
-      throw new Error('Buffered file is not a valid PDF');
+      throw new Error("Buffered file is not a valid PDF");
     }
 
     return createMockZoteroAttachment({
       parentID: options.parentItemID,
-      title: options.fileName.replace(/\.pdf$/i, ''),
+      title: options.fileName.replace(/\.pdf$/i, ""),
       contentType: options.contentType,
       filePath: `/buffer/${sanitizeAttachmentFileName(options.fileName, attachmentCounter + 1)}`,
       fileExists: true,
@@ -394,10 +415,10 @@ export function installLiveAttachmentAdapters(): void {
   zotero.Attachments.importFromFile = async (options) =>
     createMockZoteroAttachment({
       parentID: options.parentItemID,
-      title: options.title ?? 'Imported File',
-      contentType: 'application/pdf',
+      title: options.title ?? "Imported File",
+      contentType: "application/pdf",
       filePath:
-        typeof options.file?.path === 'string'
+        typeof options.file?.path === "string"
           ? options.file.path
           : `/file/${sanitizeAttachmentFileName(options.title, attachmentCounter + 1)}`,
       fileExists: true,

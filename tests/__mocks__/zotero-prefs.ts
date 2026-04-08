@@ -1,5 +1,5 @@
 // tests/__mocks__/zotero-prefs.ts
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 const prefs: Map<string, any> = new Map();
 

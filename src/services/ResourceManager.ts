@@ -1,10 +1,16 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
-import type { Resource } from '@/shared/core/types';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import type { Resource } from "@/shared/core/types";
 
 /**
  * Resource types for tracking different kinds of resources
  */
-export type ResourceType = 'blob' | 'file' | 'timer' | 'request' | 'event' | 'custom';
+export type ResourceType =
+  | "blob"
+  | "file"
+  | "timer"
+  | "request"
+  | "event"
+  | "custom";
 
 /**
  * Resource with metadata
@@ -61,7 +67,11 @@ export class ResourceManager {
   /**
    * Track a resource for automatic cleanup
    */
-  track<T extends Resource>(resource: T, type: ResourceType = 'custom', description?: string): T {
+  track<T extends Resource>(
+    resource: T,
+    type: ResourceType = "custom",
+    description?: string,
+  ): T {
     const id = `resource_${this.nextResourceId++}`;
     const now = Date.now();
 
@@ -98,7 +108,11 @@ export class ResourceManager {
       },
     };
 
-    this.track(resource, 'blob', description || `Blob URL: ${blobUrl.substring(0, 50)}...`);
+    this.track(
+      resource,
+      "blob",
+      description || `Blob URL: ${blobUrl.substring(0, 50)}...`,
+    );
     return blobUrl;
   }
 
@@ -112,14 +126,17 @@ export class ResourceManager {
       },
     };
 
-    this.track(resource, 'timer', description || 'Timer');
+    this.track(resource, "timer", description || "Timer");
     return timerId;
   }
 
   /**
    * Track an AbortController for cleanup
    */
-  trackAbortController(controller: AbortController, description?: string): AbortController {
+  trackAbortController(
+    controller: AbortController,
+    description?: string,
+  ): AbortController {
     const resource: Resource = {
       cleanup: () => {
         if (!controller.signal.aborted) {
@@ -128,7 +145,7 @@ export class ResourceManager {
       },
     };
 
-    this.track(resource, 'request', description || 'AbortController');
+    this.track(resource, "request", description || "AbortController");
     return controller;
   }
 
@@ -139,7 +156,7 @@ export class ResourceManager {
     target: EventTarget,
     type: string,
     listener: EventListener,
-    options?: AddEventListenerOptions
+    options?: AddEventListenerOptions,
   ): void {
     const resource: Resource = {
       cleanup: () => {
@@ -147,7 +164,7 @@ export class ResourceManager {
       },
     };
 
-    this.track(resource, 'event', `Event listener: ${type}`);
+    this.track(resource, "event", `Event listener: ${type}`);
   }
 
   /**
@@ -155,7 +172,7 @@ export class ResourceManager {
    */
   createGroup(name: string): string {
     const id = `group_${this.nextGroupId++}`;
-    
+
     this.groups.set(id, {
       id,
       name,
@@ -169,19 +186,24 @@ export class ResourceManager {
   /**
    * Add resource to a group
    */
-  addToGroup(groupId: string, resource: Resource, type: ResourceType = 'custom', description?: string): void {
+  addToGroup(
+    groupId: string,
+    resource: Resource,
+    type: ResourceType = "custom",
+    description?: string,
+  ): void {
     const group = this.groups.get(groupId);
     if (!group) {
       throw this.errorManager.createError(
         ErrorType.VALIDATION_ERROR,
         `Group ${groupId} not found`,
-        { groupId }
+        { groupId },
       );
     }
 
     const trackedResource = this.track(resource, type, description);
     const resourceId = this.findResourceId(trackedResource);
-    
+
     if (resourceId) {
       group.resources.add(resourceId);
     }
@@ -196,7 +218,7 @@ export class ResourceManager {
       throw this.errorManager.createError(
         ErrorType.VALIDATION_ERROR,
         `Group ${groupId} not found`,
-        { groupId }
+        { groupId },
       );
     }
 
@@ -207,18 +229,22 @@ export class ResourceManager {
       errors: [],
     };
 
-         const cleanupPromises = Array.from(group.resources).map(async (resourceId) => {
-       try {
-         await this.cleanupResource(resourceId);
-         stats.successful++;
-       } catch (error: any) {
-         stats.failed++;
-         stats.errors.push(`Resource ${resourceId}: ${error?.message || 'Unknown error'}`);
-       }
-     });
+    const cleanupPromises = Array.from(group.resources).map(
+      async (resourceId) => {
+        try {
+          await this.cleanupResource(resourceId);
+          stats.successful++;
+        } catch (error: any) {
+          stats.failed++;
+          stats.errors.push(
+            `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
+          );
+        }
+      },
+    );
 
     await Promise.allSettled(cleanupPromises);
-    
+
     // Remove the group
     this.groups.delete(groupId);
 
@@ -243,14 +269,14 @@ export class ResourceManager {
     if (!resource) return;
 
     try {
-      if (typeof resource.cleanup === 'function') {
+      if (typeof resource.cleanup === "function") {
         await resource.cleanup();
       }
     } catch (error) {
       const contextualError = this.errorManager.createFromUnknown(
         error,
         ErrorType.FILE_ERROR,
-        { operation: 'cleanupResource', resourceId, type: resource.type }
+        { operation: "cleanupResource", resourceId, type: resource.type },
       );
       throw contextualError;
     } finally {
@@ -275,16 +301,20 @@ export class ResourceManager {
       this.cleanupTimer = undefined;
     }
 
-         // Clean up all resources
-     const cleanupPromises = Array.from(this.resources.keys()).map(async (resourceId) => {
-       try {
-         await this.cleanupResource(resourceId);
-         stats.successful++;
-       } catch (error: any) {
-         stats.failed++;
-         stats.errors.push(`Resource ${resourceId}: ${error?.message || 'Unknown error'}`);
-       }
-     });
+    // Clean up all resources
+    const cleanupPromises = Array.from(this.resources.keys()).map(
+      async (resourceId) => {
+        try {
+          await this.cleanupResource(resourceId);
+          stats.successful++;
+        } catch (error: any) {
+          stats.failed++;
+          stats.errors.push(
+            `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
+          );
+        }
+      },
+    );
 
     await Promise.allSettled(cleanupPromises);
 
@@ -310,15 +340,17 @@ export class ResourceManager {
       errors: [],
     };
 
-         for (const resourceId of staleResources) {
-       try {
-         await this.cleanupResource(resourceId);
-         stats.successful++;
-       } catch (error: any) {
-         stats.failed++;
-         stats.errors.push(`Resource ${resourceId}: ${error?.message || 'Unknown error'}`);
-       }
-     }
+    for (const resourceId of staleResources) {
+      try {
+        await this.cleanupResource(resourceId);
+        stats.successful++;
+      } catch (error: any) {
+        stats.failed++;
+        stats.errors.push(
+          `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
+        );
+      }
+    }
 
     return stats;
   }
@@ -347,7 +379,7 @@ export class ResourceManager {
 
     for (const [id, resource] of this.resources) {
       resourcesByType[resource.type]++;
-      
+
       const age = now - resource.createdAt;
       if (!oldestResource || age > oldestResource.age) {
         oldestResource = { id, age };
@@ -374,7 +406,7 @@ export class ResourceManager {
     lastAccessed: number;
   }> {
     const now = Date.now();
-    return Array.from(this.resources.values()).map(resource => ({
+    return Array.from(this.resources.values()).map((resource) => ({
       id: resource.id,
       type: resource.type,
       description: resource.description,
@@ -392,7 +424,7 @@ export class ResourceManager {
         await this.cleanupStaleResources();
       } catch (error) {
         // Log error but don't throw
-        console.error('Periodic resource cleanup failed:', error);
+        console.error("Periodic resource cleanup failed:", error);
       }
     }, this.cleanupInterval);
   }
@@ -431,13 +463,13 @@ export class ResourceManager {
    */
   private estimateMemoryUsage(): number {
     let usage = 0;
-    
+
     // Base overhead per resource (rough estimate)
     usage += this.resources.size * 200; // bytes per resource object
-    
+
     // Group overhead
     usage += this.groups.size * 100;
-    
+
     // Add string lengths for descriptions
     for (const resource of this.resources.values()) {
       if (resource.description) {
@@ -447,4 +479,4 @@ export class ResourceManager {
 
     return usage;
   }
-} 
+}

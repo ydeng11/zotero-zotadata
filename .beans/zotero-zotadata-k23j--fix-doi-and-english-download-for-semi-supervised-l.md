@@ -9,9 +9,11 @@ updated_at: 2026-04-05T21:30:17Z
 ---
 
 ## Goal
+
 Use "Semi-supervised learning with deep generative models" as a regression case so metadata fetch resolves the correct DOI and file retrieval prefers the English metadata/PDF path.
 
 ## Tasks
+
 - [x] Add failing tests for DOI discovery and English file retrieval using the semi-supervised learning paper
 - [x] Update metadata discovery to avoid Crossref false positives and resolve the correct DOI for arXiv-backed items
 - [x] Ensure file retrieval uses the correct DOI and does not block English PDF download
