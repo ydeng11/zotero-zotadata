@@ -134,6 +134,16 @@ export function validateMetadataMatch(
     candidate.title,
   );
 
+  if (titleSimilarity > 0.4 && yearDiff > 3 && overlap.overlapRatio >= 0.8) {
+    return {
+      accept: false,
+      score: 0,
+      reason: `Year differs too much for similar title (${yearDiff} years)`,
+      matchedAuthors: overlap.matchCount,
+      authorOverlap: overlap.overlapRatio,
+    };
+  }
+
   const score =
     0.4 * titleSimilarity +
     0.35 * overlap.overlapRatio +

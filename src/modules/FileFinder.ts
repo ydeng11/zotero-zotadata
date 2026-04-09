@@ -725,11 +725,11 @@ export class FileFinder {
     return UNPAYWALL_EMAIL;
   }
 
-  private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
+private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
     try {
       const email = this.getUnpaywallEmail();
       const url = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${encodeURIComponent(email)}`;
-      const response = await Zotero.HTTP.request("GET", url, {
+      const response = await Zotero.HTTP_request("GET", url, {
         headers: this.buildRequestHeaders(),
         timeout: 15000,
         responseType: "text",
@@ -740,16 +740,22 @@ export class FileFinder {
       const data = JSON.parse(response.responseText) as {
         best_oa_location?: { url_for_pdf?: string; url?: string };
         is_oa?: boolean;
+        oa_status?: string;
       };
 
       const pdfUrl =
         data.best_oa_location?.url_for_pdf ?? data.best_oa_location?.url;
       if (!pdfUrl || !data.is_oa) return null;
 
+      if (data.oa_status === "bronze") {
+        return null;
+      }
+
       return { url: pdfUrl, source: "Unpaywall", confidence: 0.95 };
     } catch {
       return null;
     }
+  }
   }
 
   private async tryOpenAlex(query: SearchQuery): Promise<ResolvedPDF | null> {

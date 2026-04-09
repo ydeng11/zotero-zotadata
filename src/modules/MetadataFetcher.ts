@@ -1850,14 +1850,14 @@ export class MetadataFetcher {
 
     const metadata = await this.fetchCrossRefMetadata(doi);
     if (!metadata) {
-      return getCanonicalArxivDoiForItem(item) === null;
+      return false;
     }
 
     const metadataTitle =
       metadata["original-title"]?.[0] ??
       (Array.isArray(metadata.title) ? metadata.title[0] : metadata.title);
     if (!metadataTitle) {
-      return getCanonicalArxivDoiForItem(item) === null;
+      return false;
     }
 
     return this.titleSimilarity(metadataTitle, currentTitle) >= 0.9;

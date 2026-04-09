@@ -187,5 +187,45 @@ describe("authorValidation", () => {
 
       expect(result.accept).toBe(true);
     });
+
+    it("rejects match when title matches but year differs significantly", () => {
+      const item = createMockItem(
+        [
+          "Goodfellow",
+          "Pouget-Abadie",
+          "Mirza",
+          "Xu",
+          "Warde-Farley",
+          "Ozair",
+          "Courville",
+          "Bengio",
+        ],
+        2014,
+        "Generative Adversarial Nets",
+      );
+
+      const candidate: SearchResult = {
+        title: "Generative Adversarial Networks",
+        authors: [
+          "Ian Goodfellow",
+          "Jean Pouget-Abadie",
+          "Mehdi Mirza",
+          "Bing Xu",
+          "David Warde-Farley",
+          "Sherjil Ozair",
+          "Aaron Courville",
+          "Yoshua Bengio",
+        ],
+        year: 2020,
+        doi: "10.1145/3422622",
+        confidence: 1,
+        source: "CrossRef",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
+      expect(result.reason).toContain("Year differs");
+    });
   });
 });
