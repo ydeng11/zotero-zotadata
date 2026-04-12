@@ -1,9 +1,12 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
-import type { PreferencesManager } from "@/ui/PreferencesManager";
+
+interface SciHubPreferences {
+  isSciHubEnabled(): boolean;
+}
 
 export class SciHubService {
   private errorManager: ErrorManager;
-  private preferencesManager: PreferencesManager;
+  private preferencesManager: SciHubPreferences;
 
   private cachedWorkingMirror: string | null = null;
   private lastMirrorCheck: number = 0;
@@ -17,18 +20,15 @@ export class SciHubService {
     "sci-hub.st",
   ];
   private static readonly MIRROR_CACHE_TTL = 3600000;
+  private static readonly MAX_SESSION_ERRORS = 2;
 
-  constructor(preferencesManager: PreferencesManager) {
+  constructor(preferencesManager: SciHubPreferences) {
     this.errorManager = new ErrorManager();
     this.preferencesManager = preferencesManager;
   }
 
   isEnabled(): boolean {
     return this.preferencesManager.isSciHubEnabled();
-  }
-
-  getMaxErrors(): number {
-    return this.preferencesManager.getSciHubMaxErrors();
   }
 
   shouldTrySciHub(): boolean {
@@ -40,7 +40,7 @@ export class SciHubService {
       return false;
     }
 
-    if (this.sessionErrorCount >= this.getMaxErrors()) {
+    if (this.sessionErrorCount >= SciHubService.MAX_SESSION_ERRORS) {
       this.sessionDisabled = true;
       return false;
     }
@@ -239,10 +239,10 @@ export class SciHubService {
   private incrementError(): void {
     this.sessionErrorCount++;
     this.log(
-      `Sci-Hub error count: ${this.sessionErrorCount}/${this.getMaxErrors()}`,
+      `Sci-Hub error count: ${this.sessionErrorCount}/${SciHubService.MAX_SESSION_ERRORS}`,
     );
 
-    if (this.sessionErrorCount >= this.getMaxErrors()) {
+    if (this.sessionErrorCount >= SciHubService.MAX_SESSION_ERRORS) {
       this.sessionDisabled = true;
       this.log(
         `Sci-Hub disabled for remainder of session due to error threshold`,

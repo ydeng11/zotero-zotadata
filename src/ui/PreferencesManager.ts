@@ -26,6 +26,10 @@ interface PreferenceSection {
   preferences: PreferenceConfig[];
 }
 
+type ZoteroDialogWindow = Window & {
+  openDialog(url: string, name?: string, features?: string): void;
+};
+
 /**
  * Plugin preferences
  */
@@ -65,7 +69,6 @@ interface PluginPreferences {
 
   // Sci-Hub Settings
   "scihub.enabled": boolean;
-  "scihub.maxErrors": number;
 }
 
 /**
@@ -100,7 +103,7 @@ export class PreferencesManager {
    */
   async openPreferences(): Promise<void> {
     try {
-      const window = Zotero.getMainWindow();
+      const window = Zotero.getMainWindow() as ZoteroDialogWindow | null;
       if (!window) {
         throw new Error("No main Zotero window available");
       }
@@ -189,7 +192,6 @@ export class PreferencesManager {
         "Zotero Zotadata/1.0",
       ),
       "scihub.enabled": this.getPreference("scihub.enabled", false),
-      "scihub.maxErrors": this.getPreference("scihub.maxErrors", 2),
     };
     return preferences;
   }
@@ -244,13 +246,6 @@ export class PreferencesManager {
    */
   isSciHubEnabled(): boolean {
     return this.getPreference("scihub.enabled", false);
-  }
-
-  /**
-   * Get max errors before fallback for Sci-Hub
-   */
-  getSciHubMaxErrors(): number {
-    return this.getPreference("scihub.maxErrors", 2);
   }
 
   /**

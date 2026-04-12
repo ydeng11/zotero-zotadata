@@ -7,12 +7,11 @@ const describeLive =
 function createEnabledSciHubService(): SciHubService {
   return new SciHubService({
     isSciHubEnabled: () => true,
-    getSciHubMaxErrors: () => 2,
   } as any);
 }
 
 describeLive("Sci-Hub live test", () => {
-  it("fetches ACM paper PDF via Sci-Hub with retry logic", async () => {
+  it("fetches ACM paper PDF via Sci-Hub", async () => {
     const service = createEnabledSciHubService();
     const doi = "10.1145/3422622";
 
@@ -66,21 +65,25 @@ describeLive("Sci-Hub live test", () => {
     console.log(`CAPTCHA test result: ${result || "null (graceful failure)"}`);
   });
 
-  it("respects error threshold configuration", async () => {
-    const serviceWith1Error = new SciHubService({
-      isSciHubEnabled: () => true,
-      getSciHubMaxErrors: () => 1,
-    } as any);
-
+  it("uses the default two-failure session threshold", async () => {
+    const service = createEnabledSciHubService();
     const doi = "10.1145/3422622";
 
-    const result1 = await serviceWith1Error.findSciHubPDF(doi);
+    const result1 = await service.findSciHubPDF(doi);
 
     if (!result1) {
-      expect(serviceWith1Error.shouldTrySciHub()).toBe(false);
-      console.log(`Service disabled after 1 error (threshold: 1)`);
+      expect(service.shouldTrySciHub()).toBe(true);
+
+      const result2 = await service.findSciHubPDF(doi);
+
+      if (!result2) {
+        expect(service.shouldTrySciHub()).toBe(false);
+        console.log("Service disabled after 2 failed attempts");
+      } else {
+        console.log("Service recovered before reaching 2 failed attempts");
+      }
     } else {
-      console.log(`Service succeeded on first attempt`);
+      console.log("Service succeeded before hitting the default threshold");
     }
   });
 });

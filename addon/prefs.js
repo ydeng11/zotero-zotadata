@@ -8,11 +8,6 @@ pref("extensions.zotero.zotadata.coreApiKey", "");
 
 // Sci-Hub settings (disabled by default for user safety)
 pref("extensions.zotero.zotadata.scihub.enabled", false);
-pref("extensions.zotero.zotadata.scihub.maxErrors", 2);
-
-// Behavior preferences
-pref("extensions.zotero.zotadata.updateExistingMetadata", true);
-pref("extensions.zotero.zotadata.autoDownloadOnAdd", false);
 pref("extensions.zotero.zotadata.autoretrieve", "none");
 
 // Tags

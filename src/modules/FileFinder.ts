@@ -69,7 +69,8 @@ export class FileFinder {
     this.errorManager = new ErrorManager();
     this.openAlexAPI = openAlexAPI ?? new OpenAlexAPI();
     this.semanticScholarAPI = semanticScholarAPI ?? new SemanticScholarAPI();
-    this.sciHubService = sciHubService ?? new SciHubService({} as any);
+    this.sciHubService =
+      sciHubService ?? new SciHubService({ isSciHubEnabled: () => false });
   }
 
   /**

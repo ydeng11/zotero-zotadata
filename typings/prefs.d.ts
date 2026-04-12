@@ -10,9 +10,6 @@ declare namespace _ZoteroTypes {
       "email": string;
       "coreApiKey": string;
       "scihub.enabled": boolean;
-      "scihub.maxErrors": number;
-      "updateExistingMetadata": boolean;
-      "autoDownloadOnAdd": boolean;
       "autoretrieve": string;
       "tag_nopdf": string;
       "tag_haspdf": string;

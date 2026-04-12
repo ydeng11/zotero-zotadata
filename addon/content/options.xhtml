@@ -5,9 +5,7 @@
   xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
   xmlns:html="http://www.w3.org/1999/xhtml"
   title="Zotadata Preferences"
-  buttons="accept,cancel"
   onload="ZotadataPreferences.init()"
-  ondialogaccept="return ZotadataPreferences.save();"
   style="
     background-color: -moz-Dialog;
     color: -moz-DialogText;
@@ -45,12 +43,6 @@
             zotero.Prefs.get(prefPrefix + '.coreApiKey') || '';
           document.getElementById('scihub-enabled-checkbox').checked =
             zotero.Prefs.get(prefPrefix + '.scihub.enabled') || false;
-          document.getElementById('scihub-max-errors-menulist').value =
-            String(zotero.Prefs.get(prefPrefix + '.scihub.maxErrors') || 2);
-          document.getElementById('update-existing-checkbox').checked =
-            zotero.Prefs.get(prefPrefix + '.updateExistingMetadata') || false;
-          document.getElementById('auto-download-checkbox').checked =
-            zotero.Prefs.get(prefPrefix + '.autoDownloadOnAdd') || false;
         },
 
         save: function() {
@@ -63,13 +55,17 @@
             document.getElementById('core-api-key-textbox').value);
           zotero.Prefs.set(prefPrefix + '.scihub.enabled',
             document.getElementById('scihub-enabled-checkbox').checked);
-          zotero.Prefs.set(prefPrefix + '.scihub.maxErrors',
-            parseInt(document.getElementById('scihub-max-errors-menulist').value, 10));
-          zotero.Prefs.set(prefPrefix + '.updateExistingMetadata',
-            document.getElementById('update-existing-checkbox').checked);
-          zotero.Prefs.set(prefPrefix + '.autoDownloadOnAdd',
-            document.getElementById('auto-download-checkbox').checked);
           return true;
+        },
+
+        saveAndClose: function() {
+          if (this.save()) {
+            window.close();
+          }
+        },
+
+        cancel: function() {
+          window.close();
         }
       };
     ]]>
@@ -135,71 +131,40 @@
       >
 
       <vbox class="zotadata-setting-row" style="margin: 0 0 0.9rem">
-        <checkbox
-          id="scihub-enabled-checkbox"
-          label="Enable Sci-Hub fallback"
-          preference="extensions.zotero.zotadata.scihub.enabled"
-        />
+        <html:div
+          style="display: flex; align-items: center; gap: 0.5rem; max-width: 32rem"
+        >
+          <html:input
+            id="scihub-enabled-checkbox"
+            type="checkbox"
+            style="width: 1rem; height: 1rem; margin: 0"
+          />
+          <html:label
+            for="scihub-enabled-checkbox"
+            style="font-weight: 600; cursor: pointer"
+            >Enable Sci-Hub fallback</html:label
+          >
+        </html:div>
         <description style="margin: 0.35rem 0 0 1.5rem; color: #5f6b7a"
           >Sci-Hub availability and legality vary by region. Zotadata only tries
           it after sources like Unpaywall, arXiv, and CORE fail.</description
         >
       </vbox>
-
-      <vbox class="zotadata-setting-row">
-        <label value="Retry failures before fallback:" />
-        <menulist
-          id="scihub-max-errors-menulist"
-          preference="extensions.zotero.zotadata.scihub.maxErrors"
-          sizetopopup="none"
-          style="max-width: 14rem; width: 100%"
-        >
-          <menupopup>
-            <menuitem label="1 attempt" value="1" />
-            <menuitem label="2 attempts" value="2" />
-            <menuitem label="3 attempts" value="3" />
-          </menupopup>
-        </menulist>
-        <description style="margin: 0.35rem 0 0; color: #5f6b7a"
-          >After the selected number of Sci-Hub failures, Zotadata moves on to
-          other sources.</description
-        >
-      </vbox>
     </groupbox>
 
-    <groupbox style="margin: 0 0 1rem; padding: 0.75rem 1rem 1rem">
-      <caption label="Behavior" />
-
-      <vbox class="zotadata-setting-row" style="margin: 0 0 0.65rem">
-        <checkbox
-          id="update-existing-checkbox"
-          label="Update existing metadata"
-          preference="extensions.zotero.zotadata.updateExistingMetadata"
-        />
-      </vbox>
-      <vbox class="zotadata-setting-row">
-        <checkbox
-          id="auto-download-checkbox"
-          label="Automatically download when items are added"
-          preference="extensions.zotero.zotadata.autoDownloadOnAdd"
-        />
-      </vbox>
-    </groupbox>
-
-    <groupbox style="margin: 0; padding: 0.75rem 1rem 1rem">
-      <caption label="About" />
-
-      <description style="margin: 0 0 0.5rem; color: #5f6b7a"
-        >Enhance Zotero with intelligent metadata discovery and automated file
-        management.</description
-      >
-      <description>
-        <label
-          value="Visit Homepage"
-          href="https://github.com/ydeng11/zotero-zotadata"
-          style="color: #0066cc; text-decoration: underline; cursor: pointer"
-        />
-      </description>
-    </groupbox>
+    <hbox align="center" style="margin: 0; padding: 0.25rem 0 0">
+      <spacer flex="1" />
+      <button
+        id="cancel-button"
+        label="Cancel"
+        oncommand="ZotadataPreferences.cancel();"
+        style="margin-inline-end: 0.75rem"
+      />
+      <button
+        id="save-button"
+        label="Save"
+        oncommand="ZotadataPreferences.saveAndClose();"
+      />
+    </hbox>
   </prefpane>
 </prefwindow>
