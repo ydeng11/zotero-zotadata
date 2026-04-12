@@ -1,3 +1,4 @@
 content zotadata content/
 locale zotadata en-US locale/en-US/
 locale zotadata zh-CN locale/zh-CN/
+skin zotadata classic/1.0 skin/

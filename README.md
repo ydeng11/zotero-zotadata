@@ -86,11 +86,45 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Configuration
 
-1. Right-click on any item in your Zotero library
-2. Select `Zotadata` → `Configure Email`
-3. Enter your email address (required for Unpaywall API)
+Access Settings by:
 
-**Note**: Your email is stored locally in Zotero preferences and only used for API requests to services like Unpaywall. The plugin will prompt you for an email the first time you use features that require it.
+1. Right-click on any item in your Zotero library
+2. Select `Zotadata` → `Settings`
+
+### API Configuration
+
+- **Email for Unpaywall API**: Required for Unpaywall access
+  - Stored locally in Zotero preferences
+  - Only used for API requests, never shared
+- **CORE API Key**: Optional key for higher rate limits
+
+### PDF Download Sources
+
+#### Sci-Hub (Optional)
+
+⚠️ **Important**: Sci-Hub provides access to papers that may not be legally available in your jurisdiction. Use responsibly and in accordance with local laws and institutional policies.
+
+**Features**:
+
+- **Enable/Disable**: Toggle to allow Sci-Hub as a fallback source (disabled by default)
+- **Fallback Position**: Only tried after legitimate sources (Unpaywall, arXiv, CORE) fail
+- **Error Handling**: Automatically disables after configured number of failures (default: 2)
+- **Mirror Discovery**: Automatically finds working mirrors via sci-hub.pub
+
+**Settings**:
+
+- Max attempts before fallback (1-3, default: 2)
+- Global setting persists until manually changed
+
+**By enabling Sci-Hub, you acknowledge**:
+
+- Understanding of potential legal implications
+- Responsibility for compliance with local regulations
+- Use for legitimate research purposes only
+
+The plugin will always prioritize legal sources before attempting Sci-Hub.
+
+**Note**: Your email is stored locally and only used for API requests to services like Unpaywall. The plugin will prompt you for an email the first time you use features that require it.
 
 ## Usage
 

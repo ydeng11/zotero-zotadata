@@ -13,8 +13,8 @@ zotadata-menu-process-arxiv =
 zotadata-menu-find-files =
     .label = Retrieve Files
 
-zotadata-menu-configure-email =
-    .label = Configure Email
+zotadata-menu-settings =
+    .label = Settings...
 
 zotadata-menu-find-attachments =
     .label = Find Attachments

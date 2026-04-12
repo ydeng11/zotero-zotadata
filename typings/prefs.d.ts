@@ -7,17 +7,18 @@
 declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
-      "extensions.zotadata.unpaywallEmail": string;
-      "extensions.zotadata.coreApiKey": string;
-      "extensions.zotadata.updateExistingMetadata": boolean;
-      "extensions.zotadata.autoDownloadOnAdd": boolean;
-      "extensions.zotadata.debug": boolean;
-      "extensions.zotadata.email": string;
-      "extensions.zotadata.autoretrieve": string;
-      "extensions.zotadata.tag_nopdf": string;
-      "extensions.zotadata.tag_haspdf": string;
-      "extensions.zotadata.downloadTimeout": number;
-      "extensions.zotadata.maxRetries": number;
+      "email": string;
+      "coreApiKey": string;
+      "scihub.enabled": boolean;
+      "scihub.maxErrors": number;
+      "updateExistingMetadata": boolean;
+      "autoDownloadOnAdd": boolean;
+      "autoretrieve": string;
+      "tag_nopdf": string;
+      "tag_haspdf": string;
+      "downloadTimeout": number;
+      "maxRetries": number;
+      "debug": boolean;
     };
   }
 }

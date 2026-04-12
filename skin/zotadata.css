@@ -60,32 +60,70 @@
 }
 
 /* Preferences dialog */
-#attachment-finder-preferences {
-  min-width: 450px;
-  min-height: 400px;
+#attachment-finder-preferences,
+#zotadata-prefs {
+  min-width: 480px;
+  min-height: 420px;
+  background-color: -moz-Dialog;
+  color: -moz-DialogText;
 }
 
-#attachment-finder-preferences groupbox {
-  margin: 10px 0;
+#attachment-finder-preferences groupbox,
+#zotadata-prefs groupbox {
+  margin: 0 0 12px;
+  padding: 10px 12px 12px;
 }
 
-#attachment-finder-preferences textbox {
-  min-width: 200px;
+#attachment-finder-preferences textbox,
+#attachment-finder-preferences html|input,
+#zotadata-prefs textbox,
+#zotadata-prefs html|input {
+  min-width: 260px;
 }
 
-#attachment-finder-preferences description {
-  margin: 5px 0;
-  font-size: 0.9em;
-  color: #666;
+#attachment-finder-preferences prefpane,
+#zotadata-prefpane {
+  padding: 12px;
+  background-color: -moz-Dialog;
+  color: -moz-DialogText;
 }
 
-#attachment-finder-preferences .text-link {
+#attachment-finder-preferences description,
+#zotadata-prefs description {
+  margin: 4px 0 8px;
+  color: #5f6b7a;
+}
+
+#zotadata-prefs caption {
+  font-weight: 600;
+}
+
+#zotadata-prefs .zotadata-setting-row {
+  margin: 0 0 12px;
+}
+
+#zotadata-prefs .zotadata-setting-row:last-child {
+  margin-bottom: 0;
+}
+
+#zotadata-prefs .zotadata-setting-row > label,
+#zotadata-prefs .zotadata-setting-row > checkbox {
+  margin: 0 0 6px;
+}
+
+#zotadata-prefs .zotadata-setting-control {
+  max-width: 320px;
+}
+
+#attachment-finder-preferences .text-link,
+#zotadata-prefs .text-link {
   color: #0066cc;
   text-decoration: underline;
   cursor: pointer;
 }
 
-#attachment-finder-preferences .text-link:hover {
+#attachment-finder-preferences .text-link:hover,
+#zotadata-prefs .text-link:hover {
   color: #0052cc;
 }
 

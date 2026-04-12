@@ -380,7 +380,7 @@ export class MenuManager {
       items: [
         {
           id: "tools-attachment-finder-preferences",
-          label: "Zotadata Preferences...",
+          label: "Settings...",
           icon: "chrome://zotero/skin/prefs.png",
           tooltip: "Configure Zotadata settings",
           action: () => this.handlePreferences(),

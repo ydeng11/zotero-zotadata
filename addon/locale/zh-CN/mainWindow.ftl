@@ -12,6 +12,9 @@ zotadata-menu-process-arxiv =
 zotadata-menu-find-files =
     .label = 获取文件
 
+zotadata-menu-settings =
+    .label = 设置...
+
 zotadata-menu-find-attachments =
     .label = 查找附件
 zotadata-menu-batch-find =

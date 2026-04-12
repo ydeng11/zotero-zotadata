@@ -62,6 +62,10 @@ interface PluginPreferences {
   "advanced.debug": boolean;
   "advanced.logLevel": string;
   "advanced.userAgent": string;
+
+  // Sci-Hub Settings
+  "scihub.enabled": boolean;
+  "scihub.maxErrors": number;
 }
 
 /**
@@ -70,7 +74,7 @@ interface PluginPreferences {
 export class PreferencesManager {
   private addonData: AddonData;
   private errorManager: ErrorManager;
-  private prefPrefix = "extensions.zotero.attachmentfinder";
+  private prefPrefix = "extensions.zotero.zotadata";
 
   constructor(addonData: AddonData) {
     this.addonData = addonData;
@@ -95,8 +99,22 @@ export class PreferencesManager {
    * Open preferences dialog
    */
   async openPreferences(): Promise<void> {
-    // Implementation would open preferences dialog
-    console.log("Opening preferences dialog");
+    try {
+      const window = Zotero.getMainWindow();
+      if (!window) {
+        throw new Error("No main Zotero window available");
+      }
+
+      window.openDialog(
+        "chrome://zotadata/content/options.xhtml",
+        "zotadata-preferences",
+        "chrome,centerscreen,modal,resizable",
+      );
+    } catch (error) {
+      throw this.errorManager.createFromUnknown(error, ErrorType.ZOTERO_ERROR, {
+        operation: "openPreferences",
+      });
+    }
   }
 
   /**
@@ -170,6 +188,8 @@ export class PreferencesManager {
         "advanced.userAgent",
         "Zotero Zotadata/1.0",
       ),
+      "scihub.enabled": this.getPreference("scihub.enabled", false),
+      "scihub.maxErrors": this.getPreference("scihub.maxErrors", 2),
     };
     return preferences;
   }
@@ -217,6 +237,20 @@ export class PreferencesManager {
         { operation: "importPreferences" },
       );
     }
+  }
+
+  /**
+   * Check if Sci-Hub is enabled
+   */
+  isSciHubEnabled(): boolean {
+    return this.getPreference("scihub.enabled", false);
+  }
+
+  /**
+   * Get max errors before fallback for Sci-Hub
+   */
+  getSciHubMaxErrors(): number {
+    return this.getPreference("scihub.maxErrors", 2);
   }
 
   /**

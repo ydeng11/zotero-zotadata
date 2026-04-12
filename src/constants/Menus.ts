@@ -48,8 +48,8 @@ export const LIBRARY_ITEM_MENU_L10N_IDS = [
   "zotadata-menu-find-files",
 ] as const;
 
-/** L10n ID for the preferences/configure email menu */
-export const CONFIGURE_EMAIL_L10N_ID = "zotadata-menu-configure-email" as const;
+/** L10n ID for the Settings menu */
+export const SETTINGS_L10N_ID = "zotadata-menu-settings" as const;
 
 /** Fallback labels if Fluent is not bound (legacy / tests). */
 export const LIBRARY_ITEM_MENU_LABELS = [
@@ -59,5 +59,5 @@ export const LIBRARY_ITEM_MENU_LABELS = [
   "Retrieve Files",
 ] as const;
 
-/** Fallback label for configure email */
-export const CONFIGURE_EMAIL_LABEL = "Configure Email" as const;
+/** Fallback label for Settings */
+export const SETTINGS_LABEL = "Settings" as const;

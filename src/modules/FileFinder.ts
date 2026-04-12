@@ -1,6 +1,7 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis/OpenAlexAPI";
 import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
+import { SciHubService } from "@/services/SciHubService";
 import {
   buildAcceptLanguageHeader,
   matchesPreferredLanguage,
@@ -58,14 +59,17 @@ export class FileFinder {
   private errorManager: ErrorManager;
   private openAlexAPI: OpenAlexAPI;
   private semanticScholarAPI: SemanticScholarAPI;
+  private sciHubService: SciHubService;
 
   constructor(
     openAlexAPI?: OpenAlexAPI,
     semanticScholarAPI?: SemanticScholarAPI,
+    sciHubService?: SciHubService,
   ) {
     this.errorManager = new ErrorManager();
     this.openAlexAPI = openAlexAPI ?? new OpenAlexAPI();
     this.semanticScholarAPI = semanticScholarAPI ?? new SemanticScholarAPI();
+    this.sciHubService = sciHubService ?? new SciHubService({} as any);
   }
 
   /**
@@ -362,6 +366,13 @@ export class FileFinder {
         source: "Unpaywall",
         resolve: () => this.findUnpaywallPDF(doi),
       });
+
+      if (this.sciHubService.shouldTrySciHub()) {
+        directResolvers.push({
+          source: "Sci-Hub",
+          resolve: () => this.sciHubService.findSciHubPDF(doi),
+        });
+      }
     }
     directResolvers.push({
       source: "arXiv",
@@ -725,11 +736,11 @@ export class FileFinder {
     return UNPAYWALL_EMAIL;
   }
 
-private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
+  private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
     try {
       const email = this.getUnpaywallEmail();
       const url = `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=${encodeURIComponent(email)}`;
-      const response = await Zotero.HTTP_request("GET", url, {
+      const response = await Zotero.HTTP.request("GET", url, {
         headers: this.buildRequestHeaders(),
         timeout: 15000,
         responseType: "text",
@@ -755,7 +766,6 @@ private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
     } catch {
       return null;
     }
-  }
   }
 
   private async tryOpenAlex(query: SearchQuery): Promise<ResolvedPDF | null> {
