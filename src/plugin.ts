@@ -5,8 +5,9 @@ import { MetadataFetcher } from "@/modules/MetadataFetcher";
 import { FileFinder } from "@/modules/FileFinder";
 import { CrossRefAPI } from "@/features/metadata/apis";
 import { ZoteroUtils } from "@/shared/utils/ZoteroUtils";
+import { PreferencesManager } from "@/ui/PreferencesManager";
 import {
-  CONFIGURE_EMAIL_L10N_ID,
+  SETTINGS_L10N_ID,
   LIBRARY_ITEM_MENU_LABELS,
   LIBRARY_ITEM_MENU_L10N_IDS,
   LIBRARY_ITEM_SUBMENU_L10N_ID,
@@ -39,6 +40,8 @@ export class ZotadataPlugin {
   private metadataFetcher: MetadataFetcher | null = null;
   private arxivProcessor: ArxivProcessor | null = null;
   private fileFinder: FileFinder | null = null;
+  private preferencesManager: PreferencesManager | null = null;
+  private menuManagerRegistered = false;
 
   private static readonly TOAST_MAX_LINES = 14;
 
@@ -67,6 +70,7 @@ export class ZotadataPlugin {
       async () => {
         this.log("Initializing Zotadata plugin...");
         this.addonData = data;
+        this.preferencesManager = new PreferencesManager(data);
 
         await this.registerMenus();
 
@@ -85,6 +89,7 @@ export class ZotadataPlugin {
     return this.errorManager.wrapAsync(
       async () => {
         this.log("Shutting down Zotadata plugin...");
+        this.menuManagerRegistered = false;
 
         // Do not call MenuManager.unregisterMenu: Zotero removes plugin menu
         // registrations during addon shutdown; a second unregister logs
@@ -111,7 +116,7 @@ export class ZotadataPlugin {
   async onMainWindowReady(win: Window): Promise<void> {
     if (!ZoteroUtils.hasNewMenuAPI() && win.ZoteroPane) {
       await this.addToWindow(win);
-    } else if (ZoteroUtils.hasNewMenuAPI()) {
+    } else if (ZoteroUtils.hasNewMenuAPI() && !this.menuManagerRegistered) {
       // Also try to register via MenuManager when window loads
       // in case registerMenus() was called before windows existed
       try {
@@ -141,6 +146,11 @@ export class ZotadataPlugin {
   }
 
   private async registerMenusWithMenuAPI(): Promise<void> {
+    if (this.menuManagerRegistered) {
+      this.log("MenuManager menu already registered; skipping duplicate registration");
+      return;
+    }
+
     const pluginID = this.addonData?.id || "zotadata@zotero.org";
     const menuID = "zotadata-main-library-item-actions";
 
@@ -194,7 +204,7 @@ export class ZotadataPlugin {
 
     const configureEmailMenu: Zotero.MenuManager.MenuData = {
       menuType: "menuitem",
-      l10nID: CONFIGURE_EMAIL_L10N_ID,
+      l10nID: SETTINGS_L10N_ID,
       onCommand: () => {
         void this.handleConfigureEmail().catch((err: unknown) => {
           this.log(
@@ -238,6 +248,7 @@ export class ZotadataPlugin {
     );
 
     if (registered !== false) {
+      this.menuManagerRegistered = true;
       this.log("Registered menus using MenuManager API");
     } else {
       this.log(
@@ -586,63 +597,18 @@ export class ZotadataPlugin {
   private async handleConfigureEmail(): Promise<void> {
     return this.errorManager.wrapAsync(
       async () => {
-        this.log("Configure Email command triggered");
+        this.log("Opening Settings dialog");
 
-        const win = Zotero.getMainWindows()[0];
-        if (!win) {
+        if (!this.preferencesManager) {
           this.showZotadataToast(
-            "Configure Email",
-            "Could not open configuration dialog.",
+            "Settings",
+            "Settings manager not initialized. Please restart Zotero.",
             { short: true },
           );
           return;
         }
 
-        const currentEmail = Zotero.Prefs.get(
-          "extensions.zotero.zotadata.email",
-        );
-        const currentEmailStr =
-          typeof currentEmail === "string" ? currentEmail : "";
-
-        const prompt = win.prompt(
-          "Configure Email for Zotadata\n\n" +
-            "Your email is required for API access (Unpaywall, etc.) and will be stored locally in Zotero preferences.\n\n" +
-            "Current email: " +
-            (currentEmailStr || "(not set)") +
-            "\n\n" +
-            "Enter your email address (or leave empty to disable API features):",
-          currentEmailStr || "",
-        );
-
-        if (prompt === null) {
-          return;
-        }
-
-        if (prompt.trim() === "") {
-          Zotero.Prefs.set("extensions.zotero.zotadata.email", "");
-          this.showZotadataToast(
-            "Configure Email",
-            "Email cleared. API features (Unpaywall, etc.) will be disabled until you configure an email.",
-            { short: true },
-          );
-          return;
-        }
-
-        if (!prompt.includes("@")) {
-          this.showZotadataToast(
-            "Configure Email",
-            "Invalid email address. Please enter a valid email or leave empty to disable API features.",
-            { short: true },
-          );
-          return;
-        }
-
-        Zotero.Prefs.set("extensions.zotero.zotadata.email", prompt.trim());
-        this.showZotadataToast(
-          "Configure Email",
-          `Email configured successfully: ${prompt.trim()}`,
-          { short: true },
-        );
+        await this.preferencesManager.openPreferences();
       },
       ErrorType.ZOTERO_ERROR,
       { operation: "handleConfigureEmail" },

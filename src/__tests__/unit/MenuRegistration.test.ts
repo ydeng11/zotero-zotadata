@@ -49,15 +49,22 @@ describe("MenuRegistration (Zotero 8 MenuManager)", () => {
     expect(typeof root.onShowing).toBe("function");
     expect(root.menus).toBeDefined();
     const actions = root.menus ?? [];
-    expect(actions).toHaveLength(4);
-    expect(actions.every((m) => m.menuType === "menuitem")).toBe(true);
-    expect(actions.every((m) => typeof m.onShowing === "function")).toBe(true);
-    expect(actions.map((m) => m.l10nID)).toEqual([
+    expect(actions).toHaveLength(6);
+    expect(actions.slice(0, 4).every((m) => m.menuType === "menuitem")).toBe(
+      true,
+    );
+    expect(actions.slice(0, 4).every((m) => typeof m.onShowing === "function")).toBe(
+      true,
+    );
+    expect(actions.slice(0, 4).map((m) => m.l10nID)).toEqual([
       "zotadata-menu-check-attachments",
       "zotadata-menu-fetch-metadata",
       "zotadata-menu-process-arxiv",
       "zotadata-menu-find-files",
     ]);
+    expect(actions[4].menuType).toBe("separator");
+    expect(actions[5].menuType).toBe("menuitem");
+    expect(actions[5].l10nID).toBe("zotadata-menu-settings");
     expect(LIBRARY_ITEM_MENU_LABELS).toEqual([
       "Validate References",
       "Update Metadata",
@@ -93,5 +100,23 @@ describe("MenuRegistration (Zotero 8 MenuManager)", () => {
     ).resolves.toBeUndefined();
 
     spy.mockRestore();
+  });
+
+  it("does not register the same MenuManager menu twice on main window ready", async () => {
+    const plugin = new ZotadataPlugin();
+
+    await plugin.init({
+      id: "zotadata@zotero.org",
+      version: "1.0.0",
+      rootURI: "",
+    });
+
+    const win = { ZoteroPane: {} } as unknown as Window;
+
+    await plugin.onMainWindowReady(win);
+
+    const calls = getMenuRegisterCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].menuID).toBe("zotadata-main-library-item-actions");
   });
 });
