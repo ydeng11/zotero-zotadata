@@ -167,6 +167,13 @@ This famous paper has multiple versions and even other papers with identical tit
 2. Checking year (2014 vs 2023 for other papers)
 3. Falling back to arXiv DOI (10.48550/arxiv.1406.2661) if published DOI not found
 
+### Update Metadata Best Practices
+
+When using the **Update Metadata** feature:
+
+- **DOI is Critical**: The feature heavily relies on a correct DOI for accurate metadata retrieval. If the DOI is missing or incorrect, results may be unreliable.
+- **Remove Authors First**: For best results, consider removing the authors field before updating metadata. This allows the plugin to search and match based on title and DOI without being confused by incomplete or incorrect author information.
+
 ## Success Rates & Expectations
 
 ### PDF Retrieval Reality
