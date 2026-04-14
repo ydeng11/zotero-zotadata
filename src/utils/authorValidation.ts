@@ -129,10 +129,9 @@ export function validateMetadataMatch(
   const candidateYear = candidate.year || 0;
   const yearDiff = Math.abs(itemYear - candidateYear);
 
-  const titleSimilarity = calculateTitleSimilarity(
-    item.getField("title") || "",
-    candidate.title,
-  );
+  const itemTitle = item.getField("title") || "";
+  const titleSimilarity = calculateTitleSimilarity(itemTitle, candidate.title);
+  const isExactMatch = isExactTitleMatch(itemTitle, candidate.title);
 
   if (titleSimilarity > 0.4 && yearDiff > 3 && overlap.overlapRatio >= 0.8) {
     return {
@@ -144,13 +143,51 @@ export function validateMetadataMatch(
     };
   }
 
-  const score =
-    0.4 * titleSimilarity +
-    0.35 * overlap.overlapRatio +
-    0.15 * (authorCountDiff <= 2 ? 1 : authorCountDiff <= 4 ? 0.5 : 0) +
-    0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
+  let score: number;
 
-  const accept = score >= 0.7 && overlap.matchCount >= 1;
+  if (itemAuthors.length === 0) {
+    // Special handling for items with no authors
+    if (isExactMatch) {
+      // For exact title matches with no existing authors, require complete metadata
+      if (
+        candidateAuthors.length === 0 ||
+        candidate.year === undefined ||
+        candidate.year === 0
+      ) {
+        return {
+          accept: false,
+          score: 0,
+          reason:
+            "Exact title match missing required metadata (authors or year)",
+          matchedAuthors: 0,
+          authorOverlap: 0,
+        };
+      }
+      // Give exact matches a high score to ensure they're prioritized
+      score = 0.9;
+    } else {
+      // When item has no authors, we can be more confident about adding metadata
+      // Give full credit for author-related fields since we're adding them fresh
+      score =
+        0.4 * titleSimilarity +
+        0.35 * (candidateAuthors.length > 0 ? 1 : 0) + // Full author score if candidate has authors
+        0.15 * 1 + // Full author count score (no existing authors to conflict with)
+        0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
+    }
+  } else {
+    // Original scoring for items with existing authors
+    score =
+      0.4 * titleSimilarity +
+      0.35 * overlap.overlapRatio +
+      0.15 * (authorCountDiff <= 2 ? 1 : authorCountDiff <= 4 ? 0.5 : 0) +
+      0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
+  }
+
+  // Accept if score is high enough, and either:
+  // - item has no authors (so we can add them), OR
+  // - we have at least one matching author
+  const accept =
+    score >= 0.7 && (itemAuthors.length === 0 || overlap.matchCount >= 1);
 
   return {
     accept,
@@ -161,7 +198,26 @@ export function validateMetadataMatch(
   };
 }
 
-function calculateTitleSimilarity(title1: string, title2: string): number {
+export function isExactTitleMatch(title1: string, title2: string): boolean {
+  const normalize = (s: string): string =>
+    s
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, "")
+      .trim();
+
+  return normalize(title1) === normalize(title2);
+}
+
+export function calculateTitleSimilarity(
+  title1: string,
+  title2: string,
+): number {
+  // Check for exact match first
+  if (isExactTitleMatch(title1, title2)) {
+    return 1.0;
+  }
+
   const normalize = (s: string): string =>
     s
       .toLowerCase()

@@ -218,18 +218,28 @@ export class MetadataFetcher {
           itemType === "preprint"
         ) {
           legacyResult = await this.fetchDOIBasedMetadata(item);
+          // Only return early if successful or if changes were made
+          // If it failed with "No DOI found", continue to title/author search
+          if (legacyResult.success || legacyResult.changes.length > 0) {
+            return {
+              success: legacyResult.success,
+              item,
+              source: legacyResult.source,
+              changes: legacyResult.changes,
+              errors: legacyResult.error ? [legacyResult.error] : [],
+            };
+          }
         } else if (itemType === "book") {
           legacyResult = await this.fetchISBNBasedMetadata(item);
-        }
-
-        if (legacyResult) {
-          return {
-            success: legacyResult.success,
-            item,
-            source: legacyResult.source,
-            changes: legacyResult.changes,
-            errors: legacyResult.error ? [legacyResult.error] : [],
-          };
+          if (legacyResult) {
+            return {
+              success: legacyResult.success,
+              item,
+              source: legacyResult.source,
+              changes: legacyResult.changes,
+              errors: legacyResult.error ? [legacyResult.error] : [],
+            };
+          }
         }
 
         const query = this.buildSearchQuery(item);
