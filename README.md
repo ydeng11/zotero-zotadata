@@ -248,7 +248,7 @@ This plugin integrates with several external APIs and services:
 
 - **Purpose**: Search academic papers for full-text access
 - **Rate Limit**: 10,000 requests/month (free tier)
-- **Authentication**: API key required for higher limits (Not implemented yet)
+- **Authentication**: API key optional for higher rate limits
 
 #### Library Genesis
 

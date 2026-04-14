@@ -439,13 +439,19 @@ export class FileFinder {
 
   async findCorePDFByDOI(doi: string): Promise<string | null> {
     try {
+      const apiKey = this.getCoreApiKey();
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+      };
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+
       const response = await Zotero.HTTP.request(
         "GET",
         `https://api.core.ac.uk/v3/search/works?q=${encodeURIComponent(`doi:"${doi}"`)}&limit=5`,
         {
-          headers: this.buildRequestHeaders({
-            Accept: "application/json",
-          }),
+          headers: this.buildRequestHeaders(headers),
         },
       );
       if (response.status !== 200) {
@@ -735,6 +741,20 @@ export class FileFinder {
       // Ignore - will use fallback
     }
     return UNPAYWALL_EMAIL;
+  }
+
+  private getCoreApiKey(): string | null {
+    try {
+      const apiKey = Zotero.Prefs.get(
+        "extensions.zotero.zotadata.coreApiKey",
+      ) as string;
+      if (apiKey && apiKey.trim() !== "") {
+        return apiKey.trim();
+      }
+    } catch {
+      // Ignore - will make unauthenticated request
+    }
+    return null;
   }
 
   private async tryUnpaywall(doi: string): Promise<ResolvedPDF | null> {
