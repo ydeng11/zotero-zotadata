@@ -53,9 +53,9 @@ describe("MenuRegistration (Zotero 8 MenuManager)", () => {
     expect(actions.slice(0, 4).every((m) => m.menuType === "menuitem")).toBe(
       true,
     );
-    expect(actions.slice(0, 4).every((m) => typeof m.onShowing === "function")).toBe(
-      true,
-    );
+    expect(
+      actions.slice(0, 4).every((m) => typeof m.onShowing === "function"),
+    ).toBe(true);
     expect(actions.slice(0, 4).map((m) => m.l10nID)).toEqual([
       "zotadata-menu-check-attachments",
       "zotadata-menu-fetch-metadata",

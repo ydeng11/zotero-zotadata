@@ -3,6 +3,7 @@ import {
   normalizeLastName,
   calculateAuthorOverlap,
   validateMetadataMatch,
+  isExactTitleMatch,
 } from "@/utils/authorValidation";
 import type { SearchResult } from "@/shared/core/types";
 
@@ -74,6 +75,30 @@ describe("authorValidation", () => {
 
       expect(result.matchCount).toBe(0);
       expect(result.overlapRatio).toBe(0);
+    });
+  });
+
+  describe("isExactTitleMatch", () => {
+    it("detects exact title matches correctly", () => {
+      expect(
+        isExactTitleMatch(
+          "Adversarial Machine Learning at Scale",
+          "Adversarial Machine Learning at Scale",
+        ),
+      ).toBe(true);
+      expect(
+        isExactTitleMatch(
+          "Adversarial Machine Learning at Scale",
+          "Large-scale strategic games and adversarial machine learning",
+        ),
+      ).toBe(false);
+      expect(
+        isExactTitleMatch(
+          "Generative Adversarial Nets",
+          "Generative Adversarial Networks",
+        ),
+      ).toBe(false);
+      expect(isExactTitleMatch("Test Title!", "test title")).toBe(true);
     });
   });
 
@@ -226,6 +251,72 @@ describe("authorValidation", () => {
 
       expect(result.accept).toBe(false);
       expect(result.reason).toContain("Year differs");
+    });
+
+    it("accepts exact title match with complete metadata when no existing authors", () => {
+      const item = createMockItem(
+        [],
+        0,
+        "Adversarial Machine Learning at Scale",
+      );
+
+      const candidate: SearchResult = {
+        title: "Adversarial Machine Learning at Scale",
+        authors: ["Alexey Kurakin", "Ian Goodfellow", "Samy Bengio"],
+        year: 2016,
+        doi: "10.48550/arxiv.1611.01236",
+        confidence: 0.95,
+        source: "OpenAlex",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(true);
+      expect(result.score).toBeCloseTo(0.9, 2);
+    });
+
+    it("rejects exact title match missing authors when no existing authors", () => {
+      const item = createMockItem(
+        [],
+        0,
+        "Adversarial Machine Learning at Scale",
+      );
+
+      const candidate: SearchResult = {
+        title: "Adversarial Machine Learning at Scale",
+        authors: [],
+        year: 2016,
+        doi: "10.48550/arxiv.1611.01236",
+        confidence: 0.95,
+        source: "OpenAlex",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
+      expect(result.reason).toContain("missing required metadata");
+    });
+
+    it("rejects exact title match missing year when no existing authors", () => {
+      const item = createMockItem(
+        [],
+        0,
+        "Adversarial Machine Learning at Scale",
+      );
+
+      const candidate: SearchResult = {
+        title: "Adversarial Machine Learning at Scale",
+        authors: ["Alexey Kurakin", "Ian Goodfellow", "Samy Bengio"],
+        year: 0,
+        doi: "10.48550/arxiv.1611.01236",
+        confidence: 0.95,
+        source: "OpenAlex",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
+      expect(result.reason).toContain("missing required metadata");
     });
   });
 });

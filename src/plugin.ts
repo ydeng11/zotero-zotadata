@@ -147,7 +147,9 @@ export class ZotadataPlugin {
 
   private async registerMenusWithMenuAPI(): Promise<void> {
     if (this.menuManagerRegistered) {
-      this.log("MenuManager menu already registered; skipping duplicate registration");
+      this.log(
+        "MenuManager menu already registered; skipping duplicate registration",
+      );
       return;
     }
 

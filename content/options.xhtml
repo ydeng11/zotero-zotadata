@@ -132,7 +132,12 @@
 
       <vbox class="zotadata-setting-row" style="margin: 0 0 0.9rem">
         <html:div
-          style="display: flex; align-items: center; gap: 0.5rem; max-width: 32rem"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 32rem;
+          "
         >
           <html:input
             id="scihub-enabled-checkbox"
@@ -157,13 +162,13 @@
       <button
         id="cancel-button"
         label="Cancel"
-        oncommand="ZotadataPreferences.cancel();"
+        oncommand="ZotadataPreferences.cancel()"
         style="margin-inline-end: 0.75rem"
       />
       <button
         id="save-button"
         label="Save"
-        oncommand="ZotadataPreferences.saveAndClose();"
+        oncommand="ZotadataPreferences.saveAndClose()"
       />
     </hbox>
   </prefpane>

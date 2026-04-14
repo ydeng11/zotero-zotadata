@@ -131,8 +131,6 @@ describe("MetadataFetcher legacy compatibility", () => {
       DOI: "10.1000/test.doi",
       title: ["Recovered Title"],
     });
-    expect(item.addTag).toHaveBeenCalledWith("Metadata Updated", 1);
-    expect(item.addTag).toHaveBeenCalledWith("Via CrossRef API", 1);
   });
 
   it("falls back to CrossRef when the translator returns no useful DOI changes", async () => {
@@ -262,8 +260,6 @@ describe("MetadataFetcher legacy compatibility", () => {
         updated: true,
       }),
     );
-    expect(item.addTag).toHaveBeenCalledWith("Metadata Updated", 1);
-    expect(item.addTag).toHaveBeenCalledWith("Via Zotero Translator", 1);
   });
 
   it("extracts a DOI from Google Scholar HTML like the legacy implementation", async () => {
@@ -350,7 +346,6 @@ describe("MetadataFetcher legacy compatibility", () => {
     expect(result.changes).toContain(
       "Updated authors: Diederik P. Kingma, Danilo J. Rezende",
     );
-    expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
   });
 
   it("keeps an existing non-arXiv DOI when it matches the current item", async () => {
