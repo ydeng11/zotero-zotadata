@@ -1,2 +1,2 @@
-export { IdentifierResolver } from './IdentifierResolver';
-export { DOIResolver } from './DOIResolver';
+export { IdentifierResolver } from "./IdentifierResolver";
+export { DOIResolver } from "./DOIResolver";

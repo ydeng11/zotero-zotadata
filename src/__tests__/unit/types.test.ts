@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import type { AttachmentStats, PluginConfig, BatchResult } from '@/shared/core/types';
+import { describe, it, expect } from "vitest";
+import type {
+  AttachmentStats,
+  PluginConfig,
+  BatchResult,
+} from "@/shared/core/types";
 
-describe('Shared Types', () => {
-  it('should accept valid AttachmentStats', () => {
+describe("Shared Types", () => {
+  it("should accept valid AttachmentStats", () => {
     const stats: AttachmentStats = {
       valid: 1,
       removed: 0,
@@ -12,23 +16,23 @@ describe('Shared Types', () => {
     expect(stats.valid).toBe(1);
   });
 
-  it('should accept valid PluginConfig', () => {
+  it("should accept valid PluginConfig", () => {
     const config: PluginConfig = {
       maxConcurrentDownloads: 3,
       maxFileSize: 100 * 1024 * 1024,
       downloadTimeout: 30000,
-      enabledAPIs: ['CrossRef'],
+      enabledAPIs: ["CrossRef"],
       rateLimits: {},
       cacheSettings: { ttl: 3600000, maxSize: 1000 },
-      userAgent: 'Test',
+      userAgent: "Test",
     };
     expect(config.maxConcurrentDownloads).toBe(3);
   });
 
-  it('should accept valid BatchResult', () => {
+  it("should accept valid BatchResult", () => {
     const result: BatchResult<string> = {
       success: true,
-      results: [{ success: true, result: 'test' }],
+      results: [{ success: true, result: "test" }],
       errors: [],
       totalProcessed: 1,
       successCount: 1,

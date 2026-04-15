@@ -1,7 +1,7 @@
 {
   "name": "zotero-zotadata",
   "type": "module",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Enhanced metadata management for Zotero",
   "config": {
     "addonName": "Zotadata",
@@ -17,12 +17,14 @@
   "author": "Zotadata Team",
   "license": "AGPL-3.0-or-later",
   "scripts": {
+    "postinstall": "patch-package",
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
     "build:dev": "zotero-plugin build --dev",
     "lint:check": "prettier --check . && eslint .",
     "lint:fix": "prettier --write . && eslint . --fix",
     "test": "vitest",
+    "test:live": "LIVE_API_TESTS=1 vitest run src/__tests__/integration",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "type-check": "tsc --noEmit",
@@ -37,6 +39,7 @@
     "@types/node": "^22.15.29",
     "@vitest/coverage-v8": "^1.0.0",
     "eslint": "^9.28.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.0",

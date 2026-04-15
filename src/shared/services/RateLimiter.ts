@@ -1,4 +1,4 @@
-import type { RateLimitConfig } from '@/shared/core/types';
+import type { RateLimitConfig } from "@/shared/core/types";
 
 export class RateLimiter {
   private requestTimes: number[] = [];
@@ -12,7 +12,7 @@ export class RateLimiter {
     const now = Date.now();
     const windowStart = now - this.config.window;
 
-    this.requestTimes = this.requestTimes.filter(time => time > windowStart);
+    this.requestTimes = this.requestTimes.filter((time) => time > windowStart);
 
     if (this.requestTimes.length >= this.config.requests) {
       const oldestRequest = Math.min(...this.requestTimes);
@@ -22,7 +22,9 @@ export class RateLimiter {
         await this.delay(waitTime);
         const newNow = Date.now();
         const newWindowStart = newNow - this.config.window;
-        this.requestTimes = this.requestTimes.filter(time => time > newWindowStart);
+        this.requestTimes = this.requestTimes.filter(
+          (time) => time > newWindowStart,
+        );
         this.requestTimes.push(newNow);
         return;
       }
@@ -32,7 +34,7 @@ export class RateLimiter {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   reset(): void {

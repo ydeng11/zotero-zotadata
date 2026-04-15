@@ -1,10 +1,10 @@
-import { BaseMetadataAPI } from './BaseMetadataAPI';
+import { BaseMetadataAPI } from "./BaseMetadataAPI";
 import type {
   CrossRefWork,
   SearchQuery,
   SearchResult,
-  RateLimitConfig
-} from '@/shared/core/types';
+  RateLimitConfig,
+} from "@/shared/core/types";
 
 /**
  * CrossRef API implementation for DOI discovery and metadata fetching
@@ -12,9 +12,9 @@ import type {
 export class CrossRefAPI extends BaseMetadataAPI {
   constructor() {
     super(
-      'https://api.crossref.org',
+      "https://api.crossref.org",
       { requests: 50, window: 1000 }, // 50 requests per second
-      { ttl: 3600000, maxSize: 500 }   // 1 hour cache
+      { ttl: 3600000, maxSize: 500 }, // 1 hour cache
     );
   }
 
@@ -27,10 +27,10 @@ export class CrossRefAPI extends BaseMetadataAPI {
 
     const response = await this.request<{
       status: string;
-      'message-type': string;
-      'message-version': string;
+      "message-type": string;
+      "message-version": string;
       message: {
-        'total-results': number;
+        "total-results": number;
         items: CrossRefWork[];
       };
     }>(endpoint);
@@ -43,17 +43,19 @@ export class CrossRefAPI extends BaseMetadataAPI {
    */
   async getWorkByDOI(doi: string): Promise<SearchResult | null> {
     const cleanDOI = this.cleanDOI(doi);
-    const endpoint = `/works/${cleanDOI}`;
+    const endpoint = `/works/${encodeURIComponent(cleanDOI)}`;
 
     try {
       const response = await this.request<{
         status: string;
-        'message-type': string;
-        'message-version': string;
+        "message-type": string;
+        "message-version": string;
         message: CrossRefWork;
       }>(endpoint);
 
-      const results = this.transformResults([response.data.message], { doi: cleanDOI });
+      const results = this.transformResults([response.data.message], {
+        doi: cleanDOI,
+      });
       return results[0] || null;
     } catch (error) {
       // DOI not found is not an error
@@ -62,24 +64,90 @@ export class CrossRefAPI extends BaseMetadataAPI {
   }
 
   /**
+   * Fetch raw CrossRef work metadata by DOI (for arXiv → published migration).
+   */
+  async getCrossRefWorkMessage(doi: string): Promise<CrossRefWork | null> {
+    const cleanDOI = this.cleanDOI(doi);
+    const endpoint = `/works/${encodeURIComponent(cleanDOI)}`;
+
+    try {
+      const response = await this.request<{
+        status: string;
+        "message-type": string;
+        "message-version": string;
+        message: CrossRefWork;
+      }>(endpoint);
+
+      return response.data.message ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Raw work list for arXiv-ID query (caller filters preprints).
+   */
+  async fetchWorksByArxivId(arxivId: string): Promise<CrossRefWork[]> {
+    const cleanArxivId = arxivId.replace(/^arxiv:/i, "");
+    const endpoint = `/works?query=${encodeURIComponent(cleanArxivId)}&rows=10&sort=relevance`;
+
+    try {
+      const response = await this.request<{
+        message: {
+          items: CrossRefWork[];
+        };
+      }>(endpoint);
+
+      return response.data.message.items ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Raw work list for structured query (title / author / year).
+   */
+  async fetchWorksByQuery(query: SearchQuery): Promise<CrossRefWork[]> {
+    const searchQuery = this.buildSearchQuery(query);
+    if (!searchQuery) {
+      return [];
+    }
+    const endpoint = `/works?query=${encodeURIComponent(searchQuery)}&rows=10&sort=relevance`;
+
+    try {
+      const response = await this.request<{
+        message: {
+          items: CrossRefWork[];
+        };
+      }>(endpoint);
+
+      return response.data.message.items ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Search by arXiv ID to find published version
    */
   async searchByArxivId(arxivId: string): Promise<SearchResult[]> {
-    const cleanArxivId = arxivId.replace(/^arxiv:/i, '');
+    const cleanArxivId = arxivId.replace(/^arxiv:/i, "");
     const searchQuery = `${cleanArxivId}`;
     const endpoint = `/works?query=${encodeURIComponent(searchQuery)}&rows=10&sort=relevance`;
 
     const response = await this.request<{
       status: string;
-      'message-type': string;
-      'message-version': string;
+      "message-type": string;
+      "message-version": string;
       message: {
-        'total-results': number;
+        "total-results": number;
         items: CrossRefWork[];
       };
     }>(endpoint);
 
-    return this.transformResults(response.data.message.items, { arxivId: cleanArxivId });
+    return this.transformResults(response.data.message.items, {
+      arxivId: cleanArxivId,
+    });
   }
 
   /**
@@ -89,15 +157,15 @@ export class CrossRefAPI extends BaseMetadataAPI {
     const parts: string[] = [];
 
     if (query.title) {
-      // Clean and optimize title for search
       const cleanTitle = this.cleanTitle(query.title);
       parts.push(`title:"${cleanTitle}"`);
     }
 
     if (query.authors && query.authors.length > 0) {
-      // Use first author for better results
-      const firstAuthor = query.authors[0];
-      parts.push(`author:"${firstAuthor}"`);
+      const authorQueries = query.authors
+        .slice(0, 3)
+        .map((author) => `author:"${author}"`);
+      parts.push(`(${authorQueries.join(" OR ")})`);
     }
 
     if (query.year) {
@@ -108,24 +176,28 @@ export class CrossRefAPI extends BaseMetadataAPI {
       parts.push(`doi:"${this.cleanDOI(query.doi)}"`);
     }
 
-    return parts.join(' AND ');
+    return parts.join(" AND ");
   }
 
   /**
    * Transform CrossRef works to standardized search results
    */
-  private transformResults(works: CrossRefWork[], originalQuery: SearchQuery): SearchResult[] {
-    return works.map(work => {
+  private transformResults(
+    works: CrossRefWork[],
+    originalQuery: SearchQuery,
+  ): SearchResult[] {
+    return works.map((work) => {
       const result: SearchResult = {
         title: Array.isArray(work.title) ? work.title[0] : work.title,
-        authors: work.author?.map(author => 
-          `${author.given || ''} ${author.family}`.trim()
-        ) || [],
-        year: work.published?.['date-parts']?.[0]?.[0],
+        authors:
+          work.author?.map((author) =>
+            `${author.given || ""} ${author.family}`.trim(),
+          ) || [],
+        year: work.published?.["date-parts"]?.[0]?.[0],
         doi: work.DOI,
         url: work.URL,
         confidence: this.calculateConfidence(work, originalQuery),
-        source: 'CrossRef',
+        source: "CrossRef",
       };
 
       return result;
@@ -152,8 +224,10 @@ export class CrossRefAPI extends BaseMetadataAPI {
     }
 
     // Year match
-    if (query.year && work.published?.['date-parts']?.[0]?.[0]) {
-      const yearDiff = Math.abs(query.year - work.published['date-parts'][0][0]);
+    if (query.year && work.published?.["date-parts"]?.[0]?.[0]) {
+      const yearDiff = Math.abs(
+        query.year - work.published["date-parts"][0][0],
+      );
       if (yearDiff === 0) confidence += 0.2;
       else if (yearDiff <= 1) confidence += 0.1;
     }
@@ -172,16 +246,19 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Calculate title similarity using simple word overlap
    */
   private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) => 
-      str.toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .replace(/\s+/g, ' ')
+    const normalize = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
         .trim();
 
-    const words1 = new Set(normalize(title1).split(' '));
-    const words2 = new Set(normalize(title2).split(' '));
+    const words1 = new Set(normalize(title1).split(" "));
+    const words2 = new Set(normalize(title2).split(" "));
 
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
+    const intersection = new Set(
+      [...words1].filter((word) => words2.has(word)),
+    );
     const union = new Set([...words1, ...words2]);
 
     return intersection.size / union.size;
@@ -191,25 +268,31 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Calculate author match score
    */
   private calculateAuthorMatch(
-    queryAuthors: string[], 
-    workAuthors: Array<{ given?: string; family: string }>
+    queryAuthors: string[],
+    workAuthors: Array<{ given?: string; family: string }>,
   ): number {
     if (queryAuthors.length === 0 || workAuthors.length === 0) {
       return 0;
     }
 
-    const normalizeAuthor = (author: string) => 
-      author.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const normalizeAuthor = (author: string) =>
+      author
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .trim();
 
     const queryNormalized = queryAuthors.map(normalizeAuthor);
-    const workNormalized = workAuthors.map(author => 
-      normalizeAuthor(`${author.given || ''} ${author.family}`)
+    const workNormalized = workAuthors.map((author) =>
+      normalizeAuthor(`${author.given || ""} ${author.family}`),
     );
 
     let matches = 0;
     for (const queryAuthor of queryNormalized) {
       for (const workAuthor of workNormalized) {
-        if (workAuthor.includes(queryAuthor) || queryAuthor.includes(workAuthor)) {
+        if (
+          workAuthor.includes(queryAuthor) ||
+          queryAuthor.includes(workAuthor)
+        ) {
           matches++;
           break;
         }
@@ -224,8 +307,8 @@ export class CrossRefAPI extends BaseMetadataAPI {
    */
   private cleanTitle(title: string): string {
     return title
-      .replace(/[^\w\s]/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
       .substring(0, 200); // Limit length for API
   }
@@ -235,8 +318,8 @@ export class CrossRefAPI extends BaseMetadataAPI {
    */
   private cleanDOI(doi: string): string {
     return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, '')
-      .replace(/^doi:/, '')
+      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
+      .replace(/^doi:/, "")
       .trim()
       .toLowerCase();
   }
@@ -251,10 +334,10 @@ export class CrossRefAPI extends BaseMetadataAPI {
     rateLimit: RateLimitConfig;
   } {
     return {
-      name: 'CrossRef',
-      version: '1.0',
+      name: "CrossRef",
+      version: "1.0",
       baseUrl: this.baseUrl,
       rateLimit: this.rateLimitConfig,
     };
   }
-} 
+}

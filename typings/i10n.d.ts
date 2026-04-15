@@ -3,4 +3,15 @@
 /* eslint-disable */
 // @ts-nocheck
 export type FluentMessageId =
-;
+  | 'addon-name'
+  | 'zotadata-menu-batch-clean'
+  | 'zotadata-menu-batch-find'
+  | 'zotadata-menu-check-attachments'
+  | 'zotadata-menu-fetch-metadata'
+  | 'zotadata-menu-find-attachments'
+  | 'zotadata-menu-find-files'
+  | 'zotadata-menu-preferences'
+  | 'zotadata-menu-process-arxiv'
+  | 'zotadata-menu-settings'
+  | 'zotadata-menu-status'
+  | 'zotadata-submenu';

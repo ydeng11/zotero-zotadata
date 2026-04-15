@@ -6,9 +6,12 @@ declare global {
     // Item interface
     interface Item {
       id: number;
+      libraryID: number;
       itemTypeID: number;
       getField(field: string): string;
       setField(field: string, value: string): void;
+      setType(typeID: number): void;
+      addTag(name: string, color?: number): void;
       save(): Promise<void>;
       isRegularItem(): boolean;
       isTopLevelItem(): boolean;
@@ -19,19 +22,24 @@ declare global {
       parentID: number;
       attachmentLinkMode: number;
       attachmentContentType: string;
-      getFilePath(): string | null;
+      getFilePath(): string | false;
       getFile(): any;
+      fileExists(): Promise<boolean>;
+      isEditable?(op?: "edit" | "erase"): boolean;
       setNote(note: string): void;
       getCreators(): Array<{
         firstName?: string;
         lastName: string;
+        name?: string;
         creatorType: string;
       }>;
-      setCreators(creators: Array<{
-        firstName?: string;
-        lastName: string;
-        creatorType: string;
-      }>): void;
+      setCreators(
+        creators: Array<{
+          firstName?: string;
+          lastName: string;
+          creatorType: string;
+        }>,
+      ): void;
       getAttachments(): number[];
       addAttachment(options: {
         url?: string;
@@ -56,6 +64,8 @@ declare global {
     namespace Items {
       function get(id: number): Item | null;
       function getAll(): Item[];
+      /** Move item(s) to trash (Zotero 7+); do not use setField('deleted', …). */
+      function trash(ids: number | number[]): Promise<void>;
     }
 
     namespace Collections {
@@ -75,6 +85,7 @@ declare global {
 
       function importFromURL(options: {
         url: string;
+        libraryID?: number;
         parentItemID?: number;
         title?: string;
         fileBaseName?: string;
@@ -105,13 +116,17 @@ declare global {
     }
 
     namespace HTTP {
-      function request(method: string, url: string, options?: {
-        headers?: Record<string, string>;
-        body?: string | ArrayBuffer;
-        responseType?: string;
-        timeout?: number;
-        successCodes?: number[];
-      }): Promise<{
+      function request(
+        method: string,
+        url: string,
+        options?: {
+          headers?: Record<string, string>;
+          body?: string | ArrayBuffer;
+          responseType?: string;
+          timeout?: number;
+          successCodes?: number[];
+        },
+      ): Promise<{
         status: number;
         response: any;
         responseText: string;
@@ -127,28 +142,40 @@ declare global {
 
     namespace Notifier {
       function registerObserver(
-        callback: (event: string, type: string, ids: number[], extraData: any) => void,
-        types?: string[]
+        callback: (
+          event: string,
+          type: string,
+          ids: number[],
+          extraData: any,
+        ) => void,
+        types?: string[],
       ): string;
       function unregisterObserver(id: string): void;
     }
 
-    // Zotero 8 Menu API
+    /**
+     * Zotero 8+ menu registration (single options object with menuID, target, menus).
+     */
     namespace MenuManager {
-      interface MenuOptions {
-        pluginID: string;
-        label: string;
-        icon?: string;
-        condition?: () => boolean;
-        callback: () => void | Promise<void>;
+      interface MenuData {
+        menuType: "menuitem" | "separator" | "submenu";
+        l10nID?: string;
+        menus?: MenuData[];
+        onCommand?: (event: Event, context: unknown) => void | void;
+        onShowing?: (event: Event, context: unknown) => void | void;
       }
 
-      function registerMenu(
-        menuID: string,
-        options: MenuOptions
-      ): () => void;
+      interface MenuOptions {
+        menuID: string;
+        pluginID: string;
+        /** e.g. main/library/item, main/library/collection, main/menubar/tools */
+        target: string;
+        menus: MenuData[];
+      }
 
-      function unregisterMenu(menuID: string): void;
+      function registerMenu(options: MenuOptions): string | false;
+
+      function unregisterMenu(menuID: string): boolean;
     }
 
     // Prefs API
@@ -191,6 +218,9 @@ declare global {
     }
 
     function log(message: string, level?: number): void;
+    const initializationPromise: Promise<void>;
+    const unlockPromise: Promise<void>;
+    const uiReadyPromise: Promise<void>;
     function getMainWindows(): Window[];
     function getMainWindow(): Window;
     function getActiveZoteroPane(): {
@@ -219,6 +249,19 @@ declare global {
     };
     io: {
       newURI(uri: string): any;
+    };
+    prompt: {
+      confirmEx(
+        parent: Window,
+        title: string,
+        text: string,
+        flags: number,
+        btn0?: string | null,
+        btn1?: string | null,
+        btn2?: string | null,
+        checkText?: string | null,
+        checkState?: Record<string, unknown>,
+      ): number;
     };
     [key: string]: any;
   };

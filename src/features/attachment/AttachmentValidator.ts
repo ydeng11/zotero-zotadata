@@ -1,4 +1,4 @@
-import type { AttachmentType, AttachmentValidationResult } from './types';
+import type { AttachmentType, AttachmentValidationResult } from "./types";
 
 export class AttachmentValidator {
   private readonly LINK_MODE_LINKED_URL = 2;
@@ -10,7 +10,7 @@ export class AttachmentValidator {
     const attachmentId = attachment.id;
 
     if (linkMode === this.LINK_MODE_LINKED_URL) {
-      return { type: 'weblink', attachmentId };
+      return { type: "weblink", attachmentId };
     }
 
     if (
@@ -20,36 +20,38 @@ export class AttachmentValidator {
       return this.validateFileAttachment(attachment);
     }
 
-    return { type: 'valid', attachmentId };
+    return { type: "valid", attachmentId };
   }
 
-  private validateFileAttachment(attachment: Zotero.Item): AttachmentValidationResult {
+  private validateFileAttachment(
+    attachment: Zotero.Item,
+  ): AttachmentValidationResult {
     const attachmentId = attachment.id;
 
     try {
       const filePath = (attachment as any).getFilePath?.();
       if (!filePath) {
         return {
-          type: 'invalid',
-          reason: 'No file path',
+          type: "invalid",
+          reason: "No file path",
           attachmentId,
         };
       }
 
       const file = (attachment as any).getFile?.();
       if (file && file.exists()) {
-        return { type: 'valid', attachmentId };
+        return { type: "valid", attachmentId };
       }
 
       return {
-        type: 'invalid',
-        reason: 'File does not exist',
+        type: "invalid",
+        reason: "File does not exist",
         attachmentId,
       };
     } catch (error) {
       return {
-        type: 'error',
-        reason: error instanceof Error ? error.message : 'Unknown error',
+        type: "error",
+        reason: error instanceof Error ? error.message : "Unknown error",
         attachmentId,
       };
     }

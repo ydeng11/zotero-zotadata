@@ -1,10 +1,4 @@
-content zotadata chrome/content/
-skin zotadata classic/1.0 chrome/skin/
-locale zotadata en-US chrome/locale/en-US/
-locale zotadata zh-CN chrome/locale/zh-CN/
-
-# Note: overlays are deprecated in Zotero 8
-# Use the new Menu API instead
-# overlay chrome://zotero/content/zoteroPane.xul chrome://zotadata/content/overlay.xul
-
-resource zotadata modules/
+content zotadata content/
+locale zotadata en-US locale/en-US/
+locale zotadata zh-CN locale/zh-CN/
+skin zotadata classic/1.0 skin/

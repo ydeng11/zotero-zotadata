@@ -1,4 +1,4 @@
-import { AppError, ErrorType } from '@/shared/core';
+import { AppError, ErrorType } from "@/shared/core";
 
 export class AttachmentManager {
   async removeInvalid(attachment: Zotero.Item): Promise<void> {
@@ -6,7 +6,7 @@ export class AttachmentManager {
       await (attachment as any).eraseTx();
     } catch (error) {
       throw AppError.fromUnknown(error, ErrorType.FILE_ERROR, {
-        operation: 'removeInvalid',
+        operation: "removeInvalid",
         attachmentId: attachment.id,
       });
     }
@@ -14,11 +14,10 @@ export class AttachmentManager {
 
   async moveToTrash(attachment: Zotero.Item): Promise<void> {
     try {
-      attachment.setField('deleted', true);
-      await attachment.save();
+      await Zotero.Items.trash(attachment.id);
     } catch (error) {
       throw AppError.fromUnknown(error, ErrorType.ZOTERO_ERROR, {
-        operation: 'moveToTrash',
+        operation: "moveToTrash",
         attachmentId: attachment.id,
       });
     }

@@ -1,7 +1,11 @@
-import { APIService } from '@/services';
-import { ErrorManager, ErrorType } from '@/shared/core';
-import type { APIResponse, SearchResult, BookMetadata } from '@/shared/core/types';
-import { URLUtils, StringUtils } from '@/shared/utils';
+import { APIService } from "@/services";
+import { ErrorManager, ErrorType } from "@/shared/core";
+import type {
+  APIResponse,
+  SearchResult,
+  BookMetadata,
+} from "@/shared/core/types";
+import { URLUtils, StringUtils } from "@/shared/utils";
 
 /**
  * LibGen search result
@@ -25,9 +29,9 @@ interface LibGenResult {
  * LibGen search options
  */
 interface LibGenSearchOptions {
-  searchType?: 'title' | 'author' | 'isbn' | 'md5';
-  sortBy?: 'title' | 'author' | 'year' | 'pages' | 'size';
-  sortOrder?: 'asc' | 'desc';
+  searchType?: "title" | "author" | "isbn" | "md5";
+  sortBy?: "title" | "author" | "year" | "pages" | "size";
+  sortOrder?: "asc" | "desc";
   resultCount?: number;
   minYear?: number;
   maxYear?: number;
@@ -43,89 +47,115 @@ export class LibGenAPI extends APIService {
 
   // LibGen mirror domains (in order of preference)
   private static readonly MIRRORS = [
-    'libgen.is',
-    'libgen.rs', 
-    'libgen.li',
-    'libgen.st',
+    "libgen.is",
+    "libgen.rs",
+    "libgen.li",
+    "libgen.st",
   ];
 
   // File extensions supported by LibGen
   private static readonly SUPPORTED_EXTENSIONS = new Set([
-    'pdf', 'epub', 'mobi', 'azw', 'azw3', 'fb2', 'txt', 'rtf', 'doc', 'docx'
+    "pdf",
+    "epub",
+    "mobi",
+    "azw",
+    "azw3",
+    "fb2",
+    "txt",
+    "rtf",
+    "doc",
+    "docx",
   ]);
 
   constructor(addonData: any) {
     // LibGen doesn't have strict rate limits, but we'll be respectful
-    super('https://libgen.is', { requests: 30, window: 60000 }, addonData.cache, addonData.logger);
+    super(
+      "https://libgen.is",
+      { requests: 30, window: 60000 },
+      addonData.cache,
+      addonData.logger,
+    );
     this.errorManager = new ErrorManager();
   }
 
   /**
    * Search LibGen by identifier (ISBN, DOI, etc.)
    */
-  async searchByIdentifier(identifier: string): Promise<APIResponse<LibGenResult[]>> {
+  async searchByIdentifier(
+    identifier: string,
+  ): Promise<APIResponse<LibGenResult[]>> {
     try {
       const cleanId = this.cleanIdentifier(identifier);
-      
+
       // Determine search type
       let searchType: string;
       if (this.isISBN(cleanId)) {
-        searchType = 'isbn';
+        searchType = "isbn";
       } else if (this.isMD5(cleanId)) {
-        searchType = 'md5';
+        searchType = "md5";
       } else {
-        searchType = 'title'; // Fallback to title search
+        searchType = "title"; // Fallback to title search
       }
 
-      return await this.searchLibGen(cleanId, { searchType: searchType as any });
+      return await this.searchLibGen(cleanId, {
+        searchType: searchType as any,
+      });
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'LibGen', operation: 'searchByIdentifier', identifier }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "LibGen",
+        operation: "searchByIdentifier",
+        identifier,
+      });
     }
   }
 
   /**
    * Search LibGen by query string
    */
-  async searchByQuery(query: string, options: LibGenSearchOptions = {}): Promise<APIResponse<LibGenResult[]>> {
+  async searchByQuery(
+    query: string,
+    options: LibGenSearchOptions = {},
+  ): Promise<APIResponse<LibGenResult[]>> {
     try {
       return await this.searchLibGen(query, options);
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'LibGen', operation: 'searchByQuery', query }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "LibGen",
+        operation: "searchByQuery",
+        query,
+      });
     }
   }
 
   /**
    * Search for a book by title and author
    */
-  async searchBook(title: string, author?: string, options: LibGenSearchOptions = {}): Promise<APIResponse<LibGenResult[]>> {
+  async searchBook(
+    title: string,
+    author?: string,
+    options: LibGenSearchOptions = {},
+  ): Promise<APIResponse<LibGenResult[]>> {
     try {
       let searchQuery = title.trim();
-      
+
       if (author) {
         searchQuery += ` ${author.trim()}`;
       }
 
       const searchOptions: LibGenSearchOptions = {
-        searchType: 'title',
+        searchType: "title",
         resultCount: 10,
         ...options,
       };
 
       return await this.searchLibGen(searchQuery, searchOptions);
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'LibGen', operation: 'searchBook', title, author }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "LibGen",
+        operation: "searchBook",
+        title,
+        author,
+      });
     }
   }
 
@@ -150,23 +180,23 @@ export class LibGenAPI extends APIService {
       if (downloadLinks.length === 0) {
         throw this.errorManager.createError(
           ErrorType.API_ERROR,
-          'No download links found for the specified book',
-          { md5 }
+          "No download links found for the specified book",
+          { md5 },
         );
       }
 
       // Remove duplicates and validate URLs
       const uniqueLinks = Array.from(new Set(downloadLinks))
-        .filter(url => URLUtils.validateAndCleanURL(url).valid)
-        .map(url => URLUtils.validateAndCleanURL(url).cleaned);
+        .filter((url) => URLUtils.validateAndCleanURL(url).valid)
+        .map((url) => URLUtils.validateAndCleanURL(url).cleaned);
 
       return uniqueLinks;
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.API_ERROR,
-        { api: 'LibGen', operation: 'getDownloadLinks', md5 }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.API_ERROR, {
+        api: "LibGen",
+        operation: "getDownloadLinks",
+        md5,
+      });
     }
   }
 
@@ -175,7 +205,7 @@ export class LibGenAPI extends APIService {
    */
   convertToSearchResult(libgenResult: LibGenResult): SearchResult {
     const confidence = this.calculateConfidence(libgenResult);
-    
+
     return {
       title: libgenResult.title,
       authors: libgenResult.authors,
@@ -184,7 +214,7 @@ export class LibGenAPI extends APIService {
       url: libgenResult.downloadLinks[0], // Primary download link
       pdfUrl: this.getPDFUrl(libgenResult),
       confidence,
-      source: 'LibGen',
+      source: "LibGen",
     };
   }
 
@@ -207,11 +237,14 @@ export class LibGenAPI extends APIService {
   /**
    * Main search implementation
    */
-  private async searchLibGen(query: string, options: LibGenSearchOptions): Promise<APIResponse<LibGenResult[]>> {
+  private async searchLibGen(
+    query: string,
+    options: LibGenSearchOptions,
+  ): Promise<APIResponse<LibGenResult[]>> {
     const {
-      searchType = 'title',
-      sortBy = 'year',
-      sortOrder = 'desc',
+      searchType = "title",
+      sortBy = "year",
+      sortOrder = "desc",
       resultCount = 25,
       minYear,
       maxYear,
@@ -221,7 +254,7 @@ export class LibGenAPI extends APIService {
 
     // Try multiple mirrors until one works
     let lastError: Error | null = null;
-    
+
     for (const mirror of LibGenAPI.MIRRORS) {
       try {
         const searchUrl = this.buildSearchURL(mirror, query, {
@@ -237,14 +270,15 @@ export class LibGenAPI extends APIService {
 
         const response = await this.request<string>(searchUrl, {
           headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Cache-Control': 'no-cache',
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Cache-Control": "no-cache",
           },
         });
 
         const results = this.parseSearchResults(response.data);
-        
+
         return {
           ...response,
           data: results,
@@ -256,46 +290,53 @@ export class LibGenAPI extends APIService {
     }
 
     // If all mirrors failed, throw the last error
-    throw lastError || this.errorManager.createError(
-      ErrorType.API_ERROR,
-      'All LibGen mirrors are unavailable',
-      { query, mirrors: LibGenAPI.MIRRORS }
+    throw (
+      lastError ||
+      this.errorManager.createError(
+        ErrorType.API_ERROR,
+        "All LibGen mirrors are unavailable",
+        { query, mirrors: LibGenAPI.MIRRORS },
+      )
     );
   }
 
   /**
    * Build search URL for LibGen
    */
-  private buildSearchURL(mirror: string, query: string, options: LibGenSearchOptions): string {
+  private buildSearchURL(
+    mirror: string,
+    query: string,
+    options: LibGenSearchOptions,
+  ): string {
     const baseUrl = `https://${mirror}/search.php`;
     const params = new URLSearchParams();
 
-    params.append('req', encodeURIComponent(query));
-    params.append('lg_topic', 'libgen');
-    params.append('open', '0');
-    params.append('view', 'simple');
-    params.append('res', Math.min(options.resultCount || 25, 100).toString());
+    params.append("req", encodeURIComponent(query));
+    params.append("lg_topic", "libgen");
+    params.append("open", "0");
+    params.append("view", "simple");
+    params.append("res", Math.min(options.resultCount || 25, 100).toString());
 
     // Search column
     const columnMap = {
-      title: 'title',
-      author: 'author',
-      isbn: 'identifier',
-      md5: 'md5',
+      title: "title",
+      author: "author",
+      isbn: "identifier",
+      md5: "md5",
     };
-    params.append('column', columnMap[options.searchType!] || 'def');
+    params.append("column", columnMap[options.searchType!] || "def");
 
     // Sorting
     if (options.sortBy) {
       const sortMap = {
-        title: 'title',
-        author: 'author',
-        year: 'year',
-        pages: 'pages',
-        size: 'filesize',
+        title: "title",
+        author: "author",
+        year: "year",
+        pages: "pages",
+        size: "filesize",
       };
-      params.append('sort', sortMap[options.sortBy] || 'year');
-      params.append('sortmode', options.sortOrder || 'DESC');
+      params.append("sort", sortMap[options.sortBy] || "year");
+      params.append("sortmode", options.sortOrder || "DESC");
     }
 
     return `${baseUrl}?${params.toString()}`;
@@ -318,8 +359,11 @@ export class LibGenAPI extends APIService {
       }
 
       // Look for the results table (usually the largest one)
-      const resultsTable = tableMatches.find(table => 
-        table.includes('Title') && table.includes('Author') && table.includes('Year')
+      const resultsTable = tableMatches.find(
+        (table) =>
+          table.includes("Title") &&
+          table.includes("Author") &&
+          table.includes("Year"),
       );
 
       if (!resultsTable) {
@@ -330,7 +374,8 @@ export class LibGenAPI extends APIService {
       const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
       const rows = resultsTable.match(rowRegex) || [];
 
-      for (const row of rows.slice(1)) { // Skip header row
+      for (const row of rows.slice(1)) {
+        // Skip header row
         try {
           const result = this.parseTableRow(row);
           if (result) {
@@ -341,10 +386,9 @@ export class LibGenAPI extends APIService {
           continue;
         }
       }
-
     } catch (error) {
       // If parsing fails, return empty results rather than throwing
-      console.warn('Failed to parse LibGen results:', error);
+      console.warn("Failed to parse LibGen results:", error);
     }
 
     return results;
@@ -364,30 +408,31 @@ export class LibGenAPI extends APIService {
         cells.push(this.cleanHtml(match[1]));
       }
 
-      if (cells.length < 9) { // LibGen typically has 9+ columns
+      if (cells.length < 9) {
+        // LibGen typically has 9+ columns
         return null;
       }
 
       // Extract MD5 hash from download links
       const md5Match = rowHtml.match(/[a-f0-9]{32}/i);
-      const md5 = md5Match ? md5Match[0].toLowerCase() : '';
+      const md5 = md5Match ? md5Match[0].toLowerCase() : "";
 
       if (!md5) {
         return null; // MD5 is required for downloads
       }
 
       const result: LibGenResult = {
-        title: cells[2] || 'Unknown Title',
-        authors: this.parseAuthors(cells[1] || ''),
+        title: cells[2] || "Unknown Title",
+        authors: this.parseAuthors(cells[1] || ""),
         year: this.parseYear(cells[4]),
         pages: this.parsePages(cells[5]),
-        size: cells[7] || '',
-        extension: cells[8] || '',
+        size: cells[7] || "",
+        extension: cells[8] || "",
         md5,
         downloadLinks: [], // Will be populated later when needed
-        mirrors: LibGenAPI.MIRRORS.map(mirror => `https://${mirror}`),
-        language: cells[6] || '',
-        publisher: cells[3] || '',
+        mirrors: LibGenAPI.MIRRORS.map((mirror) => `https://${mirror}`),
+        language: cells[6] || "",
+        publisher: cells[3] || "",
         isbn: this.extractISBN(rowHtml),
       };
 
@@ -400,7 +445,10 @@ export class LibGenAPI extends APIService {
   /**
    * Get download links from specific mirror
    */
-  private async getDownloadLinksFromMirror(mirror: string, md5: string): Promise<string[]> {
+  private async getDownloadLinksFromMirror(
+    mirror: string,
+    md5: string,
+  ): Promise<string[]> {
     const links: string[] = [];
 
     // Common LibGen download URL patterns
@@ -426,7 +474,7 @@ export class LibGenAPI extends APIService {
     let confidence = 0.5; // Base confidence for LibGen results
 
     // Boost for PDF files
-    if (result.extension?.toLowerCase() === 'pdf') {
+    if (result.extension?.toLowerCase() === "pdf") {
       confidence += 0.2;
     }
 
@@ -452,7 +500,10 @@ export class LibGenAPI extends APIService {
    * Get PDF URL from LibGen result
    */
   private getPDFUrl(result: LibGenResult): string | undefined {
-    if (result.extension?.toLowerCase() === 'pdf' && result.downloadLinks.length > 0) {
+    if (
+      result.extension?.toLowerCase() === "pdf" &&
+      result.downloadLinks.length > 0
+    ) {
       return result.downloadLinks[0];
     }
     return undefined;
@@ -462,11 +513,11 @@ export class LibGenAPI extends APIService {
    * Utility methods
    */
   private cleanIdentifier(identifier: string): string {
-    return identifier.trim().replace(/[-\s]/g, '');
+    return identifier.trim().replace(/[-\s]/g, "");
   }
 
   private isISBN(str: string): boolean {
-    const cleanStr = str.replace(/[-\s]/g, '');
+    const cleanStr = str.replace(/[-\s]/g, "");
     return /^(978|979)?\d{9}[\dX]$/i.test(cleanStr);
   }
 
@@ -476,22 +527,22 @@ export class LibGenAPI extends APIService {
 
   private cleanHtml(html: string): string {
     return html
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
+      .replace(/<[^>]*>/g, "") // Remove HTML tags
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .trim();
   }
 
   private parseAuthors(authorString: string): string[] {
     if (!authorString) return [];
-    
+
     return authorString
       .split(/[,;]/)
-      .map(author => author.trim())
-      .filter(author => author.length > 0);
+      .map((author) => author.trim())
+      .filter((author) => author.length > 0);
   }
 
   private parseYear(yearString: string): number | undefined {
@@ -506,7 +557,7 @@ export class LibGenAPI extends APIService {
 
   private extractISBN(html: string): string | undefined {
     const isbnMatch = html.match(/ISBN[:\s]*([0-9-]{10,17})/i);
-    return isbnMatch ? isbnMatch[1].replace(/[-\s]/g, '') : undefined;
+    return isbnMatch ? isbnMatch[1].replace(/[-\s]/g, "") : undefined;
   }
 
   private isReasonableFileSize(sizeStr: string): boolean {
@@ -517,9 +568,9 @@ export class LibGenAPI extends APIService {
     const size = parseFloat(match[1]);
     const unit = match[2].toUpperCase();
 
-    if (unit === 'KB') return size >= 100;
-    if (unit === 'MB') return size >= 0.1 && size <= 500;
-    if (unit === 'GB') return size <= 0.5;
+    if (unit === "KB") return size >= 100;
+    if (unit === "MB") return size >= 0.1 && size <= 500;
+    if (unit === "GB") return size <= 0.5;
 
     return false;
   }
@@ -528,27 +579,27 @@ export class LibGenAPI extends APIService {
    * Abstract method implementation: Search with any query type
    */
   async search(query: any): Promise<LibGenResult[]> {
-    if (typeof query === 'string') {
+    if (typeof query === "string") {
       const response = await this.searchByQuery(query);
       return response.data;
     }
-    
-    if (query && typeof query === 'object') {
+
+    if (query && typeof query === "object") {
       if (query.isbn) {
         const response = await this.searchByIdentifier(query.isbn);
         return response.data;
       }
-      
+
       if (query.title) {
         const response = await this.searchBook(query.title, query.author);
         return response.data;
       }
     }
-    
+
     throw this.errorManager.createError(
       ErrorType.VALIDATION_ERROR,
-      'Invalid search query format',
-      { query }
+      "Invalid search query format",
+      { query },
     );
   }
 
@@ -562,10 +613,10 @@ export class LibGenAPI extends APIService {
     rateLimit: any;
   } {
     return {
-      name: 'LibGen',
-      version: '1.0',
+      name: "LibGen",
+      version: "1.0",
       baseUrl: this.baseUrl,
       rateLimit: this.rateLimitConfig,
     };
   }
-} 
+}

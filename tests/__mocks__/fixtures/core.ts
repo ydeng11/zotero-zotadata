@@ -5,10 +5,10 @@ export const coreFixtures = {
     responseText: JSON.stringify({
       results: [
         {
-          id: '12345',
-          title: 'Test Paper',
-          downloadUrl: 'https://core.ac.uk/download/pdf/12345.pdf',
-          doi: '10.1000/test.doi',
+          id: "12345",
+          title: "Test Paper",
+          downloadUrl: "https://core.ac.uk/download/pdf/12345.pdf",
+          doi: "10.1000/test.doi",
         },
       ],
     }),
@@ -20,16 +20,16 @@ export const coreFixtures = {
     responseText: JSON.stringify({
       results: [
         {
-          id: '11111',
-          title: 'First Paper',
+          id: "11111",
+          title: "First Paper",
           downloadUrl: null,
-          doi: '10.1000/test1.doi',
+          doi: "10.1000/test1.doi",
         },
         {
-          id: '22222',
-          title: 'Second Paper',
-          downloadUrl: 'https://core.ac.uk/download/pdf/22222.pdf',
-          doi: '10.1000/test2.doi',
+          id: "22222",
+          title: "Second Paper",
+          downloadUrl: "https://core.ac.uk/download/pdf/22222.pdf",
+          doi: "10.1000/test2.doi",
         },
       ],
     }),
@@ -49,10 +49,10 @@ export const coreFixtures = {
     responseText: JSON.stringify({
       results: [
         {
-          id: '12345',
-          title: 'Test Paper',
+          id: "12345",
+          title: "Test Paper",
           downloadUrl: null,
-          doi: '10.1000/test.doi',
+          doi: "10.1000/test.doi",
         },
       ],
     }),
@@ -64,10 +64,10 @@ export const coreFixtures = {
     responseText: JSON.stringify({
       results: [
         {
-          id: '12345',
-          title: 'Test Paper',
-          downloadUrl: 'https://example.com/page.html',
-          doi: '10.1000/test.doi',
+          id: "12345",
+          title: "Test Paper",
+          downloadUrl: "https://example.com/page.html",
+          doi: "10.1000/test.doi",
         },
       ],
     }),
@@ -77,7 +77,7 @@ export const coreFixtures = {
   serverError: {
     status: 500,
     responseText: JSON.stringify({
-      error: 'Internal server error',
+      error: "Internal server error",
     }),
     getResponseHeader: () => null,
   },

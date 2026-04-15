@@ -1,6 +1,6 @@
-import { AttachmentValidator } from './AttachmentValidator';
-import { AttachmentManager } from './AttachmentManager';
-import type { AttachmentStats } from '@/shared/core/types';
+import { AttachmentValidator } from "./AttachmentValidator";
+import { AttachmentManager } from "./AttachmentManager";
+import type { AttachmentStats } from "@/shared/core/types";
 
 export class AttachmentChecker {
   private validator: AttachmentValidator;
@@ -21,11 +21,11 @@ export class AttachmentChecker {
 
     const attachments = await this.manager.getAttachments(item);
     const results = await Promise.allSettled(
-      attachments.map(att => this.processAttachment(att))
+      attachments.map((att) => this.processAttachment(att)),
     );
 
     results.forEach((result) => {
-      if (result.status === 'fulfilled') {
+      if (result.status === "fulfilled") {
         stats[result.value]++;
       } else {
         stats.errors++;
@@ -36,50 +36,79 @@ export class AttachmentChecker {
   }
 
   private async processAttachment(
-    attachment: Zotero.Item
-  ): Promise<'valid' | 'removed' | 'weblinks' | 'errors'> {
+    attachment: Zotero.Item,
+  ): Promise<"valid" | "removed" | "weblinks" | "errors"> {
     const result = this.validator.validate(attachment);
 
     switch (result.type) {
-      case 'valid':
-        return 'valid';
-      case 'weblink':
-        return 'weblinks';
-      case 'invalid':
+      case "valid":
+        return "valid";
+      case "weblink":
+        return "weblinks";
+      case "invalid":
         await this.manager.moveToTrash(attachment);
-        return 'removed';
-      case 'error':
-        return 'errors';
+        return "removed";
+      case "error":
+        return "errors";
     }
   }
 
-  generateResultsMessage(stats: AttachmentStats, itemCount: number = 1): string {
+  generateResultsMessage(
+    stats: AttachmentStats,
+    itemCount: number = 1,
+  ): string {
     const messages: string[] = [];
 
     if (itemCount > 1) {
-      messages.push(`Checked ${itemCount} items:`);
+      messages.push(
+        `📊 Checked ${itemCount} item${itemCount !== 1 ? "s" : ""}:`,
+      );
     }
 
     if (stats.valid > 0) {
-      messages.push(`✓ ${stats.valid} valid attachment${stats.valid !== 1 ? 's' : ''}`);
+      messages.push(
+        `• ${stats.valid} valid attachment${stats.valid !== 1 ? "s" : ""}`,
+      );
     }
 
     if (stats.removed > 0) {
-      messages.push(`🗑️ ${stats.removed} invalid attachment${stats.removed !== 1 ? 's' : ''} removed`);
+      messages.push(
+        `• ${stats.removed} invalid attachment${stats.removed !== 1 ? "s" : ""} removed`,
+      );
     }
 
     if (stats.weblinks > 0) {
-      messages.push(`🔗 ${stats.weblinks} web link${stats.weblinks !== 1 ? 's' : ''} found`);
+      messages.push(
+        `• ${stats.weblinks} web link${stats.weblinks !== 1 ? "s" : ""} found`,
+      );
     }
 
     if (stats.errors > 0) {
-      messages.push(`⚠️ ${stats.errors} error${stats.errors !== 1 ? 's' : ''} occurred`);
+      messages.push(
+        `• ${stats.errors} error${stats.errors !== 1 ? "s" : ""} occurred`,
+      );
+    }
+
+    const processed =
+      stats.valid + stats.removed + stats.weblinks + stats.errors;
+    const successRate =
+      processed > 0
+        ? Math.round(((stats.valid + stats.weblinks) / processed) * 100)
+        : 0;
+    if (successRate > 0) {
+      messages.push(`• Success rate: ${successRate}%`);
     }
 
     if (messages.length === 0 || (itemCount > 1 && messages.length === 1)) {
-      messages.push('No attachments found');
+      messages.push("No attachments found");
     }
 
-    return messages.join('\n');
+    if (stats.removed > 0) {
+      messages.push("\n🧹 Cleanup completed successfully");
+    } else if (stats.valid > 0 || stats.weblinks > 0) {
+      messages.push("\n✨ All attachments are valid");
+    }
+
+    return messages.join("\n");
   }
 }

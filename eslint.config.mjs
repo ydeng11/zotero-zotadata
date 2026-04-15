@@ -45,4 +45,4 @@ export default tseslint.config(
       "no-var": "error",
     },
   },
-); 
+);

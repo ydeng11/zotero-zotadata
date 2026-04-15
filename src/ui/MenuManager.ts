@@ -1,7 +1,7 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
-import type { AddonData } from '@/shared/core/types';
-import { ZoteroUtils } from '@/shared/utils/ZoteroUtils';
-import { MenuParentID } from '@/constants/Menus';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import type { AddonData } from "@/shared/core/types";
+import { ZoteroUtils } from "@/shared/utils/ZoteroUtils";
+import { MenuParentID } from "@/constants/Menus";
 
 /**
  * Menu item configuration
@@ -30,7 +30,7 @@ interface MenuSection {
 /**
  * Menu context types
  */
-type MenuContext = 'item' | 'collection' | 'toolbar' | 'tools';
+type MenuContext = "item" | "collection" | "toolbar" | "tools";
 
 /**
  * Menu Manager for creating and managing UI elements
@@ -40,7 +40,6 @@ export class MenuManager {
   private errorManager: ErrorManager;
   private registeredMenus = new Map<string, HTMLElement>();
   private eventListeners = new Map<string, () => void>();
-  private menuUnregisterCallbacks: (() => void)[] = [];
   private useNewMenuAPI = false;
   private notifierObserverID: string | null = null;
   private menuConditions = new Map<string, () => boolean>();
@@ -63,11 +62,9 @@ export class MenuManager {
         await this.initWithLegacyMenus();
       }
     } catch (error) {
-      throw this.errorManager.createFromUnknown(
-        error,
-        ErrorType.ZOTERO_ERROR,
-        { operation: 'initMenus' }
-      );
+      throw this.errorManager.createFromUnknown(error, ErrorType.ZOTERO_ERROR, {
+        operation: "initMenus",
+      });
     }
   }
 
@@ -76,18 +73,131 @@ export class MenuManager {
    */
   private async initWithNewMenuAPI(): Promise<void> {
     const pluginID = this.addonData.id;
-    const itemMenuItems: MenuItemConfig[] = [
-      { id: 'zotero-itemmenu-attachment-finder-find', label: 'Find Attachments', action: () => this.handleFindAttachments(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-check', label: 'Check Attachments', action: () => this.handleCheckAttachments(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-metadata', label: 'Fetch Metadata', action: () => this.handleFetchMetadata(), condition: () => this.hasValidSelectedItems() },
-      { id: 'zotero-itemmenu-attachment-finder-arxiv', label: 'Process arXiv Items', action: () => this.handleProcessArxiv(), condition: () => this.hasArxivItems() },
+
+    const itemMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-find-attachments",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleFindAttachments();
+        },
+      },
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-check-attachments",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleCheckAttachments();
+        },
+      },
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-fetch-metadata",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasValidSelectedItems());
+        },
+        onCommand: () => {
+          void this.handleFetchMetadata();
+        },
+      },
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-process-arxiv",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasArxivItems());
+        },
+        onCommand: () => {
+          void this.handleProcessArxiv();
+        },
+      },
     ];
-    for (const item of itemMenuItems) {
+
+    const collectionMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-batch-find",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasSelectedCollection());
+        },
+        onCommand: () => {
+          void this.handleBatchFindAttachments();
+        },
+      },
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-batch-clean",
+        onShowing: (_e, ctx) => {
+          const c = ctx as { setVisible?: (v: boolean) => void };
+          c.setVisible?.(this.hasSelectedCollection());
+        },
+        onCommand: () => {
+          void this.handleBatchCheckAttachments();
+        },
+      },
+    ];
+
+    const toolsMenus: Zotero.MenuManager.MenuData[] = [
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-preferences",
+        onCommand: () => {
+          void this.handlePreferences();
+        },
+      },
+      {
+        menuType: "menuitem",
+        l10nID: "zotadata-menu-status",
+        onCommand: () => {
+          void this.handleShowStatus();
+        },
+      },
+    ];
+
+    const registrations: Array<{
+      menuID: string;
+      target: string;
+      menus: Zotero.MenuManager.MenuData[];
+    }> = [
+      {
+        menuID: "zotadata-attachment-finder-library-item",
+        target: "main/library/item",
+        menus: itemMenus,
+      },
+      {
+        menuID: "zotadata-attachment-finder-library-collection",
+        target: "main/library/collection",
+        menus: collectionMenus,
+      },
+      {
+        menuID: "zotadata-attachment-finder-menubar-tools",
+        target: "main/menubar/tools",
+        menus: toolsMenus,
+      },
+    ];
+
+    for (const reg of registrations) {
       try {
-        const unregister = Zotero.MenuManager.registerMenu(item.id, { pluginID, label: item.label, callback: item.action });
-        this.menuUnregisterCallbacks.push(unregister);
+        const ok = Zotero.MenuManager.registerMenu({
+          menuID: reg.menuID,
+          pluginID,
+          target: reg.target,
+          menus: reg.menus,
+        });
+        if (ok === false) {
+          console.warn(`MenuManager.registerMenu failed for ${reg.menuID}`);
+        }
       } catch (error) {
-        console.warn(`Failed to register menu ${item.id}:`, error);
+        console.warn(`Failed to register menu ${reg.menuID}:`, error);
       }
     }
   }
@@ -119,11 +229,8 @@ export class MenuManager {
       // Clear menu conditions
       this.menuConditions.clear();
 
-      // Unregister new Menu API items
-      for (const unregister of this.menuUnregisterCallbacks) {
-        try { unregister(); } catch {}
-      }
-      this.menuUnregisterCallbacks = [];
+      // Do not call MenuManager.unregisterMenu — Zotero clears plugin menu
+      // registrations on addon shutdown; duplicate unregister warns.
 
       // Remove all registered menus
       for (const [id, element] of this.registeredMenus) {
@@ -137,7 +244,7 @@ export class MenuManager {
       }
       this.eventListeners.clear();
     } catch (error) {
-      console.warn('Error cleaning up menus:', error);
+      console.warn("Error cleaning up menus:", error);
     }
   }
 
@@ -149,11 +256,11 @@ export class MenuManager {
     this.notifierObserverID = Zotero.Notifier.registerObserver(
       (event, type, ids, extraData) => {
         // Only react to select events in the items tree
-        if (type === 'select' && event === 'select') {
+        if (type === "select" && event === "select") {
           this.updateAllMenuVisibility();
         }
       },
-      ['select']
+      ["select"],
     );
   }
 
@@ -175,47 +282,55 @@ export class MenuManager {
    */
   private async createItemContextMenu(): Promise<void> {
     const itemMenuConfig: MenuSection = {
-      id: 'attachment-finder-item',
-      insertAfter: 'zotero-itemmenu-separator-1',
+      id: "attachment-finder-item",
+      insertAfter: "zotero-itemmenu-separator-1",
       items: [
         {
-          id: 'zotero-itemmenu-attachment-finder-find',
-          label: 'Find Attachments',
-          icon: 'chrome://zotero/skin/attach.png',
-          tooltip: 'Search for and download attachments for selected items',
+          id: "zotero-itemmenu-attachment-finder-find",
+          label: "Find Attachments",
+          icon: "chrome://zotero/skin/attach.png",
+          tooltip: "Search for and download attachments for selected items",
           action: () => this.handleFindAttachments(),
           condition: () => this.hasValidSelectedItems(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-check',
-          label: 'Check Attachments',
-          icon: 'chrome://zotero/skin/cross.png',
-          tooltip: 'Check and clean up existing attachments',
+          id: "zotero-itemmenu-attachment-finder-check",
+          label: "Validate References",
+          icon: "chrome://zotero/skin/cross.png",
+          tooltip: "Check and clean up existing attachments",
           action: () => this.handleCheckAttachments(),
           condition: () => this.hasValidSelectedItems(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-metadata',
-          label: 'Fetch Metadata',
-          icon: 'chrome://zotero/skin/treeitem-book.png',
-          tooltip: 'Fetch additional metadata from academic APIs',
+          id: "zotero-itemmenu-attachment-finder-metadata",
+          label: "Update Metadata",
+          icon: "chrome://zotero/skin/treeitem-book.png",
+          tooltip: "Fetch additional metadata from academic APIs",
           action: () => this.handleFetchMetadata(),
           condition: () => this.hasValidSelectedItems(),
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-separator',
-          label: '',
+          id: "zotero-itemmenu-attachment-finder-separator",
+          label: "",
           separator: true,
         },
         {
-          id: 'zotero-itemmenu-attachment-finder-arxiv',
-          label: 'Process arXiv Items',
-          icon: 'chrome://zotero/skin/treeitem-attachment-pdf.png',
-          tooltip: 'Process and download PDFs for arXiv preprints',
+          id: "zotero-itemmenu-attachment-finder-arxiv",
+          label: "Process Preprints",
+          icon: "chrome://zotero/skin/treeitem-attachment-pdf.png",
+          tooltip: "Process and download PDFs for arXiv preprints",
           action: () => this.handleProcessArxiv(),
           condition: () => this.hasArxivItems(),
-        }
-      ]
+        },
+        {
+          id: "zotero-itemmenu-attachment-finder-files",
+          label: "Retrieve Files",
+          icon: "chrome://zotero/skin/attach.png",
+          tooltip: "Search for and download missing files",
+          action: () => this.handleFindFiles(),
+          condition: () => this.hasValidSelectedItems(),
+        },
+      ],
     };
 
     await this.createMenuSection(MenuParentID.ITEM_CONTEXT, itemMenuConfig);
@@ -226,29 +341,33 @@ export class MenuManager {
    */
   private async createCollectionContextMenu(): Promise<void> {
     const collectionMenuConfig: MenuSection = {
-      id: 'attachment-finder-collection',
-      insertAfter: 'zotero-collectionmenu-separator',
+      id: "attachment-finder-collection",
+      insertAfter: "zotero-collectionmenu-separator",
       items: [
         {
-          id: 'zotero-collectionmenu-attachment-finder-batch',
-          label: 'Batch Find Attachments',
-          icon: 'chrome://zotero/skin/attach.png',
-          tooltip: 'Find attachments for all items in this collection',
+          id: "zotero-collectionmenu-attachment-finder-batch",
+          label: "Batch Find Attachments",
+          icon: "chrome://zotero/skin/attach.png",
+          tooltip: "Find attachments for all items in this collection",
           action: () => this.handleBatchFindAttachments(),
           condition: () => this.hasSelectedCollection(),
         },
         {
-          id: 'zotero-collectionmenu-attachment-finder-clean',
-          label: 'Clean Collection Attachments',
-          icon: 'chrome://zotero/skin/cross.png',
-          tooltip: 'Check and clean attachments for all items in this collection',
+          id: "zotero-collectionmenu-attachment-finder-clean",
+          label: "Clean Collection Attachments",
+          icon: "chrome://zotero/skin/cross.png",
+          tooltip:
+            "Check and clean attachments for all items in this collection",
           action: () => this.handleBatchCheckAttachments(),
           condition: () => this.hasSelectedCollection(),
-        }
-      ]
+        },
+      ],
     };
 
-    await this.createMenuSection(MenuParentID.COLLECTION_CONTEXT, collectionMenuConfig);
+    await this.createMenuSection(
+      MenuParentID.COLLECTION_CONTEXT,
+      collectionMenuConfig,
+    );
   }
 
   /**
@@ -256,24 +375,24 @@ export class MenuManager {
    */
   private async createToolsMenu(): Promise<void> {
     const toolsMenuConfig: MenuSection = {
-      id: 'attachment-finder-tools',
-      insertBefore: 'menu_Tools_Popup-separator-1',
+      id: "attachment-finder-tools",
+      insertBefore: "menu_Tools_Popup-separator-1",
       items: [
         {
-          id: 'tools-attachment-finder-preferences',
-          label: 'Zotadata Preferences...',
-          icon: 'chrome://zotero/skin/prefs.png',
-          tooltip: 'Configure Zotadata settings',
+          id: "tools-attachment-finder-preferences",
+          label: "Settings...",
+          icon: "chrome://zotero/skin/prefs.png",
+          tooltip: "Configure Zotadata settings",
           action: () => this.handlePreferences(),
         },
         {
-          id: 'tools-attachment-finder-status',
-          label: 'Zotadata Status',
-          icon: 'chrome://zotero/skin/report.png',
-          tooltip: 'Show plugin status and statistics',
+          id: "tools-attachment-finder-status",
+          label: "Zotadata Status",
+          icon: "chrome://zotero/skin/report.png",
+          tooltip: "Show plugin status and statistics",
           action: () => this.handleShowStatus(),
-        }
-      ]
+        },
+      ],
     };
 
     await this.createMenuSection(MenuParentID.TOOLS_POPUP, toolsMenuConfig);
@@ -287,26 +406,31 @@ export class MenuManager {
     if (!toolbar) return;
 
     // Main action button
-    const findButton = ZoteroUtils.createXULElement(document, 'toolbarbutton', {
-      id: 'attachment-finder-find-button',
-      label: 'Find Attachments',
-      tooltiptext: 'Find attachments for selected items',
-      image: 'chrome://zotero/skin/attach.png',
+    const findButton = ZoteroUtils.createXULElement(document, "toolbarbutton", {
+      id: "attachment-finder-find-button",
+      label: "Find Attachments",
+      tooltiptext: "Find attachments for selected items",
+      image: "chrome://zotero/skin/attach.png",
       oncommand: () => this.handleFindAttachments(),
     }) as HTMLElement;
 
     // Add button to toolbar
-    const insertPoint = document.getElementById(MenuParentID.TOOLBAR_SEPARATOR) || toolbar.lastElementChild;
+    const insertPoint =
+      document.getElementById(MenuParentID.TOOLBAR_SEPARATOR) ||
+      toolbar.lastElementChild;
     if (insertPoint) {
       toolbar.insertBefore(findButton, insertPoint);
-      this.registeredMenus.set('attachment-finder-find-button', findButton);
+      this.registeredMenus.set("attachment-finder-find-button", findButton);
     }
   }
 
   /**
    * Create a menu section with items
    */
-  private async createMenuSection(parentMenuId: string, config: MenuSection): Promise<void> {
+  private async createMenuSection(
+    parentMenuId: string,
+    config: MenuSection,
+  ): Promise<void> {
     const parentMenu = document.getElementById(parentMenuId);
     if (!parentMenu) {
       console.warn(`Parent menu not found: ${parentMenuId}`);
@@ -314,7 +438,7 @@ export class MenuManager {
     }
 
     let insertPoint: Element | null = null;
-    
+
     // Find insertion point
     if (config.insertAfter) {
       insertPoint = document.getElementById(config.insertAfter);
@@ -342,10 +466,12 @@ export class MenuManager {
   /**
    * Create a single menu item
    */
-  private async createMenuItem(config: MenuItemConfig): Promise<HTMLElement | null> {
+  private async createMenuItem(
+    config: MenuItemConfig,
+  ): Promise<HTMLElement | null> {
     try {
       if (config.separator) {
-        return ZoteroUtils.createXULElement(document, 'menuseparator', {
+        return ZoteroUtils.createXULElement(document, "menuseparator", {
           id: config.id,
         }) as HTMLElement;
       }
@@ -370,7 +496,11 @@ export class MenuManager {
         this.menuConditions.set(config.id, config.condition);
       }
 
-      const menuItem = ZoteroUtils.createXULElement(document, 'menuitem', attributes) as HTMLElement;
+      const menuItem = ZoteroUtils.createXULElement(
+        document,
+        "menuitem",
+        attributes,
+      ) as HTMLElement;
 
       // Add click handler
       const handleClick = () => {
@@ -380,18 +510,16 @@ export class MenuManager {
           }
         } catch (error) {
           this.errorManager.handleError(
-            this.errorManager.createFromUnknown(
-              error,
-              ErrorType.ZOTERO_ERROR,
-              { menuItem: config.id }
-            )
+            this.errorManager.createFromUnknown(error, ErrorType.ZOTERO_ERROR, {
+              menuItem: config.id,
+            }),
           );
         }
       };
 
-      menuItem.addEventListener('command', handleClick);
+      menuItem.addEventListener("command", handleClick);
       this.eventListeners.set(config.id, () => {
-        menuItem.removeEventListener('command', handleClick);
+        menuItem.removeEventListener("command", handleClick);
       });
 
       return menuItem;
@@ -433,19 +561,24 @@ export class MenuManager {
     }
   }
 
+  private async handleFindFiles(): Promise<void> {
+    await this.handleFindAttachments();
+  }
+
   private async handleBatchFindAttachments(): Promise<void> {
     // Implementation for batch processing collection items
-    console.log('Batch find attachments for collection');
+    console.log("Batch find attachments for collection");
   }
 
   private async handleBatchCheckAttachments(): Promise<void> {
     // Implementation for batch checking collection items
-    console.log('Batch check attachments for collection');
+    console.log("Batch check attachments for collection");
   }
 
   private async handlePreferences(): Promise<void> {
     // Open preferences dialog
-    const preferencesManager = (globalThis as any).Zotero.AttachmentFinder?.preferencesManager;
+    const preferencesManager = (globalThis as any).Zotero.AttachmentFinder
+      ?.preferencesManager;
     if (preferencesManager) {
       await preferencesManager.openPreferences();
     }
@@ -453,7 +586,7 @@ export class MenuManager {
 
   private async handleShowStatus(): Promise<void> {
     // Show status dialog
-    console.log('Show zotadata status');
+    console.log("Show zotadata status");
   }
 
   /**
@@ -465,7 +598,10 @@ export class MenuManager {
       if (!zoteroPane) return false;
 
       const selectedItems = zoteroPane.getSelectedItems();
-      return selectedItems.length > 0 && selectedItems.some(item => item.isTopLevelItem());
+      return (
+        selectedItems.length > 0 &&
+        selectedItems.some((item) => item.isTopLevelItem())
+      );
     } catch {
       return false;
     }
@@ -477,10 +613,10 @@ export class MenuManager {
       if (!zoteroPane) return false;
 
       const selectedItems = zoteroPane.getSelectedItems();
-      return selectedItems.some(item => {
-        const url = item.getField('url') || '';
-        const extra = item.getField('extra') || '';
-        return url.includes('arxiv.org') || extra.includes('arXiv:');
+      return selectedItems.some((item) => {
+        const url = item.getField("url") || "";
+        const extra = item.getField("extra") || "";
+        return url.includes("arxiv.org") || extra.includes("arXiv:");
       });
     } catch {
       return false;
@@ -511,8 +647,9 @@ export class MenuManager {
    */
   setMenusEnabled(enabled: boolean): void {
     for (const [id, element] of this.registeredMenus) {
-      if (element.hasAttribute('label')) { // Skip separators
-        element.setAttribute('disabled', enabled ? 'false' : 'true');
+      if (element.hasAttribute("label")) {
+        // Skip separators
+        element.setAttribute("disabled", enabled ? "false" : "true");
       }
     }
   }
@@ -529,4 +666,4 @@ export class MenuManager {
       eventListeners: this.eventListeners.size,
     };
   }
-} 
+}

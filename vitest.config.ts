@@ -1,30 +1,34 @@
-import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
+
+const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', '.scaffold'],
+    environment: "node",
+    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+    exclude: ["node_modules", "dist", ".scaffold", "tests/unit/zotadata/**"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      provider: "v8",
+      reporter: ["text", "json", "html"],
       exclude: [
-        'node_modules/',
-        'dist/',
-        '.scaffold/',
-        '**/*.d.ts',
-        '**/*.config.*',
+        "node_modules/",
+        "dist/",
+        ".scaffold/",
+        "**/*.d.ts",
+        "**/*.config.*",
       ],
     },
-    setupFiles: ['./src/__tests__/setup.ts'],
+    setupFiles: ["./src/__tests__/setup.ts"],
   },
   resolve: {
     alias: {
-      '@': '/Users/ihelio/code/zotero-zotadata/zotero-zotadata/src',
+      "@": srcDir,
     },
   },
   define: {
     __ZOTERO_VERSION__: '"8.0"',
+    __env__: '"development"',
   },
 });

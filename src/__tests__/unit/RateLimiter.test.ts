@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RateLimiter } from '@/shared/services/RateLimiter';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { RateLimiter } from "@/shared/services/RateLimiter";
 
-describe('RateLimiter', () => {
+describe("RateLimiter", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -10,7 +10,7 @@ describe('RateLimiter', () => {
     vi.useRealTimers();
   });
 
-  it('should allow requests under limit', async () => {
+  it("should allow requests under limit", async () => {
     const limiter = new RateLimiter({ requests: 5, window: 1000 });
 
     for (let i = 0; i < 5; i++) {
@@ -18,7 +18,7 @@ describe('RateLimiter', () => {
     }
   });
 
-  it('should block requests over limit', async () => {
+  it("should block requests over limit", async () => {
     const limiter = new RateLimiter({ requests: 2, window: 1000 });
 
     await limiter.waitForSlot();
@@ -27,13 +27,15 @@ describe('RateLimiter', () => {
     const promise = limiter.waitForSlot();
 
     // Should not resolve immediately
-    await expect(Promise.race([
-      promise.then(() => 'resolved'),
-      Promise.resolve('pending')
-    ])).resolves.toBe('pending');
+    await expect(
+      Promise.race([
+        promise.then(() => "resolved"),
+        Promise.resolve("pending"),
+      ]),
+    ).resolves.toBe("pending");
   });
 
-  it('should allow requests after window expires', async () => {
+  it("should allow requests after window expires", async () => {
     const limiter = new RateLimiter({ requests: 2, window: 1000 });
 
     await limiter.waitForSlot();
@@ -46,7 +48,7 @@ describe('RateLimiter', () => {
     await expect(promise).resolves.toBeUndefined();
   });
 
-  it('should reset allow new requests after reset', async () => {
+  it("should reset allow new requests after reset", async () => {
     const limiter = new RateLimiter({ requests: 2, window: 1000 });
 
     await limiter.waitForSlot();

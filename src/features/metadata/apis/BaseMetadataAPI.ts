@@ -1,10 +1,11 @@
-import { ErrorManager, ErrorType } from '@/shared/core';
+import { ErrorManager, ErrorType } from "@/shared/core";
+import { buildAcceptLanguageHeader } from "@/utils/locale";
 import type {
   APIResponse,
   RateLimitConfig,
   CacheConfig,
-  ContextualError
-} from '@/shared/core/types';
+  ContextualError,
+} from "@/shared/core/types";
 
 /**
  * Base API service with rate limiting, caching, and error handling
@@ -15,22 +16,25 @@ export abstract class BaseMetadataAPI {
   protected rateLimitConfig: RateLimitConfig;
   protected cacheConfig: CacheConfig;
   protected userAgent: string;
-  
+
   // Rate limiting
   private requestTimes: number[] = [];
-  
+
   // Caching
-  private cache = new Map<string, {
-    data: any;
-    timestamp: number;
-    ttl: number;
-  }>();
+  private cache = new Map<
+    string,
+    {
+      data: any;
+      timestamp: number;
+      ttl: number;
+    }
+  >();
 
   constructor(
     baseUrl: string,
     rateLimitConfig: RateLimitConfig,
     cacheConfig: CacheConfig = { ttl: 300000, maxSize: 1000 }, // 5 min default TTL
-    userAgent = 'Zotero Zotadata/2.0'
+    userAgent = "Zotero Zotadata/2.0",
   ) {
     this.baseUrl = baseUrl;
     this.rateLimitConfig = rateLimitConfig;
@@ -45,28 +49,28 @@ export abstract class BaseMetadataAPI {
   protected async request<T>(
     endpoint: string,
     options: {
-      method?: 'GET' | 'POST';
+      method?: "GET" | "POST";
       headers?: Record<string, string>;
       body?: string;
       timeout?: number;
       cacheable?: boolean;
       cacheKey?: string;
-    } = {}
+    } = {},
   ): Promise<APIResponse<T>> {
     const {
-      method = 'GET',
+      method = "GET",
       headers = {},
       body,
       timeout = 30000,
       cacheable = true,
-      cacheKey
+      cacheKey,
     } = options;
 
     const url = this.buildUrl(endpoint);
     const finalCacheKey = cacheKey || this.buildCacheKey(method, url, body);
 
     // Check cache first
-    if (cacheable && method === 'GET') {
+    if (cacheable && method === "GET") {
       const cached = this.getFromCache<T>(finalCacheKey);
       if (cached) {
         return cached;
@@ -82,7 +86,8 @@ export abstract class BaseMetadataAPI {
         const response = await this.makeHttpRequest(url, {
           method,
           headers: {
-            'User-Agent': this.userAgent,
+            "User-Agent": this.userAgent,
+            "Accept-Language": buildAcceptLanguageHeader(),
             ...headers,
           },
           body,
@@ -98,7 +103,7 @@ export abstract class BaseMetadataAPI {
         };
 
         // Cache successful GET requests
-        if (cacheable && method === 'GET' && response.status === 200) {
+        if (cacheable && method === "GET" && response.status === 200) {
           this.setCache(finalCacheKey, apiResponse, this.cacheConfig.ttl);
         }
 
@@ -110,7 +115,8 @@ export abstract class BaseMetadataAPI {
         url,
         method,
         endpoint,
-      }
+      },
+      { notifyUser: false },
     );
   }
 
@@ -122,9 +128,9 @@ export abstract class BaseMetadataAPI {
     endpoints: string[],
     options: {
       concurrency?: number;
-      method?: 'GET' | 'POST';
+      method?: "GET" | "POST";
       headers?: Record<string, string>;
-    } = {}
+    } = {},
   ): Promise<APIResponse<T>[]> {
     const { concurrency = 3, ...requestOptions } = options;
 
@@ -134,11 +140,11 @@ export abstract class BaseMetadataAPI {
     for (let i = 0; i < endpoints.length; i += concurrency) {
       const batch = endpoints.slice(i, i + concurrency);
       const batchResults = await Promise.allSettled(
-        batch.map(endpoint => this.request<T>(endpoint, requestOptions))
+        batch.map((endpoint) => this.request<T>(endpoint, requestOptions)),
       );
 
       for (const result of batchResults) {
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           results.push(result.value);
         }
       }
@@ -151,13 +157,15 @@ export abstract class BaseMetadataAPI {
    * Build full URL from endpoint
    */
   protected buildUrl(endpoint: string): string {
-    if (endpoint.startsWith('http')) {
+    if (endpoint.startsWith("http")) {
       return endpoint;
     }
-    
-    const base = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    
+
+    const base = this.baseUrl.endsWith("/")
+      ? this.baseUrl.slice(0, -1)
+      : this.baseUrl;
+    const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
     return `${base}${path}`;
   }
 
@@ -184,7 +192,7 @@ export abstract class BaseMetadataAPI {
       headers: Record<string, string>;
       body?: string;
       timeout: number;
-    }
+    },
   ): Promise<{
     data: any;
     status: number;
@@ -195,7 +203,7 @@ export abstract class BaseMetadataAPI {
         headers: options.headers,
         body: options.body,
         timeout: options.timeout,
-        responseType: 'text',
+        responseType: "text",
       });
 
       // Parse response data
@@ -220,7 +228,7 @@ export abstract class BaseMetadataAPI {
       throw this.errorManager.createFromUnknown(
         error,
         ErrorType.NETWORK_ERROR,
-        { url, method: options.method }
+        { url, method: options.method },
       );
     }
   }
@@ -233,13 +241,13 @@ export abstract class BaseMetadataAPI {
     const windowStart = now - this.rateLimitConfig.window;
 
     // Remove old requests outside the window
-    this.requestTimes = this.requestTimes.filter(time => time > windowStart);
+    this.requestTimes = this.requestTimes.filter((time) => time > windowStart);
 
     // Check if we're at the limit
     if (this.requestTimes.length >= this.rateLimitConfig.requests) {
       const oldestRequest = Math.min(...this.requestTimes);
       const waitTime = oldestRequest + this.rateLimitConfig.window - now;
-      
+
       if (waitTime > 0) {
         await this.delay(waitTime);
       }
@@ -316,7 +324,7 @@ export abstract class BaseMetadataAPI {
    * Simple delay utility
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -326,7 +334,7 @@ export abstract class BaseMetadataAPI {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return hash.toString(36);
@@ -346,4 +354,4 @@ export abstract class BaseMetadataAPI {
     baseUrl: string;
     rateLimit: RateLimitConfig;
   };
-} 
+}

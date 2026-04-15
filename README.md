@@ -11,16 +11,19 @@ A Zotero plugin that enhances your research workflow with intelligent metadata d
 ## Features
 
 ### 🔍 Intelligent Reference Management
+
 - **Attachment Validation**: Automatically detect and remove broken file links while preserving valid PDFs and weblinks
 - **Smart Cleanup**: Bulk processing to maintain clean, working attachments across your library
 
 ### 📚 Advanced Metadata Discovery
+
 - **Multi-API Metadata Fetching**: Comprehensive metadata updates using 6+ APIs (CrossRef, OpenAlex, Semantic Scholar, OpenLibrary, Google Books, DBLP)
 - **Automatic DOI/ISBN Discovery**: Find missing identifiers through intelligent title and author matching
 - **Support for Multiple Item Types**: Journal articles, conference papers, preprints, and books
 - **Fallback Strategies**: Multiple search approaches when primary methods fail
 
 ### 📄 Comprehensive PDF Retrieval
+
 - **Multi-Source File Search**: Access content from 8+ sources including:
   - **Open Access**: Unpaywall, CORE, Internet Archive
   - **Preprint Servers**: arXiv with high reliability
@@ -41,18 +44,21 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 </details>
 
 ### 🧬 arXiv & Preprint Intelligence
+
 - **Published Version Discovery**: Automatically find journal publications of arXiv preprints
 - **Smart Type Conversion**: Convert arXiv journal articles to proper preprint format
 - **Version Management**: Handle transitions from preprint to published versions
 - **Metadata Synchronization**: Update bibliographic information when published versions are found
 
 ### ⚡ Efficient Batch Operations
+
 - **Concurrent Processing**: Handle multiple items simultaneously with intelligent rate limiting
 - **Progress Tracking**: Real-time progress dialogs for large batch operations
 - **Error Resilience**: Continue processing even when individual items fail
 - **Detailed Reporting**: Comprehensive success/failure summaries with actionable insights
 
 ### 🛠️ User Experience
+
 - **One-Click Access**: Right-click context menu integration
 - **Email Configuration**: Simple setup for API access requirements
 - **Minimal Configuration**: Works out-of-the-box with optional email for enhanced features
@@ -80,11 +86,45 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Configuration
 
-1. Right-click on any item in your Zotero library
-2. Select `Zotadata` → `Configure Email`
-3. Enter your email address (required for Unpaywall API)
+Access Settings by:
 
-**Note**: Your email is stored locally in Zotero preferences and only used for API requests to services like Unpaywall. The plugin will prompt you for an email the first time you use features that require it.
+1. Right-click on any item in your Zotero library
+2. Select `Zotadata` → `Settings`
+
+### API Configuration
+
+- **Email for Unpaywall API**: Required for Unpaywall access
+  - Stored locally in Zotero preferences
+  - Only used for API requests, never shared
+- **CORE API Key**: Optional key for higher rate limits
+
+### PDF Download Sources
+
+#### Sci-Hub (Optional)
+
+⚠️ **Important**: Sci-Hub provides access to papers that may not be legally available in your jurisdiction. Use responsibly and in accordance with local laws and institutional policies.
+
+**Features**:
+
+- **Enable/Disable**: Toggle to allow Sci-Hub as a fallback source (disabled by default)
+- **Fallback Position**: Only tried after legitimate sources (Unpaywall, arXiv, CORE) fail
+- **Error Handling**: Automatically disables after configured number of failures (default: 2)
+- **Mirror Discovery**: Automatically finds working mirrors via sci-hub.pub
+
+**Settings**:
+
+- Max attempts before fallback (1-3, default: 2)
+- Global setting persists until manually changed
+
+**By enabling Sci-Hub, you acknowledge**:
+
+- Understanding of potential legal implications
+- Responsibility for compliance with local regulations
+- Use for legitimate research purposes only
+
+The plugin will always prioritize legal sources before attempting Sci-Hub.
+
+**Note**: Your email is stored locally and only used for API requests to services like Unpaywall. The plugin will prompt you for an email the first time you use features that require it.
 
 ## Usage
 
@@ -101,6 +141,39 @@ Right-click on selected items in your Zotero library to access:
 
 Select multiple items to process them all at once. A progress dialog will show the status of each operation.
 
+## Metadata Fetching
+
+### Author Disambiguation
+
+The plugin uses multi-factor validation to ensure correct metadata matching, especially for papers with identical titles:
+
+1. **Author Overlap**: Validates that search results share authors with the item
+2. **Author Count Similarity**: Rejects matches with drastically different author counts
+3. **Year Proximity**: Considers publication year in scoring
+4. **Title Similarity**: Uses word-based similarity scoring
+5. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+
+For best results, ensure your items have:
+
+- Complete author lists (not just first author)
+- Publication year
+- arXiv ID in Extra field (format: `arXiv: XXXX.XXXXX`)
+
+### Example: "Generative Adversarial Nets"
+
+This famous paper has multiple versions and even other papers with identical titles. The plugin correctly identifies it by:
+
+1. Matching multiple authors (Goodfellow, Bengio, etc.)
+2. Checking year (2014 vs 2023 for other papers)
+3. Falling back to arXiv DOI (10.48550/arxiv.1406.2661) if published DOI not found
+
+### Update Metadata Best Practices
+
+When using the **Update Metadata** feature:
+
+- **DOI is Critical**: The feature heavily relies on a correct DOI for accurate metadata retrieval. If the DOI is missing or incorrect, results may be unreliable.
+- **Remove Authors First**: For best results, consider removing the authors field before updating metadata. This allows the plugin to search and match based on title and DOI without being confused by incomplete or incorrect author information.
+
 ## Success Rates & Expectations
 
 ### PDF Retrieval Reality
@@ -108,10 +181,12 @@ Select multiple items to process them all at once. A progress dialog will show t
 File retrieval success varies significantly by source type:
 
 **High Success Rate:**
+
 - **arXiv Preprints**: Very reliable due to arXiv's open access mandate and stable infrastructure
 - **Open Access Articles**: Good success via Unpaywall for legitimately open access content
 
 **Moderate to Low Success Rate:**
+
 - **Paywalled Journal Articles**: More challenging due to publisher restrictions and legal considerations
 - **Books**: Particularly difficult to obtain, especially recent publications
 - **Recent Papers**: Sci-Hub has significantly reduced new uploads due to ongoing legal challenges
@@ -132,21 +207,25 @@ This plugin integrates with several external APIs and services:
 ### Metadata APIs
 
 #### CrossRef API
+
 - **Purpose**: Fetch metadata for DOIs
 - **Rate Limit**: 50 requests/second (polite pool)
 - **Authentication**: None required (email recommended)
 
 #### OpenAlex API
+
 - **Purpose**: Comprehensive academic work metadata and DOI discovery
 - **Rate Limit**: Very generous, no authentication required
 - **Authentication**: None required
 
 #### Semantic Scholar API
+
 - **Purpose**: AI-powered paper search and metadata
 - **Rate Limit**: Reasonable limits for academic use
 - **Authentication**: None required
 
 #### OpenLibrary & Google Books APIs
+
 - **Purpose**: Book metadata and ISBN discovery
 - **Rate Limit**: Standard API limits
 - **Authentication**: None required for basic use
@@ -154,31 +233,37 @@ This plugin integrates with several external APIs and services:
 ### PDF Sources
 
 #### Unpaywall API
+
 - **Purpose**: Find open access PDF links
 - **Rate Limit**: 100,000 requests/day
 - **Authentication**: Email address required
 
 #### arXiv API
+
 - **Purpose**: Search and download arXiv papers
 - **Rate Limit**: 3 seconds between requests
 - **Authentication**: None required
 
 #### CORE API
+
 - **Purpose**: Search academic papers for full-text access
 - **Rate Limit**: 10,000 requests/month (free tier)
-- **Authentication**: API key required for higher limits (Not implemented yet)
+- **Authentication**: API key optional for higher rate limits
 
 #### Library Genesis
+
 - **Purpose**: Academic paper and book repository
 - **Rate Limit**: Subject to site availability
 - **Authentication**: None required
 
 #### Sci-Hub
+
 - **Purpose**: Academic paper access service
 - **Rate Limit**: Subject to site availability and blocking
 - **Authentication**: None required
 
 #### Internet Archive
+
 - **Purpose**: Open access books and historical documents
 - **Rate Limit**: Standard API limits
 - **Authentication**: None required
@@ -187,25 +272,32 @@ This plugin integrates with several external APIs and services:
 
 ```
 zotero-zotadata/
-├── addon/
+├── src/                         # TypeScript source code
+│   ├── apis/                    # External API integrations (CrossRef, OpenAlex, etc.)
+│   ├── core/                    # Core utilities, types, error management
+│   ├── features/                # Feature modules (attachment, metadata)
+│   ├── modules/                 # Feature modules (MetadataFetcher, ArxivProcessor)
+│   ├── services/                # Shared services (Cache, Download, API)
+│   ├── shared/                  # Shared utilities and core components
+│   ├── ui/                      # UI components (Menu, Dialog, Preferences)
+│   ├── utils/                   # Utility functions
+│   ├── constants/               # Constants and configuration
+│   ├── __tests__/               # Test files
+│   ├── index.ts                 # Main plugin class
+│   └── addon.ts                 # Entry point bridging to bootstrap.js
+├── typings/                     # Custom TypeScript declarations
+├── addon/                       # Zotero plugin scaffold
 │   ├── bootstrap.js             # Plugin bootstrap for Zotero 8
 │   ├── manifest.json            # Plugin metadata (Zotero 8 format)
-│   ├── prefs.js                 # Default preferences
-│   ├── chrome.manifest          # Chrome manifest
-│   ├── chrome/
-│   │   └── content/
-│   │       ├── overlay.xul      # XUL overlay
-│   │       └── scripts/
-│   │           └── zotadata.js  # Main logic (~4300 lines)
-│   └── locale/
-│       ├── en-US/               # English translations
-│       └── zh-CN/               # Chinese translations
-├── src/                         # TypeScript source (for future development)
+│   └── locale/                  # Localization files (en-US, zh-CN)
+├── skin/                        # Plugin assets (icons, legacy CSS)
 ├── assets/                      # Documentation assets
 │   ├── images/                  # Screenshots and diagrams
 │   └── workflows/               # Workflow diagrams and flowcharts
 ├── zotero-plugin.config.ts      # Build configuration
 ├── package.json                 # Node.js package config
+├── tsconfig.json                # TypeScript configuration
+├── AGENTS.md                    # Development guidelines and conventions
 └── README.md                    # This file
 ```
 
@@ -215,30 +307,95 @@ zotero-zotadata/
 
 - Node.js 22+ (for zotero-plugin-scaffold 0.8.x)
 - Zotero 8.0 or later
+- TypeScript 5.8+
+- Modern IDE with TypeScript support (VS Code recommended)
+
+### Tech Stack
+
+| Category   | Technology                           |
+| ---------- | ------------------------------------ |
+| Language   | TypeScript 5.8                       |
+| Runtime    | Zotero (Firefox/XULRunner)           |
+| Build      | esbuild (via zotero-plugin-scaffold) |
+| Testing    | Vitest                               |
+| Linting    | ESLint 9 + typescript-eslint         |
+| Formatting | Prettier                             |
+| Types      | zotero-types, @types/node            |
+| Toolkit    | zotero-plugin-toolkit                |
 
 ### Setup
 
 1. Clone the repository
 2. Install dependencies: `npm install`
-3. Make your changes to `addon/chrome/content/scripts/zotadata.js`
+3. Make your changes in the `src/` directory (TypeScript only)
 
-### Building
+### Available Scripts
 
 ```bash
-npm install        # Install dependencies
-npm run build      # Build the XPI package
-npm run build:dev  # Build in development mode (with source maps)
-npm test           # Run unit tests
+npm install           # Install dependencies
+npm run build         # Build the XPI package and run type-check
+npm run build:dev     # Build in development mode (with source maps)
+npm run type-check    # Run TypeScript type checking
+npm run lint:check    # Check code style with Prettier and ESLint
+npm run lint:fix      # Auto-fix code style issues
+npm test              # Run unit tests with Vitest
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+npm run test:live     # Run integration tests with live APIs
+npm start             # Development server with hot reload
 ```
 
-The built XPI will be at `.scaffold/dist/zotadata.xpi`.
+### Code Style
+
+This project follows strict TypeScript standards:
+
+- **Strict type annotations** for all function parameters and return types
+- **No `any` types** - use `unknown` with proper type guards
+- **Path aliases**: `@/core`, `@/modules`, `@/services`, `@/utils`, `@/apis`, `@/ui`
+- **Naming conventions**:
+  - PascalCase: Classes, types, interfaces, enums
+  - camelCase: Variables, functions, methods
+  - UPPER_SNAKE_CASE: Constants, enum values
+- **Styling**: Tailwind CSS (no raw CSS files)
+- **Async patterns**: Prefer `async/await` over `.then()` chains
+
+See `AGENTS.md` for detailed development guidelines.
 
 ### Testing
 
-- Unit test the API integration functions: `npm test`
-- Test with various item types and DOI formats
-- Verify UI responsiveness and error handling
-- Test with both Zotero 8 stable and beta versions
+The project uses Vitest for testing:
+
+```bash
+npm test              # Run all unit tests
+npm run test:watch    # Watch mode for development
+npm run test:coverage # Generate coverage report
+npm run test:live     # Integration tests with real APIs
+```
+
+Test structure:
+
+- `src/__tests__/unit/` - Unit tests for individual components
+- `src/__tests__/integration/` - Integration tests with live APIs
+- `src/__tests__/setup.ts` - Test setup and mock configurations
+
+### Development Workflow
+
+1. **Type-check frequently**: Run `npm run type-check` to catch TypeScript errors early
+2. **Lint before commits**: Run `npm run lint:check` to ensure code style compliance
+3. **Write tests**: Add tests in `src/__tests__/` for new functionality
+4. **Build and test**: Run `npm run build` before testing in Zotero
+5. **Use hot reload**: Run `npm start` for active development with automatic rebuilding
+
+### IDE Setup (VS Code)
+
+Recommended extensions:
+
+- TypeScript and JavaScript Language Features (built-in)
+- ESLint
+- Prettier
+- Vitest
+
+Configure path aliases in your IDE to recognize `@/*` imports for better navigation and IntelliSense.
 
 ### Development with Hot Reload
 
@@ -247,6 +404,12 @@ For active development, use the development server:
 ```bash
 npm start  # Starts Zotero with the plugin and watches for changes
 ```
+
+This will:
+
+- Build the plugin in development mode
+- Launch Zotero with the plugin loaded
+- Automatically rebuild and reload when files change
 
 ## Zotero 8 Migration Notes
 

@@ -5,8 +5,8 @@ export const unpaywallFixtures = {
     responseText: JSON.stringify({
       is_oa: true,
       best_oa_location: {
-        url_for_pdf: 'https://example.com/paper.pdf',
-        host_type: 'publisher',
+        url_for_pdf: "https://example.com/paper.pdf",
+        host_type: "publisher",
       },
     }),
     getResponseHeader: () => null,
@@ -27,7 +27,7 @@ export const unpaywallFixtures = {
       is_oa: true,
       best_oa_location: {
         url_for_pdf: null,
-        host_type: 'repository',
+        host_type: "repository",
       },
     }),
     getResponseHeader: () => null,
@@ -36,7 +36,7 @@ export const unpaywallFixtures = {
   notFound: {
     status: 404,
     responseText: JSON.stringify({
-      error: 'Not found',
+      error: "Not found",
     }),
     getResponseHeader: () => null,
   },
@@ -44,7 +44,7 @@ export const unpaywallFixtures = {
   serverError: {
     status: 500,
     responseText: JSON.stringify({
-      error: 'Internal server error',
+      error: "Internal server error",
     }),
     getResponseHeader: () => null,
   },
