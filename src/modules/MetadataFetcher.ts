@@ -732,10 +732,11 @@ export class MetadataFetcher {
         },
       );
       if (response.status !== 200) {
+        Zotero.log(`DBLP API returned status ${response.status}`);
         return null;
       }
 
-      const payload = JSON.parse(response.responseText) as {
+      let payload: {
         result?: {
           hits?: {
             hit?:
@@ -744,6 +745,12 @@ export class MetadataFetcher {
           };
         };
       };
+      try {
+        payload = JSON.parse(response.responseText) as typeof payload;
+      } catch (parseError) {
+        Zotero.log(`DBLP API returned invalid JSON: ${parseError}`);
+        return null;
+      }
       const hitValue = payload.result?.hits?.hit;
       const hits = Array.isArray(hitValue)
         ? hitValue
@@ -757,7 +764,8 @@ export class MetadataFetcher {
           return normalizeDoi(doi);
         }
       }
-    } catch {
+    } catch (error) {
+      Zotero.log(`DBLP search failed: ${error}`);
       return null;
     }
 

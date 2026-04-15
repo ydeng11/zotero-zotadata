@@ -196,6 +196,9 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     papers: SemanticScholarPaper[],
     originalQuery: SearchQuery,
   ): SearchResult[] {
+    if (!papers || !Array.isArray(papers)) {
+      return [];
+    }
     return papers.map((paper) => {
       const result: SearchResult = {
         title: paper.title,

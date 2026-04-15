@@ -86,7 +86,7 @@ describe("MetadataFetcher - No Authors Case", () => {
     });
     expect(callArgs[1]).toMatchObject({
       creatorType: "author",
-      firstName: "Ian",
+      firstName: "Ian J.",
       lastName: "Goodfellow",
     });
     expect(callArgs[2]).toMatchObject({

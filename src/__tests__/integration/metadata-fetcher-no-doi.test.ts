@@ -74,7 +74,7 @@ describe("MetadataFetcher No DOI Found Test", () => {
     expect(result.success).toBe(true);
     expect(item.setField).toHaveBeenCalledWith(
       "DOI",
-      "1.48550/arxiv.1406.5298",
+      "10.48550/arxiv.1406.5298",
     );
   });
 });
