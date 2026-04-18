@@ -2,7 +2,7 @@
 
 A Zotero plugin that enhances your research workflow with intelligent metadata discovery and automated file management.
 
-**⚠️ This version is designed for Zotero 8.x and later**
+**⚠️ This version is designed for Zotero 8.x and 9.x**
 
 ## Demo
 
@@ -66,10 +66,10 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Installation
 
-### From XPI File (Zotero 8.x)
+### From XPI File (Zotero 8.x/9.x)
 
 1. Download the latest release XPI file
-2. In Zotero 8, go to `Tools` → `Add-ons`
+2. In Zotero 8/9, go to `Tools` → `Add-ons`
 3. Click the gear icon and select "Install Add-on From File..."
 4. Select the downloaded XPI file
 5. Restart Zotero
@@ -306,7 +306,7 @@ zotero-zotadata/
 ### Requirements
 
 - Node.js 22+ (for zotero-plugin-scaffold 0.8.x)
-- Zotero 8.0 or later
+- Zotero 8.0 or later (supports Zotero 9.x)
 - TypeScript 5.8+
 - Modern IDE with TypeScript support (VS Code recommended)
 
@@ -411,15 +411,15 @@ This will:
 - Launch Zotero with the plugin loaded
 - Automatically rebuild and reload when files change
 
-## Zotero 8 Migration Notes
+## Zotero 8/9 Compatibility
 
-This version has been updated for Zotero 8 compatibility:
+This version supports both Zotero 8 and Zotero 9:
 
 - **Module System**: Bootstrap updated to use ESM modules (`ChromeUtils.importESModule`)
 - **Services Import**: Uses `resource://gre/modules/Services.sys.mjs` instead of JSM
-- **Target Platform**: Built for Firefox 140+ (Zotero 8)
-- **Build System**: Uses `zotero-plugin-scaffold` 0.8.x for modern Node.js support
-- **Version Constraints**: Added `strict_min_version: "8.0"` and `strict_max_version: "8.*"`
+- **Target Platform**: Built for Firefox 140+ (Zotero 8) and Firefox 115+ (Zotero 9)
+- **Build System**: Uses `zotero-plugin-scaffold` 0.8.6 for modern Node.js support
+- **Version Constraints**: `strict_min_version: "8.0"` and `strict_max_version: "9.*"`
 
 ### Key Changes from Zotero 7
 
@@ -427,6 +427,16 @@ This version has been updated for Zotero 8 compatibility:
 2. **File Structure**: Plugin files moved to `addon/` directory for scaffold compatibility
 3. **Build Tool**: Replaced `build.sh` with `zotero-plugin-scaffold` npm package
 4. **Node.js Requirement**: Now requires Node.js 22+ (was 18+)
+
+### Architecture Improvements (v1.4.0)
+
+1. **Modular Design**: MetadataFetcher refactored into separate services:
+   - `DOIDiscoveryService` - DOI search across multiple APIs
+   - `BookMetadataService` - ISBN and book metadata handling
+   - `MetadataUpdateService` - Field update operations
+2. **Dependency Injection**: Services can be injected for testing
+3. **Utility Modules**: Shared utilities for ISBN, similarity, and field operations
+4. **Rate Limit Optimization**: Proper API call ordering with delays
 
 ## Contributing
 
