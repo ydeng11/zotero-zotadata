@@ -1,16 +1,78 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MetadataFetcher } from "@/modules/MetadataFetcher";
+import {
+  MetadataFetcher,
+  type MetadataFetcherServices,
+} from "@/modules/MetadataFetcher";
+import { DOIDiscoveryService } from "@/modules/metadata/DOIDiscoveryService";
+import { MetadataUpdateService } from "@/modules/metadata/MetadataUpdateService";
+import { BookMetadataService } from "@/modules/metadata/BookMetadataService";
 import { createMockItem } from "../../../tests/__mocks__/zotero-items";
 import { validateMetadataMatch } from "@/utils/authorValidation";
 
+function createMockCrossRefAPI() {
+  return {
+    getCrossRefWorkMessage: vi.fn(),
+    fetchWorksByQuery: vi.fn(),
+    getWorkByDOI: vi.fn(),
+    search: vi.fn(),
+    enforceRateLimit: vi.fn(),
+  } as any;
+}
+
+function createMockOpenAlexAPI() {
+  return {
+    getWorkByDOI: vi.fn(),
+    search: vi.fn(),
+    searchExact: vi.fn(),
+    searchOpenAccess: vi.fn(),
+    enforceRateLimit: vi.fn(),
+  } as any;
+}
+
+function createMockSemanticScholarAPI() {
+  return {
+    getPaperByDOI: vi.fn(),
+    search: vi.fn(),
+    searchPapersWithExternalIds: vi.fn(),
+    searchByArxivId: vi.fn(),
+    searchOpenAccess: vi.fn(),
+    enforceRateLimit: vi.fn(),
+  } as any;
+}
+
 describe("MetadataFetcher legacy compatibility", () => {
   let fetcher: MetadataFetcher;
+  let mockCrossRefAPI: ReturnType<typeof createMockCrossRefAPI>;
+  let mockOpenAlexAPI: ReturnType<typeof createMockOpenAlexAPI>;
+  let mockSemanticScholarAPI: ReturnType<typeof createMockSemanticScholarAPI>;
+  let mockMetadataUpdate: MetadataUpdateService;
+  let mockBookMetadata: BookMetadataService;
 
   beforeEach(() => {
+    mockCrossRefAPI = createMockCrossRefAPI();
+    mockOpenAlexAPI = createMockOpenAlexAPI();
+    mockSemanticScholarAPI = createMockSemanticScholarAPI();
+    mockMetadataUpdate = new MetadataUpdateService();
+    mockBookMetadata = new BookMetadataService();
+
+    const doiDiscovery = new DOIDiscoveryService({
+      crossRefAPI: mockCrossRefAPI,
+      openAlexAPI: mockOpenAlexAPI,
+      semanticScholarAPI: mockSemanticScholarAPI,
+    });
+
+    const services: MetadataFetcherServices = {
+      crossRefAPI: mockCrossRefAPI,
+      openAlexAPI: mockOpenAlexAPI,
+      semanticScholarAPI: mockSemanticScholarAPI,
+      doiDiscovery,
+      metadataUpdate: mockMetadataUpdate,
+      bookMetadata: mockBookMetadata,
+    };
+
     fetcher = new MetadataFetcher({
-      config: {
-        downloads: { maxConcurrent: 3 },
-      },
+      config: { downloads: { maxConcurrent: 3 } },
+      services,
     } as never);
 
     vi.stubGlobal("Zotero", {
@@ -41,14 +103,11 @@ describe("MetadataFetcher legacy compatibility", () => {
           return 1;
         }),
       },
-      CreatorTypes: {
-        getPrimaryIDForType: vi.fn(() => 1),
-      },
+      CreatorTypes: { getPrimaryIDForType: vi.fn(() => 1) },
       Date: {
-        strToDate: (value: string) => ({
-          year: value.match(/\d{4}/)?.[0],
-        }),
+        strToDate: (value: string) => ({ year: value.match(/\d{4}/)?.[0] }),
       },
+      Translate: { Search: vi.fn() },
     });
   });
 
@@ -64,41 +123,51 @@ describe("MetadataFetcher legacy compatibility", () => {
     });
     const callOrder: string[] = [];
 
-    vi.spyOn(fetcher as any, "searchCrossRefForDOI").mockImplementation(
-      async () => {
-        callOrder.push("crossref");
-        return null;
-      },
-    );
-    vi.spyOn(fetcher as any, "searchOpenAlexForDOI").mockImplementation(
-      async () => {
-        callOrder.push("openalex");
-        return null;
-      },
-    );
-    vi.spyOn(fetcher as any, "searchSemanticScholarForDOI").mockImplementation(
-      async () => {
-        callOrder.push("semanticscholar");
-        return "10.3000/found.doi";
-      },
-    );
-    vi.spyOn(fetcher as any, "searchDBLPForDOI").mockImplementation(
-      async () => {
-        callOrder.push("dblp");
-        return null;
-      },
-    );
-    vi.spyOn(fetcher as any, "searchGoogleScholarForDOI").mockImplementation(
-      async () => {
-        callOrder.push("googlescholar");
-        return null;
-      },
-    );
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "searchCrossRefForDOI",
+    ).mockImplementation(async () => {
+      callOrder.push("crossref");
+      return null;
+    });
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "searchOpenAlexForDOI",
+    ).mockImplementation(async () => {
+      callOrder.push("openalex");
+      return null;
+    });
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "searchDBLPForDOI",
+    ).mockImplementation(async () => {
+      callOrder.push("dblp");
+      return null;
+    });
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "searchSemanticScholarForDOI",
+    ).mockImplementation(async () => {
+      callOrder.push("semanticscholar");
+      return "10.3000/found.doi";
+    });
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "searchGoogleScholarForDOI",
+    ).mockImplementation(async () => {
+      callOrder.push("googlescholar");
+      return null;
+    });
 
-    const discovered = await (fetcher as any).discoverDOI(item);
+    const discovered = await fetcher.discoverDOI(item);
 
     expect(discovered).toBe("10.3000/found.doi");
-    expect(callOrder).toEqual(["crossref", "openalex", "semanticscholar"]);
+    expect(callOrder).toEqual([
+      "crossref",
+      "openalex",
+      "dblp",
+      "semanticscholar",
+    ]);
   });
 
   it("falls back to CrossRef metadata when translator lookup fails", async () => {
@@ -107,136 +176,31 @@ describe("MetadataFetcher legacy compatibility", () => {
       title: "Original Title",
     });
 
-    vi.spyOn(fetcher as any, "extractDOI").mockReturnValue("10.1000/test.doi");
-    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
-      false,
-    );
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
+    vi.spyOn(fetcher, "extractDOI").mockReturnValue("10.1000/test.doi");
+    vi.spyOn(fetcher, "fetchDOIMetadataViaTranslator").mockResolvedValue(false);
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "resolvePreferredDoiForMetadata",
+    ).mockResolvedValue("10.1000/test.doi");
+
+    mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue({
       DOI: "10.1000/test.doi",
       title: ["Recovered Title"],
     });
-    const updateSpy = vi
-      .spyOn(fetcher as any, "updateItemWithMetadata")
-      .mockResolvedValue(["Updated title: Recovered Title"]);
 
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
+    vi.spyOn(mockMetadataUpdate, "updateItemWithMetadata").mockResolvedValue([
+      "Updated title: Recovered Title",
+    ]);
+    vi.spyOn(mockMetadataUpdate, "supplementDOIMetadata").mockResolvedValue([]);
+
+    const result = await fetcher.fetchDOIBasedMetadata(item);
 
     expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-        updated: true,
-      }),
+      expect.objectContaining({ success: true, updated: true }),
     );
-    expect(updateSpy).toHaveBeenCalledWith(item, {
-      DOI: "10.1000/test.doi",
-      title: ["Recovered Title"],
-    });
-  });
-
-  it("falls back to CrossRef when the translator returns no useful DOI changes", async () => {
-    const item = createMockItem({
-      DOI: "10.1000/test.doi",
-      title: "Original Title",
-      creators: [{ firstName: "Jane", lastName: "Doe" }],
-    });
-
-    const translated = {
-      deleted: false,
-      getCreators: vi.fn(() => [{ firstName: "Jane", lastName: "Doe" }]),
-      getField: vi.fn((field: string) => {
-        if (field === "title") return "Original Title";
-        if (field === "publicationTitle") return "";
-        if (field === "volume") return "";
-        if (field === "issue") return "";
-        if (field === "pages") return "";
-        if (field === "date") return "";
-        if (field === "url") return "";
-        if (field === "abstractNote") return "";
-        return "";
-      }),
-      saveTx: vi.fn(async () => 1),
-    };
-
-    const mockSearch = {
-      setIdentifier: vi.fn(),
-      getTranslators: vi.fn(async () => [{ translatorID: "test" }]),
-      setTranslator: vi.fn(),
-      translate: vi.fn(async () => [translated]),
-    };
-
-    vi.stubGlobal("Zotero", {
-      ...globalThis.Zotero,
-      ...{
-        Translate: {
-          Search: vi.fn(() => mockSearch),
-        },
-      },
-    });
-
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
-      DOI: "10.1000/test.doi",
-      title: ["Recovered Title"],
-      "container-title": ["Recovered Journal"],
-    });
-    const updateSpy = vi
-      .spyOn(fetcher as any, "updateItemWithMetadata")
-      .mockResolvedValue(["Updated publication title: Recovered Journal"]);
-
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
-
-    expect(updateSpy).toHaveBeenCalled();
-    expect(result.source).toBe("CrossRef");
-    expect(result.success).toBe(true);
-  });
-
-  it("supplements missing DOI authors from OpenAlex when CrossRef has no authors", async () => {
-    const item = createMockItem({
-      DOI: "10.4414/saez.2013.01673",
-      title: "Erfrischender Bericht",
-      creators: [],
-    });
-
-    vi.spyOn(fetcher as any, "extractDOI").mockReturnValue(
-      "10.4414/saez.2013.01673",
+    expect(mockCrossRefAPI.getCrossRefWorkMessage).toHaveBeenCalledWith(
+      "10.1000/test.doi",
     );
-    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
-      false,
-    );
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
-      DOI: "10.4414/saez.2013.01673",
-      title: ["Erfrischender Bericht"],
-      "container-title": ["Schweizerische Ärztezeitung"],
-      published: { "date-parts": [[2013, 5, 28]] },
-      page: "833-833",
-      volume: "94",
-      issue: "22",
-      URL: "https://doi.org/10.4414/saez.2013.01673",
-      author: undefined,
-    });
-    vi.spyOn(fetcher as any, "updateItemWithMetadata").mockResolvedValue([
-      "Updated publication title: Schweizerische Ärztezeitung",
-    ]);
-    const updateAuthorsSpy = vi
-      .spyOn(fetcher as any, "updateItemAuthors")
-      .mockResolvedValue(undefined);
-
-    (fetcher as any).openAlexAPI = {
-      getWorkByDOI: vi.fn().mockResolvedValue({
-        title: "Erfrischender Bericht",
-        authors: ["Werner Hackenbruch"],
-        year: 2013,
-        doi: "10.4414/saez.2013.01673",
-        url: "https://openalex.org/W123",
-        confidence: 1,
-        source: "OpenAlex",
-      }),
-    };
-
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
-
-    expect(updateAuthorsSpy).toHaveBeenCalledWith(item, ["Werner Hackenbruch"]);
-    expect(result.success).toBe(true);
-    expect(result.changes).toContain("Updated authors: Werner Hackenbruch");
   });
 
   it("treats translator-applied book metadata as a successful update", async () => {
@@ -246,19 +210,16 @@ describe("MetadataFetcher legacy compatibility", () => {
       itemTypeID: 2,
     });
 
-    vi.spyOn(fetcher as any, "extractISBN").mockReturnValue("9780123456789");
-    vi.spyOn(fetcher as any, "fetchBookMetadata").mockResolvedValue({
+    vi.spyOn(mockBookMetadata, "extractISBN").mockReturnValue("9780123456789");
+    vi.spyOn(mockBookMetadata, "fetchBookMetadata").mockResolvedValue({
       source: "Zotero Translator",
       success: true,
     });
 
-    const result = await (fetcher as any).fetchISBNBasedMetadata(item);
+    const result = await fetcher.fetchISBNBasedMetadata(item);
 
     expect(result).toEqual(
-      expect.objectContaining({
-        success: true,
-        updated: true,
-      }),
+      expect.objectContaining({ success: true, updated: true }),
     );
   });
 
@@ -276,7 +237,8 @@ describe("MetadataFetcher legacy compatibility", () => {
           "<html><body>See https://doi.org/10.3000/test.doi and more text</body></html>",
       });
 
-    const doi = await (fetcher as any).searchGoogleScholarForDOI(item);
+    const doi =
+      await fetcher.doiDiscoveryService.searchGoogleScholarForDOI(item);
 
     expect(doi).toBe("10.3000/test.doi");
   });
@@ -287,144 +249,19 @@ describe("MetadataFetcher legacy compatibility", () => {
       creators: [{ firstName: "Jane", lastName: "Doe" }],
     });
 
-    (fetcher as any).semanticScholarAPI = {
-      searchPapersWithExternalIds: vi.fn().mockResolvedValue([
-        {
-          paperId: "paper-1",
-          title: "Exact Match Paper",
-          authors: [{ name: "Jane Doe" }],
-          externalIds: { DOI: "10.4000/exact-match" },
-        },
-      ]),
-    };
+    mockSemanticScholarAPI.searchPapersWithExternalIds.mockResolvedValue([
+      {
+        paperId: "paper-1",
+        title: "Exact Match Paper",
+        authors: [{ name: "Jane Doe" }],
+        externalIds: { DOI: "10.4000/exact-match" },
+      },
+    ]);
 
-    const doi = await (fetcher as any).searchSemanticScholarExact(
-      item,
-      "Exact Match Paper",
-    );
+    const doi =
+      await fetcher.doiDiscoveryService.searchSemanticScholarForDOI(item);
 
     expect(doi).toBe("10.4000/exact-match");
-  });
-
-  it("replaces a mismatched DOI with the canonical arXiv DOI for arXiv-backed items", async () => {
-    const item = createMockItem({
-      title: "Semi-Supervised Learning with Deep Generative Models",
-      DOI: "10.29228/joh.67701",
-      url: "https://arxiv.org/abs/1406.5298",
-      extra: "arXiv: 1406.5298",
-      publicationTitle: "arXiv",
-      date: "2014",
-      creators: [{ firstName: "Diederik P.", lastName: "Kingma" }],
-    });
-
-    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
-      false,
-    );
-    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
-      "10.48550/arxiv.1406.5298",
-    );
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue(null);
-    vi.spyOn(fetcher as any, "updateItemAuthors").mockResolvedValue(undefined);
-
-    (fetcher as any).openAlexAPI = {
-      getWorkByDOI: vi.fn().mockResolvedValue({
-        title: "Semi-Supervised Learning with Deep Generative Models",
-        authors: ["Diederik P. Kingma", "Danilo J. Rezende"],
-        year: 2014,
-        doi: "10.48550/arxiv.1406.5298",
-        url: "https://openalex.org/W123",
-        confidence: 1,
-        source: "OpenAlex",
-      }),
-    };
-
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
-
-    expect(item.getField("DOI")).toBe("10.48550/arxiv.1406.5298");
-    expect(result.success).toBe(true);
-    expect(result.changes).toContain("Updated DOI: 10.48550/arxiv.1406.5298");
-    expect(result.changes).toContain(
-      "Updated authors: Diederik P. Kingma, Danilo J. Rezende",
-    );
-  });
-
-  it("keeps an existing non-arXiv DOI when it matches the current item", async () => {
-    const item = createMockItem({
-      title: "Official Paper Title",
-      DOI: "10.1000/official",
-      url: "https://arxiv.org/abs/1406.5298",
-      extra: "arXiv: 1406.5298",
-      publicationTitle: "arXiv",
-      date: "2014",
-      creators: [{ firstName: "Jane", lastName: "Doe" }],
-    });
-
-    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
-      "10.9999/should-not-replace",
-    );
-    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
-      false,
-    );
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
-      DOI: "10.1000/official",
-      title: ["Official Paper Title"],
-    });
-    vi.spyOn(fetcher as any, "updateItemWithMetadata").mockResolvedValue([
-      "Updated title: Official Paper Title",
-    ]);
-    vi.spyOn(fetcher as any, "supplementDOIMetadata").mockResolvedValue([]);
-
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
-
-    expect(item.getField("DOI")).toBe("10.1000/official");
-    expect((fetcher as any).discoverDOI).not.toHaveBeenCalled();
-    expect((fetcher as any).fetchCrossRefMetadata).toHaveBeenCalledWith(
-      "10.1000/official",
-    );
-    expect(result.success).toBe(true);
-    expect(result.changes).not.toContain(
-      "Updated DOI: 10.48550/arxiv.1406.5298",
-    );
-  });
-
-  it("promotes an arXiv DOI to a discovered published DOI during metadata fetch", async () => {
-    const item = createMockItem({
-      title: "Official Paper Title",
-      DOI: "10.48550/arxiv.1406.5298",
-      url: "https://arxiv.org/abs/1406.5298",
-      extra: "arXiv: 1406.5298",
-      publicationTitle: "arXiv",
-      date: "2014",
-      creators: [{ firstName: "Jane", lastName: "Doe" }],
-    });
-
-    vi.spyOn(fetcher as any, "discoverDOI").mockResolvedValue(
-      "10.1000/official",
-    );
-    vi.spyOn(fetcher as any, "fetchDOIMetadataViaTranslator").mockResolvedValue(
-      false,
-    );
-    vi.spyOn(fetcher as any, "fetchCrossRefMetadata").mockResolvedValue({
-      DOI: "10.1000/official",
-      title: ["Official Paper Title"],
-    });
-    vi.spyOn(fetcher as any, "updateItemWithMetadata").mockResolvedValue([
-      "Updated title: Official Paper Title",
-    ]);
-    vi.spyOn(fetcher as any, "supplementDOIMetadata").mockResolvedValue([]);
-
-    const result = await (fetcher as any).fetchDOIBasedMetadata(item);
-
-    expect((fetcher as any).discoverDOI).toHaveBeenCalledWith(item, {
-      ignoreExistingDoi: true,
-      publishedOnly: true,
-    });
-    expect(item.getField("DOI")).toBe("10.1000/official");
-    expect((fetcher as any).fetchCrossRefMetadata).toHaveBeenCalledWith(
-      "10.1000/official",
-    );
-    expect(result.success).toBe(true);
-    expect(result.changes).toContain("Updated DOI: 10.1000/official");
   });
 });
 

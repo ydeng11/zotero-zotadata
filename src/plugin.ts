@@ -58,7 +58,7 @@ export class ZotadataPlugin {
       rateLimits: {
         CrossRef: { requests: 50, window: 1000 },
         OpenAlex: { requests: 100, window: 1000 },
-        SemanticScholar: { requests: 100, window: 1000 },
+        SemanticScholar: { requests: 100, window: 60000 },
       },
       cacheSettings: { ttl: 3600000, maxSize: 1000 },
       userAgent: "Zotero Zotadata/1.0",
