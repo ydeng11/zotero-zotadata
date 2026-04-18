@@ -77,7 +77,7 @@ export class MetadataUpdateService {
 
     if (
       openAlexResult.authors?.length &&
-      (await this.shouldUpdateAuthors(item, openAlexResult.authors))
+      this.shouldUpdateAuthors(item, openAlexResult.authors)
     ) {
       applyAuthorsToItem(item, openAlexResult.authors);
       changes.push(`Updated authors: ${openAlexResult.authors.join(", ")}`);
@@ -118,10 +118,7 @@ export class MetadataUpdateService {
     return similarity < 0.8 && newTitle.length > currentTitle.length;
   }
 
-  async shouldUpdateAuthors(
-    item: Zotero.Item,
-    newAuthors: string[],
-  ): Promise<boolean> {
+  shouldUpdateAuthors(item: Zotero.Item, newAuthors: string[]): boolean {
     const currentAuthors = extractAuthorsFromItem(item);
 
     if (currentAuthors.length === 0) return true;

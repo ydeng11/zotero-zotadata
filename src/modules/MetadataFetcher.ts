@@ -851,10 +851,7 @@ export class MetadataFetcher {
       if (searchResult.authors && searchResult.authors.length > 0) {
         const shouldUpdateAuthors =
           strongMatch ||
-          (await this.metadataUpdate.shouldUpdateAuthors(
-            item,
-            searchResult.authors,
-          ));
+          this.metadataUpdate.shouldUpdateAuthors(item, searchResult.authors);
         if (shouldUpdateAuthors) {
           const creators = item.getCreators();
           const nonAuthors = creators.filter(
