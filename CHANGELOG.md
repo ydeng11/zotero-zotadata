@@ -2,6 +2,90 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2025-04-18
+
+### Added
+
+#### Zotero 9 Compatibility
+
+- **Zotero 9 support** with updated version constraints (`strict_max_version: "9.*"`)
+- **zotero-plugin-scaffold 0.8.6** update for latest build tool compatibility
+- Tested and verified working on both Zotero 8.x and 9.x
+
+#### Modular Architecture
+
+- **DOIDiscoveryService** - Extracted DOI search logic with:
+  - Multi-API DOI discovery (CrossRef, OpenAlex, SemanticScholar, DBLP, GoogleScholar)
+  - Proper API call ordering with rate limit delays
+  - Service-level dependency injection support
+- **BookMetadataService** - Extracted ISBN/book handling:
+  - ISBN discovery from OpenLibrary and Google Books
+  - ISBN conversion utilities (ISBN-10 ↔ ISBN-13)
+  - Translator-based book metadata fetching
+- **MetadataUpdateService** - Extracted field update operations:
+  - CrossRef metadata field updates
+  - Author supplementation from OpenAlex
+  - Title and author update heuristics
+- **Utility Modules**:
+  - `src/utils/isbn.ts` - ISBN conversion and validation
+  - `src/utils/similarity.ts` - Title similarity calculations
+  - `src/utils/itemFields.ts` - Field update helpers
+
+#### Dependency Injection Pattern
+
+- **Testable architecture** with injectable services
+- **Mock-friendly design** for unit testing
+- **Service interfaces** for API and service injection
+- All core services now accept optional dependencies in constructors
+
+### Changed
+
+#### API Rate Limit Optimization
+
+- **Default strategy changed** from `parallel` to `fallback` for better rate limit compliance
+- **SemanticScholar rate limit fixed** from incorrect 100/sec to correct 100/min
+- **Inter-API delays added** (100-200ms) between failed API calls
+- **API priority reorder**:
+  1. CrossRef (50/sec - best DOI coverage)
+  2. OpenAlex (100/sec - good coverage)
+  3. DBLP (no documented limit)
+  4. SemanticScholar (100/MIN - strictest, use last)
+  5. GoogleScholar (scraping - unreliable, use last)
+
+#### Code Refactoring
+
+- **MetadataFetcher.ts** reduced from 2252 lines to ~1000 lines
+- **Code modularization** improves maintainability and testability
+- **Test architecture** rewritten with dependency injection pattern
+- All tests now inject mock services for reliable, isolated testing
+
+### Technical Details
+
+#### File Changes
+
+- 17 files changed
+- 2,716 insertions(+)
+- 2,704 deletions(-)
+
+#### New Modules
+
+- `src/modules/metadata/DOIDiscoveryService.ts` - DOI discovery service
+- `src/modules/metadata/BookMetadataService.ts` - Book metadata service
+- `src/modules/metadata/MetadataUpdateService.ts` - Metadata update service
+- `src/modules/metadata/types.ts` - Shared type definitions
+- `src/utils/isbn.ts` - ISBN utilities
+- `src/utils/similarity.ts` - Similarity calculations
+- `src/utils/itemFields.ts` - Field helpers
+
+#### Architecture Improvements
+
+- Service-based architecture with clear separation of concerns
+- Dependency injection for testability
+- Shared utility modules reduce code duplication
+- Consistent error handling across services
+
+---
+
 ## [1.3.0] - 2025-01-14
 
 ### Added
