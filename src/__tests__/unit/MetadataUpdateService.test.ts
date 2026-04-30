@@ -142,7 +142,8 @@ describe("MetadataUpdateService", () => {
 
       expect(
         (item.setCreators as ReturnType<typeof vi.fn>).mock.calls.length > 0 ||
-          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls.length > 0,
+          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls
+            .length > 0,
       ).toBe(true);
       expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
@@ -168,9 +169,12 @@ describe("MetadataUpdateService", () => {
 
       expect(
         (item.setCreators as ReturnType<typeof vi.fn>).mock.calls.length > 0 ||
-          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls.length > 0,
+          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls
+            .length > 0,
       ).toBe(true);
-      expect(changes).toContainEqual(expect.stringContaining("Updated authors"));
+      expect(changes).toContainEqual(
+        expect.stringContaining("Updated authors"),
+      );
     });
   });
 });
