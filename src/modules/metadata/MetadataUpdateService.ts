@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
@@ -128,41 +128,17 @@ export class MetadataUpdateService {
     item: Zotero.Item,
     authors: Array<{ given?: string; family: string }>,
   ): void {
-    const editableItem = item as Zotero.Item & {
-      numCreators?: () => number;
-      setCreator?: (
-        index: number,
-        creator: {
-          creatorTypeID: number;
-          firstName: string;
-          lastName: string;
-        },
-      ) => void;
-    };
-
-    if (typeof editableItem.setCreator === "function") {
-      const creatorTypeID = (
-        Zotero as typeof Zotero & {
-          CreatorTypes?: { getPrimaryIDForType: (typeID: number) => number };
-        }
-      ).CreatorTypes?.getPrimaryIDForType(item.itemTypeID);
-
-      authors.forEach((author) => {
-        editableItem.setCreator?.(editableItem.numCreators?.() ?? 0, {
-          creatorTypeID: creatorTypeID ?? 1,
-          firstName: author.given ?? "",
-          lastName: author.family,
-        });
-      });
-      return;
-    }
-
-    item.setCreators(
-      authors.map((author) => ({
-        creatorType: "author",
-        firstName: author.given ?? "",
-        lastName: author.family,
-      })),
+    const existingCreators = item.getCreators();
+    const nonAuthors = existingCreators.filter(
+      (creator) => creator.creatorType !== "author",
     );
+
+    const newAuthors = authors.map((author) => ({
+      creatorType: "author" as const,
+      firstName: author.given ?? "",
+      lastName: author.family,
+    }));
+
+    item.setCreators([...newAuthors, ...nonAuthors]);
   }
 }

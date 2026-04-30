@@ -140,22 +140,22 @@ describe("MetadataUpdateService", () => {
 
       const changes = await service.updateItemWithMetadata(item, metadata);
 
-      expect(
-        (item.setCreators as ReturnType<typeof vi.fn>).mock.calls.length > 0 ||
-          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls
-            .length > 0,
-      ).toBe(true);
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
       expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
       );
     });
 
-    it("overwrites existing authors (always overwrites per new policy)", async () => {
+    it("REPLACES existing authors (fix for issue #13 - duplicate authors bug)", async () => {
       const item = createMockItem({
         title: "Test Paper",
         DOI: "10.1234/test",
         creators: [
           { firstName: "Existing", lastName: "Author", creatorType: "author" },
+          { firstName: "Another", lastName: "Old", creatorType: "author" },
         ],
       });
 
@@ -167,14 +167,36 @@ describe("MetadataUpdateService", () => {
 
       const changes = await service.updateItemWithMetadata(item, metadata);
 
-      expect(
-        (item.setCreators as ReturnType<typeof vi.fn>).mock.calls.length > 0 ||
-          ((item as any).setCreator as ReturnType<typeof vi.fn>).mock.calls
-            .length > 0,
-      ).toBe(true);
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "Different", lastName: "Author" },
+      ]);
       expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
       );
+    });
+
+    it("preserves non-author creators when replacing authors", async () => {
+      const item = createMockItem({
+        title: "Test Paper",
+        DOI: "10.1234/test",
+        creators: [
+          { firstName: "Existing", lastName: "Author", creatorType: "author" },
+          { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+        ],
+      });
+
+      const metadata = {
+        DOI: "10.1234/test",
+        title: ["Test Paper"],
+        author: [{ given: "New", family: "Author" }],
+      };
+
+      const changes = await service.updateItemWithMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "New", lastName: "Author" },
+        { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+      ]);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
 import { cleanISBN, buildAlternativeISBNCandidates } from "@/utils/isbn";
 import { isExactTitleMatch } from "@/utils/similarity";
 import type {
@@ -296,7 +296,10 @@ export class BookMetadataService {
     }
 
     const authors = "authors" in metadata ? metadata.authors : undefined;
-    if (authors?.length && item.getCreators().length === 0) {
+    const existingAuthors = item
+      .getCreators()
+      .filter((c) => c.creatorType === "author");
+    if (authors?.length && existingAuthors.length === 0) {
       this.applyBookAuthors(item, authors);
       changes.push(`Updated authors: ${authors.length}`);
     }
@@ -339,55 +342,24 @@ export class BookMetadataService {
     item: Zotero.Item,
     authors: Array<{ name?: string } | string>,
   ): void {
-    const editableItem = item as Zotero.Item & {
-      numCreators?: () => number;
-      setCreator?: (
-        index: number,
-        creator: {
-          creatorTypeID: number;
-          firstName: string;
-          lastName: string;
-        },
-      ) => void;
-    };
-    const creatorTypeID =
-      (
-        Zotero as typeof Zotero & {
-          CreatorTypes?: { getPrimaryIDForType: (typeID: number) => number };
-        }
-      ).CreatorTypes?.getPrimaryIDForType(item.itemTypeID) ?? 1;
+    const existingCreators = item.getCreators();
+    const nonAuthors = existingCreators.filter(
+      (creator) => creator.creatorType !== "author",
+    );
 
-    authors.forEach((author) => {
+    const newAuthors = authors.map((author) => {
       const name = typeof author === "string" ? author : (author.name ?? "");
       const parts = name.split(" ").filter(Boolean);
       const lastName = parts.pop() ?? name;
       const firstName = parts.join(" ");
-
-      if (typeof editableItem.setCreator === "function") {
-        editableItem.setCreator(editableItem.numCreators?.() ?? 0, {
-          creatorTypeID,
-          firstName,
-          lastName,
-        });
-      }
+      return {
+        creatorType: "author" as const,
+        firstName,
+        lastName,
+      };
     });
 
-    if (typeof editableItem.setCreator !== "function") {
-      item.setCreators(
-        authors.map((author) => {
-          const name =
-            typeof author === "string" ? author : (author.name ?? "");
-          const parts = name.split(" ").filter(Boolean);
-          const lastName = parts.pop() ?? name;
-          const firstName = parts.join(" ");
-          return {
-            creatorType: "author",
-            firstName,
-            lastName,
-          };
-        }),
-      );
-    }
+    item.setCreators([...newAuthors, ...nonAuthors]);
   }
 
   private async applyTranslatorMetadata(
