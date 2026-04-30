@@ -10,11 +10,11 @@ import {
   normalizeDoi,
   parseDoiFromExtra,
 } from "@/utils/itemSearchQuery";
-import { calculateTitleSimilarity } from "@/utils/similarity";
 import {
   extractYearFromDate,
   extractAuthorsFromItem,
 } from "@/utils/itemFields";
+import { getContainerTitleFieldForItemType } from "@/utils/typeMapping";
 import {
   BookMetadataService,
   DOIDiscoveryService,
@@ -849,30 +849,56 @@ export class MetadataFetcher {
       }
 
       if (searchResult.authors && searchResult.authors.length > 0) {
-        const shouldUpdateAuthors =
-          strongMatch ||
-          this.metadataUpdate.shouldUpdateAuthors(item, searchResult.authors);
-        if (shouldUpdateAuthors) {
-          const creators = item.getCreators();
-          const nonAuthors = creators.filter(
-            (creator) => creator.creatorType !== "author",
-          );
+        const creators = item.getCreators();
+        const nonAuthors = creators.filter(
+          (creator) => creator.creatorType !== "author",
+        );
 
-          const newCreators = searchResult.authors.map((authorName) => {
-            const parts = authorName.split(" ");
-            const lastName = parts.pop() || "";
-            const firstName = parts.join(" ");
+        const newCreators = searchResult.authors.map((authorName) => {
+          const parts = authorName.split(" ");
+          const lastName = parts.pop() || "";
+          const firstName = parts.join(" ");
 
-            return {
-              creatorType: "author",
-              firstName,
-              lastName,
-            };
-          });
+          return {
+            creatorType: "author",
+            firstName,
+            lastName,
+          };
+        });
 
-          item.setCreators([...newCreators, ...nonAuthors]);
-          changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
-        }
+        item.setCreators([...newCreators, ...nonAuthors]);
+        changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
+      }
+
+      const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
+      const containerField = getContainerTitleFieldForItemType(itemType);
+      if (
+        searchResult.containerTitle &&
+        containerField &&
+        !item.getField(containerField)
+      ) {
+        item.setField(containerField, searchResult.containerTitle);
+        changes.push(`Added ${containerField}: ${searchResult.containerTitle}`);
+      }
+
+      if (searchResult.volume && !item.getField("volume")) {
+        item.setField("volume", searchResult.volume);
+        changes.push(`Added volume: ${searchResult.volume}`);
+      }
+
+      if (searchResult.issue && !item.getField("issue")) {
+        item.setField("issue", searchResult.issue);
+        changes.push(`Added issue: ${searchResult.issue}`);
+      }
+
+      if (searchResult.pages && !item.getField("pages")) {
+        item.setField("pages", searchResult.pages);
+        changes.push(`Added pages: ${searchResult.pages}`);
+      }
+
+      if (searchResult.language && !item.getField("language")) {
+        item.setField("language", searchResult.language);
+        changes.push(`Added language: ${searchResult.language}`);
       }
 
       if (options.downloadPDFs && searchResult.pdfUrl) {

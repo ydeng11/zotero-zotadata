@@ -1,4 +1,6 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { isExactTitleMatch } from "@/utils/similarity";
+import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import type {
   OpenAlexWork,
   SearchQuery,
@@ -151,6 +153,12 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     originalQuery: SearchQuery,
   ): SearchResult[] {
     return (works ?? []).map((work) => {
+      const pages = work.biblio?.first_page
+        ? work.biblio.last_page
+          ? `${work.biblio.first_page}-${work.biblio.last_page}`
+          : work.biblio.first_page
+        : undefined;
+
       const result: SearchResult = {
         title: work.display_name || work.title,
         authors:
@@ -163,6 +171,12 @@ export class OpenAlexAPI extends BaseMetadataAPI {
         pdfUrl: work.open_access?.oa_url || undefined,
         confidence: this.calculateConfidence(work, originalQuery),
         source: "OpenAlex",
+        containerTitle: work.primary_location?.source?.display_name,
+        volume: work.biblio?.volume,
+        issue: work.biblio?.issue,
+        pages,
+        language: work.language,
+        itemType: mapCrossRefTypeToZotero(work.type_crossref),
       };
 
       return result;
@@ -173,25 +187,36 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Calculate confidence score for search result
    */
   private calculateConfidence(work: OpenAlexWork, query: SearchQuery): number {
-    let confidence = 0.6; // Base confidence for OpenAlex
-
-    // Title similarity
-    if (query.title && work.display_name) {
-      const similarity = this.calculateTitleSimilarity(
-        query.title,
-        work.display_name,
-      );
-      confidence += similarity * 0.3;
+    // DOI check - exact match or reject
+    if (query.doi) {
+      if (work.doi) {
+        const workDOI = work.doi.replace("https://doi.org/", "");
+        if (this.cleanDOI(query.doi) === this.cleanDOI(workDOI)) {
+          return 1.0;
+        }
+      }
+      return 0.1;
     }
 
-    // Author match
+    // Title check - must match if title is in query
+    if (query.title && work.display_name) {
+      if (!isExactTitleMatch(query.title, work.display_name)) {
+        return 0.1;
+      }
+    }
+
+    let confidence = 0.6;
+
+    if (query.title && work.display_name) {
+      confidence += 0.3;
+    }
+
     if (query.authors && work.authorships) {
       const workAuthors = work.authorships.map((a) => a.author.display_name);
       const authorMatch = this.calculateAuthorMatch(query.authors, workAuthors);
       confidence += authorMatch * 0.25;
     }
 
-    // Year match
     if (query.year && work.publication_year) {
       const yearDiff = Math.abs(query.year - work.publication_year);
       if (yearDiff === 0) confidence += 0.15;
@@ -199,52 +224,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
       else if (yearDiff <= 2) confidence += 0.05;
     }
 
-    // DOI exact match
-    if (query.doi && work.doi) {
-      const workDOI = work.doi.replace("https://doi.org/", "");
-      if (this.cleanDOI(query.doi) === this.cleanDOI(workDOI)) {
-        confidence = 1.0;
-      }
-    }
-
-    // Open access bonus
     if (work.open_access?.is_oa && work.open_access.oa_url) {
       confidence += 0.1;
     }
 
     return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Calculate title similarity using word overlap
-   */
-  private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) =>
-      str
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const words1 = new Set(
-      normalize(title1)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-    const words2 = new Set(
-      normalize(title2)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-
-    if (words1.size === 0 || words2.size === 0) return 0;
-
-    const intersection = new Set(
-      [...words1].filter((word) => words2.has(word)),
-    );
-    const union = new Set([...words1, ...words2]);
-
-    return intersection.size / union.size;
   }
 
   /**

@@ -1,4 +1,6 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { isExactTitleMatch } from "@/utils/similarity";
+import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import type {
   CrossRefWork,
   SearchQuery,
@@ -22,8 +24,8 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Search CrossRef for works matching the query
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    const searchQuery = this.buildSearchQuery(query);
-    const endpoint = `/works?query=${encodeURIComponent(searchQuery)}&rows=10&sort=relevance`;
+    const searchParams = this.buildSearchParams(query);
+    const endpoint = `/works?${searchParams}`;
 
     const response = await this.request<{
       status: string;
@@ -108,11 +110,8 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Raw work list for structured query (title / author / year).
    */
   async fetchWorksByQuery(query: SearchQuery): Promise<CrossRefWork[]> {
-    const searchQuery = this.buildSearchQuery(query);
-    if (!searchQuery) {
-      return [];
-    }
-    const endpoint = `/works?query=${encodeURIComponent(searchQuery)}&rows=10&sort=relevance`;
+    const searchParams = this.buildSearchParams(query);
+    const endpoint = `/works?${searchParams}`;
 
     try {
       const response = await this.request<{
@@ -153,30 +152,44 @@ export class CrossRefAPI extends BaseMetadataAPI {
   /**
    * Build optimized search query for CrossRef
    */
-  private buildSearchQuery(query: SearchQuery): string {
-    const parts: string[] = [];
+  private buildSearchParams(query: SearchQuery): string {
+    const params = new URLSearchParams();
 
     if (query.title) {
-      const cleanTitle = this.cleanTitle(query.title);
-      parts.push(`title:"${cleanTitle}"`);
+      params.append("query.title", this.cleanTitle(query.title));
     }
 
     if (query.authors && query.authors.length > 0) {
-      const authorQueries = query.authors
-        .slice(0, 3)
-        .map((author) => `author:"${author}"`);
-      parts.push(`(${authorQueries.join(" OR ")})`);
+      params.append("query.author", query.authors[0]);
+    }
+
+    if (query.containerTitle) {
+      params.append("query.container-title", query.containerTitle);
+    }
+
+    if (query.issn) {
+      params.append("query.issn", query.issn);
     }
 
     if (query.year) {
-      parts.push(`published:${query.year}`);
+      const bibParts: string[] = [String(query.year)];
+      if (query.volume) bibParts.push(`vol:${query.volume}`);
+      if (query.issue) bibParts.push(`issue:${query.issue}`);
+      params.append("query.bibliographic", bibParts.join(" "));
     }
 
     if (query.doi) {
-      parts.push(`doi:"${this.cleanDOI(query.doi)}"`);
+      params.append("query.doi", this.cleanDOI(query.doi));
     }
 
-    return parts.join(" AND ");
+    params.append("rows", "10");
+    params.append("sort", "relevance");
+    params.append(
+      "select",
+      "DOI,title,original-title,author,published,container-title,URL,type,is-referenced-by-count,language",
+    );
+
+    return params.toString();
   }
 
   /**
@@ -198,6 +211,12 @@ export class CrossRefAPI extends BaseMetadataAPI {
         url: work.URL,
         confidence: this.calculateConfidence(work, originalQuery),
         source: "CrossRef",
+        containerTitle: work["container-title"]?.[0],
+        volume: work.volume,
+        issue: work.issue,
+        pages: work.page,
+        language: work.language,
+        itemType: mapCrossRefTypeToZotero(work.type),
       };
 
       return result;
@@ -208,22 +227,33 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Calculate confidence score for search result
    */
   private calculateConfidence(work: CrossRefWork, query: SearchQuery): number {
-    let confidence = 0.5; // Base confidence
-
-    // Title similarity
-    if (query.title && work.title) {
-      const workTitle = Array.isArray(work.title) ? work.title[0] : work.title;
-      const similarity = this.calculateTitleSimilarity(query.title, workTitle);
-      confidence += similarity * 0.4;
+    // DOI check - exact match or reject
+    if (query.doi) {
+      if (work.DOI && this.cleanDOI(query.doi) === this.cleanDOI(work.DOI)) {
+        return 1.0;
+      }
+      return 0.1;
     }
 
-    // Author match
+    // Title check - must match if title is in query
+    if (query.title && work.title) {
+      const workTitle = Array.isArray(work.title) ? work.title[0] : work.title;
+      if (!isExactTitleMatch(query.title, workTitle)) {
+        return 0.1;
+      }
+    }
+
+    let confidence = 0.5;
+
+    if (query.title && work.title) {
+      confidence += 0.4;
+    }
+
     if (query.authors && work.author) {
       const authorMatch = this.calculateAuthorMatch(query.authors, work.author);
       confidence += authorMatch * 0.3;
     }
 
-    // Year match
     if (query.year && work.published?.["date-parts"]?.[0]?.[0]) {
       const yearDiff = Math.abs(
         query.year - work.published["date-parts"][0][0],
@@ -232,36 +262,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
       else if (yearDiff <= 1) confidence += 0.1;
     }
 
-    // DOI exact match
-    if (query.doi && work.DOI) {
-      if (this.cleanDOI(query.doi) === this.cleanDOI(work.DOI)) {
-        confidence = 1.0;
-      }
-    }
-
     return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Calculate title similarity using simple word overlap
-   */
-  private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) =>
-      str
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const words1 = new Set(normalize(title1).split(" "));
-    const words2 = new Set(normalize(title2).split(" "));
-
-    const intersection = new Set(
-      [...words1].filter((word) => words2.has(word)),
-    );
-    const union = new Set([...words1, ...words2]);
-
-    return intersection.size / union.size;
   }
 
   /**

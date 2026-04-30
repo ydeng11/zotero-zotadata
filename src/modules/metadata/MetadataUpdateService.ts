@@ -1,6 +1,6 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
-import { calculateStringSimilarity } from "@/utils/similarity";
+import { isExactTitleMatch } from "@/utils/similarity";
 import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
 import type { CrossRefWork } from "@/shared/core/types";
 
@@ -22,12 +22,12 @@ export class MetadataUpdateService {
     const metadataTitle = Array.isArray(metadata.title)
       ? metadata.title[0]
       : metadata.title;
-    if (metadataTitle && (!currentTitle || currentTitle.length < 10)) {
+    if (metadataTitle && this.shouldUpdateTitle(currentTitle, metadataTitle)) {
       item.setField("title", metadataTitle);
       changes.push(`Updated title: ${metadataTitle}`);
     }
 
-    if (metadata.author?.length && item.getCreators().length === 0) {
+    if (metadata.author?.length) {
       this.applyCrossRefAuthors(item, metadata.author);
       changes.push(`Updated authors: ${metadata.author.length}`);
     }
@@ -110,12 +110,7 @@ export class MetadataUpdateService {
     if (!currentTitle) return true;
     if (!newTitle) return false;
 
-    const similarity = calculateStringSimilarity(
-      currentTitle.toLowerCase(),
-      newTitle.toLowerCase(),
-    );
-
-    return similarity < 0.8 && newTitle.length > currentTitle.length;
+    return isExactTitleMatch(currentTitle, newTitle);
   }
 
   shouldUpdateAuthors(item: Zotero.Item, newAuthors: string[]): boolean {

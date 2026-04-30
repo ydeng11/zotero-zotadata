@@ -10,7 +10,8 @@ import {
   normalizeDoi,
 } from "@/utils/itemSearchQuery";
 import { validateMetadataMatch } from "@/utils/authorValidation";
-import { calculateTitleSimilarity } from "@/utils/similarity";
+import { isExactTitleMatch } from "@/utils/similarity";
+import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import {
   extractYearFromDate,
   extractAuthorsFromItem,
@@ -19,6 +20,7 @@ import type {
   SearchQuery,
   SearchResult,
   SemanticScholarPaper,
+  CrossRefWork,
 } from "@/shared/core/types";
 import type { DOIDiscoveryOptions } from "./types";
 
@@ -129,7 +131,7 @@ export class DOIDiscoveryService {
       return false;
     }
 
-    return calculateTitleSimilarity(metadataTitle, currentTitle) >= 0.9;
+    return isExactTitleMatch(metadataTitle, currentTitle);
   }
 
   async searchCrossRefForDOI(
@@ -145,7 +147,7 @@ export class DOIDiscoveryService {
       this.buildSearchQuery(item, { includeDoi: !options.ignoreExistingDoi }),
     );
 
-    const results: SearchResult[] = works.map((work) => ({
+    const results: SearchResult[] = works.map((work: CrossRefWork) => ({
       title: Array.isArray(work.title) ? work.title[0] : work.title || "",
       authors:
         work.author?.map((a) =>
@@ -155,9 +157,15 @@ export class DOIDiscoveryService {
       doi: work.DOI ? normalizeDoi(work.DOI) : undefined,
       confidence: 1,
       source: "CrossRef",
+      containerTitle: work["container-title"]?.[0],
+      volume: work.volume,
+      issue: work.issue,
+      pages: work.page,
+      language: work.language,
+      itemType: mapCrossRefTypeToZotero(work.type),
     }));
 
-    return this.pickDoiBySimilarity(results, title, 0.8, options, item);
+    return this.pickDoiBySimilarity(results, title, options, item);
   }
 
   async searchOpenAlexForDOI(
@@ -176,7 +184,6 @@ export class DOIDiscoveryService {
     const exactDoi = this.pickDoiBySimilarity(
       exactResults,
       title,
-      0.95,
       options,
       item,
     );
@@ -188,7 +195,7 @@ export class DOIDiscoveryService {
       title,
       year: extractYearFromDate(String(item.getField("date") ?? "")),
     });
-    return this.pickDoiBySimilarity(results, title, 0.9, options, item);
+    return this.pickDoiBySimilarity(results, title, options, item);
   }
 
   async searchSemanticScholarForDOI(
@@ -203,12 +210,7 @@ export class DOIDiscoveryService {
     const exactQuery = this.buildSemanticScholarExactQuery(item, title);
     const exactPapers =
       await this.semanticScholarAPI.searchPapersWithExternalIds(exactQuery, 3);
-    const exactDoi = this.pickSemanticScholarDoi(
-      exactPapers,
-      title,
-      0.95,
-      options,
-    );
+    const exactDoi = this.pickSemanticScholarDoi(exactPapers, title, options);
     if (exactDoi) {
       return exactDoi;
     }
@@ -220,7 +222,7 @@ export class DOIDiscoveryService {
       .trim();
     const relaxedPapers =
       await this.semanticScholarAPI.searchPapersWithExternalIds(cleaned, 10);
-    return this.pickSemanticScholarDoi(relaxedPapers, title, 0.9, options);
+    return this.pickSemanticScholarDoi(relaxedPapers, title, options);
   }
 
   async searchDBLPForDOI(item: Zotero.Item): Promise<string | null> {
@@ -265,11 +267,7 @@ export class DOIDiscoveryService {
       for (const hit of hits) {
         const doi = hit.info?.doi;
         const hitTitle = hit.info?.title;
-        if (
-          doi &&
-          hitTitle &&
-          calculateTitleSimilarity(hitTitle, title) > 0.9
-        ) {
+        if (doi && hitTitle && isExactTitleMatch(hitTitle, title)) {
           return normalizeDoi(doi);
         }
       }
@@ -355,6 +353,26 @@ export class DOIDiscoveryService {
       query.arxivId = arxivId;
     }
 
+    const publicationTitle = item.getField("publicationTitle");
+    if (publicationTitle) {
+      query.containerTitle = String(publicationTitle).trim();
+    }
+
+    const issn = item.getField("ISSN");
+    if (issn) {
+      query.issn = String(issn).trim();
+    }
+
+    const volume = item.getField("volume");
+    if (volume) {
+      query.volume = String(volume).trim();
+    }
+
+    const issue = item.getField("issue");
+    if (issue) {
+      query.issue = String(issue).trim();
+    }
+
     return query;
   }
 
@@ -376,7 +394,6 @@ export class DOIDiscoveryService {
   private pickDoiBySimilarity(
     results: SearchResult[],
     title: string,
-    minSimilarity: number,
     options: DOIDiscoveryOptions = {},
     item?: Zotero.Item,
   ): string | null {
@@ -387,9 +404,7 @@ export class DOIDiscoveryService {
       if (options.publishedOnly && isArxivDoi(doi)) continue;
 
       const resultTitle = result.title || "";
-      const similarity = calculateTitleSimilarity(resultTitle, title);
-
-      if (similarity < minSimilarity) continue;
+      if (!isExactTitleMatch(resultTitle, title)) continue;
 
       if (item) {
         const validation = validateMetadataMatch(item, result);
@@ -408,15 +423,11 @@ export class DOIDiscoveryService {
   private pickSemanticScholarDoi(
     papers: SemanticScholarPaper[],
     title: string,
-    minSimilarity: number,
     options: DOIDiscoveryOptions = {},
   ): string | null {
     for (const paper of papers) {
       const candidate = String(paper.title ?? "").trim();
-      if (
-        !candidate ||
-        calculateTitleSimilarity(candidate, title) <= minSimilarity
-      ) {
+      if (!candidate || !isExactTitleMatch(candidate, title)) {
         continue;
       }
 

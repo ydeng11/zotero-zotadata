@@ -1,4 +1,5 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { isExactTitleMatch } from "@/utils/similarity";
 import type {
   SemanticScholarPaper,
   SearchQuery,
@@ -24,7 +25,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const searchQuery = this.buildSearchQuery(query);
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=25&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=25&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     const response = await this.request<{
       total: number;
@@ -43,7 +44,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const cleanDOI = this.cleanDOI(doi);
     // Slashes in DOIs (e.g. 10.48550/arxiv.xxx) must be one path segment — encode the full S2 paper id
     const paperId = `DOI:${cleanDOI}`;
-    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -59,7 +60,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Search by paper ID
    */
   async getPaperById(paperId: string): Promise<SearchResult | null> {
-    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -91,7 +92,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       searchQuery += ` year:${query.year}`;
     }
 
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     const response = await this.request<{
       total: number;
@@ -108,7 +109,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const searchQuery = this.buildSearchQuery(query);
     // Semantic Scholar doesn't have a direct open access filter,
     // so we'll search normally and filter results
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=50&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=50&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     const response = await this.request<{
       total: number;
@@ -130,7 +131,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const cleanArxivId = arxivId.replace(/^arxiv:/i, "");
     const searchQuery = `arxiv:${cleanArxivId}`;
 
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
 
     const response = await this.request<{
       total: number;
@@ -147,7 +148,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     query: string,
     limit = 10,
   ): Promise<SemanticScholarPaper[]> {
-    const endpoint = `/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,externalIds`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal,externalIds`;
 
     try {
       const response = await this.request<{
@@ -209,6 +210,9 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
         pdfUrl: paper.openAccessPdf?.url,
         confidence: this.calculateConfidence(paper, originalQuery),
         source: "Semantic Scholar",
+        containerTitle: paper.venue || paper.journal?.name,
+        volume: paper.journal?.volume,
+        pages: paper.journal?.pages,
       };
 
       return result;
@@ -222,18 +226,27 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     paper: SemanticScholarPaper,
     query: SearchQuery,
   ): number {
-    let confidence = 0.7; // Base confidence for Semantic Scholar
-
-    // Title similarity
-    if (query.title && paper.title) {
-      const similarity = this.calculateTitleSimilarity(
-        query.title,
-        paper.title,
-      );
-      confidence += similarity * 0.25;
+    // DOI check - exact match or reject
+    if (query.doi) {
+      if (paper.doi && this.cleanDOI(query.doi) === this.cleanDOI(paper.doi)) {
+        return 1.0;
+      }
+      return 0.1;
     }
 
-    // Author match
+    // Title check - must match if title is in query
+    if (query.title && paper.title) {
+      if (!isExactTitleMatch(query.title, paper.title)) {
+        return 0.1;
+      }
+    }
+
+    let confidence = 0.7;
+
+    if (query.title && paper.title) {
+      confidence += 0.25;
+    }
+
     if (query.authors && paper.authors) {
       const paperAuthors = paper.authors.map((a) => a.name);
       const authorMatch = this.calculateAuthorMatch(
@@ -243,7 +256,6 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       confidence += authorMatch * 0.2;
     }
 
-    // Year match
     if (query.year && paper.year) {
       const yearDiff = Math.abs(query.year - paper.year);
       if (yearDiff === 0) confidence += 0.15;
@@ -251,21 +263,11 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       else if (yearDiff <= 2) confidence += 0.05;
     }
 
-    // DOI exact match
-    if (query.doi && paper.doi) {
-      if (this.cleanDOI(query.doi) === this.cleanDOI(paper.doi)) {
-        confidence = 1.0;
-      }
-    }
-
-    // Open access PDF bonus
     if (paper.openAccessPdf && paper.openAccessPdf.url) {
       confidence += 0.1;
     }
 
-    // ArXiv ID match
     if (query.arxivId) {
-      // Check if title or other fields contain arXiv reference
       const titleContainsArxiv = paper.title
         .toLowerCase()
         .includes(query.arxivId.toLowerCase());
@@ -275,38 +277,6 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     }
 
     return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Calculate title similarity using word overlap
-   */
-  private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) =>
-      str
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const words1 = new Set(
-      normalize(title1)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-    const words2 = new Set(
-      normalize(title2)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-
-    if (words1.size === 0 || words2.size === 0) return 0;
-
-    const intersection = new Set(
-      [...words1].filter((word) => words2.has(word)),
-    );
-    const union = new Set([...words1, ...words2]);
-
-    return intersection.size / union.size;
   }
 
   /**
