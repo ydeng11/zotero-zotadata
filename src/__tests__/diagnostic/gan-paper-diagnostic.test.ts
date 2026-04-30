@@ -7,6 +7,7 @@ import {
   buildCanonicalArxivDoi,
   isArxivDoi,
 } from "@/utils/itemSearchQuery";
+import { isExactTitleMatch } from "@/utils/similarity";
 
 function createMockItem(fields: Record<string, any>): any {
   const data: Record<string, any> = {
@@ -83,25 +84,25 @@ describe("Diagnostic: Generative Adversarial Nets Paper", () => {
   });
 
   describe("Title Similarity Issues", () => {
-    it("tests title similarity function with GAN paper title", () => {
+    it("tests title exact match function with GAN paper title", () => {
       const title1 = "Generative Adversarial Nets";
       const title2 = "Generative Adversarial Nets"; // Exact match
       const title3 =
         "InfoGAN: Interpretable Representation Learning by Information Maximizing Generative Adversarial Nets"; // Similar but different
       const title4 = "Generative Adversarial Nets"; // Different year paper with same title
 
-      // Test with ArxivProcessor's titleSimilarity function
-      const sim1 = ArxivProcessor.titleSimilarity(title1, title2);
-      const sim2 = ArxivProcessor.titleSimilarity(title1, title3);
-      const sim3 = ArxivProcessor.titleSimilarity(title1, title4);
+      // Test with isExactTitleMatch function
+      const match1 = isExactTitleMatch(title1, title2);
+      const match2 = isExactTitleMatch(title1, title3);
+      const match3 = isExactTitleMatch(title1, title4);
 
-      console.log("Title similarity exact match:", sim1);
-      console.log("Title similarity with InfoGAN:", sim2);
-      console.log("Title similarity with duplicate title:", sim3);
+      console.log("Title exact match (same):", match1);
+      console.log("Title exact match (InfoGAN):", match2);
+      console.log("Title exact match (duplicate title):", match3);
 
-      expect(sim1).toBe(1.0);
-      expect(sim2).toBeLessThan(0.7); // InfoGAN should be rejected
-      expect(sim3).toBe(1.0); // Same title would match perfectly
+      expect(match1).toBe(true);
+      expect(match2).toBe(false); // InfoGAN should be rejected
+      expect(match3).toBe(true); // Same title would match
     });
   });
 
@@ -147,21 +148,16 @@ describe("Diagnostic: Generative Adversarial Nets Paper", () => {
         venue: "Machine Learning under Malware Attack",
       };
 
-      const similarity = ArxivProcessor.titleSimilarity(
-        GAN_PAPER.title,
-        mockWrongResult.title,
-      );
+      const isMatch = isExactTitleMatch(GAN_PAPER.title, mockWrongResult.title);
 
       console.log(
-        "Similarity with wrong paper (same title, different authors):",
-        similarity,
+        "Exact match with wrong paper (same title, different authors):",
+        isMatch,
       );
-      console.log(
-        "This paper would match with similarity 1.0 because titles are identical",
-      );
+      console.log("This paper would match because titles are identical");
 
       // This is the KEY ISSUE - identical titles from different papers will match
-      expect(similarity).toBe(1.0);
+      expect(isMatch).toBe(true);
 
       // However, the authors list length differs significantly
       const authorCountDiff =

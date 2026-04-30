@@ -1,6 +1,6 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
 import { cleanISBN, buildAlternativeISBNCandidates } from "@/utils/isbn";
-import { calculateTitleSimilarity } from "@/utils/similarity";
+import { isExactTitleMatch } from "@/utils/similarity";
 import type {
   BookMetadataSource,
   LegacyFetchResult,
@@ -130,11 +130,7 @@ export class BookMetadataService {
         docs?: Array<{ isbn?: string[]; title?: string }>;
       };
       for (const doc of payload.docs ?? []) {
-        if (
-          doc.isbn?.[0] &&
-          doc.title &&
-          calculateTitleSimilarity(doc.title, title) > 0.8
-        ) {
+        if (doc.isbn?.[0] && doc.title && isExactTitleMatch(doc.title, title)) {
           return cleanISBN(doc.isbn[0]);
         }
       }
@@ -171,10 +167,7 @@ export class BookMetadataService {
       };
       for (const itemInfo of payload.items ?? []) {
         const volumeInfo = itemInfo.volumeInfo;
-        if (
-          volumeInfo?.title &&
-          calculateTitleSimilarity(volumeInfo.title, title) > 0.8
-        ) {
+        if (volumeInfo?.title && isExactTitleMatch(volumeInfo.title, title)) {
           const identifier = volumeInfo.industryIdentifiers?.find(
             (entry) => entry.type === "ISBN_13" || entry.type === "ISBN_10",
           );

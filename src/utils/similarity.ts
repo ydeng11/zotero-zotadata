@@ -1,28 +1,40 @@
-export function calculateTitleSimilarity(
-  title1: string,
-  title2: string,
-): number {
-  const normalize = (value: string): string =>
-    value
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+const ABBREVIATION_MAP: Record<string, string> = {
+  nets: "networks",
+  net: "network",
+  ai: "artificial intelligence",
+  ml: "machine learning",
+  dl: "deep learning",
+  nlp: "natural language processing",
+  cv: "computer vision",
+  rl: "reinforcement learning",
+  nn: "neural network",
+  dnn: "deep neural network",
+  cnn: "convolutional neural network",
+  rnn: "recurrent neural network",
+  gan: "generative adversarial network",
+  vae: "variational autoencoder",
+  lstm: "long short-term memory",
+  transformer: "transformer",
+  bert: "bert",
+  gpt: "gpt",
+};
 
-  const normalizedOne = normalize(title1);
-  const normalizedTwo = normalize(title2);
-  if (normalizedOne === normalizedTwo) {
-    return 1;
+function expandAbbreviations(text: string): string {
+  let expanded = text;
+  for (const [abbr, expansion] of Object.entries(ABBREVIATION_MAP)) {
+    expanded = expanded.replace(new RegExp(`\\b${abbr}\\b`, "g"), expansion);
   }
+  return expanded;
+}
 
-  const wordsOne = new Set(normalizedOne.split(" ").filter(Boolean));
-  const wordsTwo = new Set(normalizedTwo.split(" ").filter(Boolean));
-  const intersection = new Set(
-    [...wordsOne].filter((word) => wordsTwo.has(word)),
-  );
-  const union = new Set([...wordsOne, ...wordsTwo]);
-  return union.size > 0 ? intersection.size / union.size : 0;
+export function isExactTitleMatch(title1: string, title2: string): boolean {
+  const normalize = (s: string): string => {
+    const lowercased = s.toLowerCase();
+    const cleaned = lowercased.replace(/[^\w\s]/g, " ");
+    const expanded = expandAbbreviations(cleaned);
+    return expanded.replace(/\s+/g, "").trim();
+  };
+  return normalize(title1) === normalize(title2);
 }
 
 export function calculateStringSimilarity(str1: string, str2: string): number {
