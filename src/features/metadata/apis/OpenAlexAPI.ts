@@ -26,7 +26,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const searchParams = this.buildSearchParams(query);
-    const endpoint = `/works?${searchParams}&per-page=25&sort=relevance_score:desc`;
+    const endpoint = `/works?${searchParams}`;
 
     const response = await this.request<{
       results: OpenAlexWork[];
@@ -65,26 +65,9 @@ export class OpenAlexAPI extends BaseMetadataAPI {
       return this.search(query);
     }
 
-    const titleQuery = this.cleanTitle(query.title);
-    const authorQuery = query.authors[0]; // Use first author
-    const filters = [
-      `title.search:${titleQuery}`,
-      `authorships.author.display_name.search:${authorQuery}`,
-    ];
+    const searchParams = this.buildSearchParams(query);
+    const endpoint = `/works?${searchParams}`;
 
-    if (query.year) {
-      filters.push(`publication_year:${query.year}`);
-    }
-
-    const searchParams = new URLSearchParams({
-      filter: filters.join(","),
-      select:
-        "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
-      "per-page": "10",
-      sort: "relevance_score:desc",
-    });
-
-    const endpoint = `/works?${searchParams.toString()}`;
     const response = await this.request<{
       results: OpenAlexWork[];
     }>(endpoint);
@@ -96,8 +79,10 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Search for open access versions
    */
   async searchOpenAccess(query: SearchQuery): Promise<SearchResult[]> {
-    const searchParams = this.buildSearchParams(query);
-    const endpoint = `/works?${searchParams}&filter=open_access.is_oa:true&per-page=15&sort=relevance_score:desc`;
+    const searchParams = this.buildSearchParams(query, [
+      "open_access.is_oa:true",
+    ]);
+    const endpoint = `/works?${searchParams}`;
 
     const response = await this.request<{
       results: OpenAlexWork[];
@@ -109,20 +94,21 @@ export class OpenAlexAPI extends BaseMetadataAPI {
   /**
    * Build search parameters for OpenAlex API
    */
-  private buildSearchParams(query: SearchQuery): string {
+  private buildSearchParams(
+    query: SearchQuery,
+    additionalFilters?: string[],
+  ): string {
     const params = new URLSearchParams();
     const filters: string[] = [];
 
     if (query.title) {
-      filters.push(`title.search:${this.cleanTitle(query.title)}`);
+      params.append("search", this.cleanTitle(query.title));
     }
 
     if (query.authors && query.authors.length > 0) {
-      const authorFilters = query.authors
-        .slice(0, 3)
-        .map((author) => `authorships.author.display_name.search:${author}`)
-        .join("|");
-      filters.push(authorFilters);
+      filters.push(
+        `authorships.author.display_name.search:${query.authors[0]}`,
+      );
     }
 
     if (query.year) {
@@ -130,7 +116,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     }
 
     if (query.doi) {
-      filters.push(`doi:${this.cleanDOI(query.doi)}`);
+      filters.push(`doi:https://doi.org/${this.cleanDOI(query.doi)}`);
+    }
+
+    if (additionalFilters) {
+      filters.push(...additionalFilters);
     }
 
     if (filters.length > 0) {
@@ -139,8 +129,10 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     params.append(
       "select",
-      "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
+      "id,doi,title,display_name,authorships,publication_year,primary_location,open_access,biblio,type_crossref,language",
     );
+    params.append("per-page", "25");
+    params.append("sort", "relevance_score:desc");
 
     return params.toString();
   }

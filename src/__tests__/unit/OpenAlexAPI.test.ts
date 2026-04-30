@@ -22,6 +22,72 @@ describe("OpenAlexAPI", () => {
     vi.clearAllMocks();
   });
 
+  describe("search query building", () => {
+    it("uses search parameter for title (not deprecated title.search filter)", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [],
+          meta: { count: 0, db_response_time_ms: 25 },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.search({ title: "Test Paper" });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("search=Test+Paper");
+      expect(requestUrl).not.toContain("title.search");
+    });
+
+    it("uses only first author in filter (not multiple authors)", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [],
+          meta: { count: 0, db_response_time_ms: 25 },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.search({
+        title: "Test Paper",
+        authors: ["Smith", "Johnson", "Williams"],
+        year: 2020,
+      });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("authorships.author.display_name.search%3ASmith");
+      expect(requestUrl).not.toContain("Johnson");
+      expect(requestUrl).not.toContain("Williams");
+    });
+
+    it("uses full URL format for DOI filter", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [],
+          meta: { count: 0, db_response_time_ms: 25 },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.search({ doi: "10.1234/test.doi" });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("doi%3Ahttps%3A%2F%2Fdoi.org%2F10.1234%2Ftest.doi");
+    });
+  });
+
   describe("search", () => {
     it("should search for works with title and authors", async () => {
       const mockResponse = {
@@ -111,7 +177,7 @@ describe("OpenAlexAPI", () => {
   });
 
   describe("searchExact", () => {
-    it("uses a single combined filter for title, author, and year", async () => {
+    it("uses search parameter for title and filter for author and year", async () => {
       const mockResponse = {
         status: 200,
         statusText: "OK",
@@ -131,10 +197,8 @@ describe("OpenAlexAPI", () => {
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
 
-      expect(requestUrl).toContain(
-        "filter=title.search%3ASemi+Supervised+Learning+with+Deep+Generative+Models%2Cauthorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014",
-      );
-      expect(requestUrl).not.toContain("&filter=publication_year%3A2014");
+      expect(requestUrl).toContain("search=Semi+Supervised+Learning+with+Deep+Generative+Models");
+      expect(requestUrl).toContain("filter=authorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014");
     });
   });
 
@@ -176,6 +240,30 @@ describe("OpenAlexAPI", () => {
   });
 
   describe("searchOpenAccess", () => {
+    it("combines open_access.is_oa filter correctly with other filters", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [],
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.searchOpenAccess({
+        title: "Open Access Paper",
+        authors: ["Smith"],
+        year: 2023,
+      });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("search=Open+Access+Paper");
+      expect(requestUrl).toContain("open_access.is_oa%3Atrue");
+      expect(requestUrl).not.toContain("&filter=open_access.is_oa"); // Should be in main filter, not separate
+    });
+
     it("should filter for open access papers", async () => {
       const mockResponse = {
         status: 200,
