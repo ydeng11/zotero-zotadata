@@ -219,11 +219,14 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       return [];
     }
     return papers.map((paper) => {
+      // DOI is in externalIds.DOI, not paper.doi
+      const doi = paper.externalIds?.DOI || paper.doi;
+      
       const result: SearchResult = {
         title: paper.title,
         authors: paper.authors?.map((author) => author.name) || [],
         year: paper.year,
-        doi: paper.doi,
+        doi: doi,
         url: paper.url,
         pdfUrl: paper.openAccessPdf?.url,
         confidence: this.calculateConfidence(paper, originalQuery),
@@ -231,6 +234,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
         containerTitle: paper.venue || paper.journal?.name,
         volume: paper.journal?.volume,
         pages: paper.journal?.pages,
+        itemType: mapSemanticScholarTypeToZotero(paper.publicationTypes),
       };
 
       return result;
@@ -245,8 +249,11 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     query: SearchQuery,
   ): number {
     // DOI check - exact match or reject
+    // DOI is in externalIds.DOI
+    const paperDOI = paper.externalIds?.DOI || paper.doi;
+    
     if (query.doi) {
-      if (paper.doi && this.cleanDOI(query.doi) === this.cleanDOI(paper.doi)) {
+      if (paperDOI && this.cleanDOI(query.doi) === this.cleanDOI(paperDOI)) {
         return 1.0;
       }
       return 0.1;
@@ -286,11 +293,17 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     }
 
     if (query.arxivId) {
-      const titleContainsArxiv = paper.title
-        .toLowerCase()
-        .includes(query.arxivId.toLowerCase());
-      if (titleContainsArxiv) {
-        confidence += 0.2;
+      // ArXiv ID is in externalIds.ArXiv
+      const paperArxiv = paper.externalIds?.ArXiv;
+      if (paperArxiv && paperArxiv.toLowerCase() === query.arxivId.toLowerCase()) {
+        confidence += 0.3; // Strong match for ArXiv ID
+      } else {
+        const titleContainsArxiv = paper.title
+          .toLowerCase()
+          .includes(query.arxivId.toLowerCase());
+        if (titleContainsArxiv) {
+          confidence += 0.2;
+        }
       }
     }
 
