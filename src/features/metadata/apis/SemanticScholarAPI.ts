@@ -1,5 +1,6 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
 import { isExactTitleMatch } from "@/utils/similarity";
+import { mapSemanticScholarTypeToZotero } from "@/utils/typeMapping";
 import type {
   SemanticScholarPaper,
   SearchQuery,
@@ -30,8 +31,8 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Search Semantic Scholar for papers matching the query
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    const searchQuery = this.buildSearchQuery(query);
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=25&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
+    const searchParams = this.buildSearchQuery(query);
+    const endpoint = `/paper/search?${searchParams}&limit=25&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;
@@ -168,32 +169,43 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
   }
 
   /**
-   * Build search query for Semantic Scholar API
+   * Build search query for Semantic Scholar API using URLSearchParams
+   * Uses only first author (like CrossRef/OpenAlex) for better precision
    */
   private buildSearchQuery(query: SearchQuery): string {
-    const parts: string[] = [];
+    const params = new URLSearchParams();
+    const queryParts: string[] = [];
 
+    // Title: Semantic Scholar searches title and abstract by default
     if (query.title) {
       const cleanTitle = this.cleanTitle(query.title);
-      parts.push(cleanTitle);
+      queryParts.push(cleanTitle);
     }
 
+    // Author: Use only first author for precision (matches CrossRef/OpenAlex pattern)
     if (query.authors && query.authors.length > 0) {
-      const authorParts = query.authors
-        .slice(0, 3)
-        .map((author) => `author:"${author}"`);
-      parts.push(`(${authorParts.join(" OR ")})`);
+      const author = query.authors[0];
+      // Extract last name if possible (more reliable for academic papers)
+      const lastName = author.split(" ").pop() || author;
+      queryParts.push(`author:"${lastName}"`);
     }
 
+    // Year filter
     if (query.year) {
-      parts.push(`year:${query.year}`);
+      queryParts.push(`year:${query.year}`);
     }
 
-    if (query.doi) {
-      parts.push(`doi:${this.cleanDOI(query.doi)}`);
+    // Venue/container title search
+    if (query.containerTitle) {
+      queryParts.push(`venue:"${query.containerTitle}"`);
     }
 
-    return parts.join(" ");
+    // DOI: handled by getPaperByDOI() method, not in general search
+    
+    const searchQuery = queryParts.join(" ");
+    params.append("query", searchQuery);
+
+    return params.toString();
   }
 
   /**
