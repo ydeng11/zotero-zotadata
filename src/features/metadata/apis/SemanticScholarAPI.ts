@@ -12,6 +12,12 @@ import type {
  * https://api.semanticscholar.org/
  */
 export class SemanticScholarAPI extends BaseMetadataAPI {
+  private static readonly SEARCH_FIELDS =
+    "paperId,title,authors,year,venue,externalIds,url,openAccessPdf,journal,publicationTypes,publicationDate";
+
+  private static readonly PAPER_FIELDS =
+    "paperId,title,authors,year,venue,externalIds,url,openAccessPdf,journal,publicationTypes,publicationDate";
+
   constructor() {
     super(
       "https://api.semanticscholar.org/graph/v1",
@@ -25,7 +31,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const searchQuery = this.buildSearchQuery(query);
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=25&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=25&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;
@@ -44,7 +50,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const cleanDOI = this.cleanDOI(doi);
     // Slashes in DOIs (e.g. 10.48550/arxiv.xxx) must be one path segment — encode the full S2 paper id
     const paperId = `DOI:${cleanDOI}`;
-    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=${SemanticScholarAPI.PAPER_FIELDS}`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -60,7 +66,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Search by paper ID
    */
   async getPaperById(paperId: string): Promise<SearchResult | null> {
-    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/${encodeURIComponent(paperId)}?fields=${SemanticScholarAPI.PAPER_FIELDS}`;
 
     try {
       const response = await this.request<SemanticScholarPaper>(endpoint);
@@ -92,7 +98,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       searchQuery += ` year:${query.year}`;
     }
 
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;
@@ -109,7 +115,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const searchQuery = this.buildSearchQuery(query);
     // Semantic Scholar doesn't have a direct open access filter,
     // so we'll search normally and filter results
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=50&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=50&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;
@@ -131,7 +137,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     const cleanArxivId = arxivId.replace(/^arxiv:/i, "");
     const searchQuery = `arxiv:${cleanArxivId}`;
 
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=10&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;
@@ -148,7 +154,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     query: string,
     limit = 10,
   ): Promise<SemanticScholarPaper[]> {
-    const endpoint = `/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=paperId,title,authors,year,venue,doi,url,openAccessPdf,journal,externalIds`;
+    const endpoint = `/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     try {
       const response = await this.request<{
