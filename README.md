@@ -143,19 +143,21 @@ Select multiple items to process them all at once. A progress dialog will show t
 
 ## Metadata Fetching
 
-### Author Disambiguation
+### Metadata Matching
 
-The plugin uses multi-factor validation to ensure correct metadata matching, especially for papers with identical titles:
+The plugin uses strict matching criteria to ensure correct metadata:
 
-1. **Author Overlap**: Validates that search results share authors with the item
-2. **Author Count Similarity**: Rejects matches with drastically different author counts
-3. **Year Proximity**: Considers publication year in scoring
-4. **Title Similarity**: Uses word-based similarity scoring
-5. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+1. **Exact Title Match**: Requires exact title match (with abbreviation expansion like nets→networks, ml→machine learning)
+2. **Author Overlap**: Validates that search results share authors with the item
+3. **Author Count Similarity**: Rejects matches with drastically different author counts
+4. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+
+This prevents weak/partial matches (e.g., "GAN" matching unrelated papers, or quantum ML papers matching adversarial ML papers) from overwriting correct metadata.
 
 For best results, ensure your items have:
 
 - Complete author lists (not just first author)
+- Accurate title
 - Publication year
 - arXiv ID in Extra field (format: `arXiv: XXXX.XXXXX`)
 
@@ -163,16 +165,19 @@ For best results, ensure your items have:
 
 This famous paper has multiple versions and even other papers with identical titles. The plugin correctly identifies it by:
 
-1. Matching multiple authors (Goodfellow, Bengio, etc.)
-2. Checking year (2014 vs 2023 for other papers)
+1. Exact title match with abbreviation expansion
+2. Matching multiple authors (Goodfellow, Bengio, etc.)
 3. Falling back to arXiv DOI (10.48550/arxiv.1406.2661) if published DOI not found
+
+Weak matches like "GAN" or papers with similar titles but different authors are rejected.
 
 ### Update Metadata Best Practices
 
 When using the **Update Metadata** feature:
 
 - **DOI is Critical**: The feature heavily relies on a correct DOI for accurate metadata retrieval. If the DOI is missing or incorrect, results may be unreliable.
-- **Remove Authors First**: For best results, consider removing the authors field before updating metadata. This allows the plugin to search and match based on title and DOI without being confused by incomplete or incorrect author information.
+- **Authors are Replaced**: New authors from metadata will replace existing authors (non-author creators like editors are preserved).
+- **Exact Title Required**: Only exact title matches will update metadata, preventing incorrect matches.
 
 ## Success Rates & Expectations
 

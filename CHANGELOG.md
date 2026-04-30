@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2025-04-30
+
+### Added
+
+#### Semantic Scholar API Improvements
+
+- **Publication types support** - Added `publicationTypes` and `publicationDate` fields to search results
+- **DOI extraction from externalIds** - Fixed DOI retrieval using `externalIds.DOI` instead of invalid `doi` field
+- **Publication type mapping** - Maps Semantic Scholar types to Zotero item types (journalArticle, conferencePaper, preprint, etc.)
+
+#### Bibliographic Metadata Capture
+
+- **Extended SearchResult fields** - Added `containerTitle`, `volume`, `issue`, `pages`, `language`, and `itemType`
+- **API response enrichment** - All APIs now capture bibliographic metadata (CrossRef, OpenAlex, Semantic Scholar)
+- **Better metadata completeness** - Volume, issue, pages now populated from API responses
+
+### Fixed
+
+#### Metadata Matching Quality (Issue #12)
+
+- **Exact title matching** - Replaced fuzzy similarity scoring with exact title matching to prevent weak matches from overwriting correct metadata
+- **Abbreviation expansion** - Common abbreviations expanded for better matching (nets→networks, ml→machine learning)
+- **Prevents incorrect matches** - Cases like "GAN" matching unrelated papers or quantum ML papers matching adversarial ML papers are now rejected
+
+#### Author Handling (Issue #13)
+
+- **Author replacement instead of appending** - Fixed duplicate authors bug where metadata fetch would append new authors instead of replacing existing ones
+- **Creator type preservation** - Non-author creators (editors, translators) are preserved during author updates
+
+#### Semantic Scholar Query Building
+
+- **Single author queries** - Use only first author for queries (matching CrossRef approach)
+- **URLSearchParams encoding** - Proper query parameter encoding
+- **DOI filter format** - Fixed DOI filter to use full URL format (doi:https://doi.org/xxx)
+
+#### OpenAlex API Query Building
+
+- **Search parameter fix** - Use recommended 'search' parameter instead of deprecated 'title.search' filter
+- **Single author queries** - Query only first author instead of multiple with OR logic
+- **DOI filter format** - Fixed DOI filter to use full URL format
+- **Additional metadata fields** - Added biblio, type_crossref, language to select fields
+
+### Changed
+
+#### Metadata Fetcher Refactoring
+
+- **Removed DOI discovery tags** - "DOI Added" and "No DOI Found" tags removed as DOI discovery is an internal detail
+- **Cleaner workflow** - DOI discovery no longer adds visual clutter to items
+
+#### Exact Match Implementation
+
+- **Centralized exact matching** - New `isExactTitleMatch()` function in similarity.ts
+- **Updated validation logic** - authorValidation.ts, ArxivProcessor.ts, FileFinder.ts, BookMetadataService.ts now use exact match checks
+- **Tests updated** - All tests verify exact match behavior
+
+---
+
 ## [1.4.0] - 2025-04-18
 
 ### Added
