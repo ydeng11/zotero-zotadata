@@ -49,7 +49,9 @@ describe("MetadataFetcher - CrossRef Incorrect Match Rejection", () => {
       },
     ]);
 
-    const result = await fetcher.fetchMetadataForItem(item);
+    const result = await fetcher.fetchMetadataForItem(item, {
+      strategy: "parallel",
+    });
 
     // Verify the fetch was successful
     expect(result.success).toBe(true);

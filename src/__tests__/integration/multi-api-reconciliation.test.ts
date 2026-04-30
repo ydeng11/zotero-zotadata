@@ -53,7 +53,9 @@ describe("MetadataFetcher - Multi-API Reconciliation", () => {
     // Semantic Scholar might be rate limited or return nothing
     vi.spyOn(SemanticScholarAPI.prototype, "search").mockResolvedValue([]);
 
-    const result = await fetcher.fetchMetadataForItem(item);
+    const result = await fetcher.fetchMetadataForItem(item, {
+      strategy: "parallel",
+    });
 
     expect(result.success).toBe(true);
     expect(item.setField).toHaveBeenCalledWith(

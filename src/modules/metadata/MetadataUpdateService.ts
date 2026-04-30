@@ -109,8 +109,8 @@ export class MetadataUpdateService {
   shouldUpdateTitle(currentTitle: string, newTitle: string): boolean {
     if (!currentTitle) return true;
     if (!newTitle) return false;
-
-    return isExactTitleMatch(currentTitle, newTitle);
+    if (isExactTitleMatch(currentTitle, newTitle)) return false;
+    return false;
   }
 
   shouldUpdateAuthors(item: Zotero.Item, newAuthors: string[]): boolean {

@@ -14,9 +14,6 @@ const ABBREVIATION_MAP: Record<string, string> = {
   gan: "generative adversarial network",
   vae: "variational autoencoder",
   lstm: "long short-term memory",
-  transformer: "transformer",
-  bert: "bert",
-  gpt: "gpt",
 };
 
 function expandAbbreviations(text: string): string {
