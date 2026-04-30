@@ -239,6 +239,7 @@ export interface SemanticScholarPaper {
   paperId: string;
   title: string;
   authors: Array<{
+    authorId?: string;
     name: string;
   }>;
   year?: number;
@@ -248,16 +249,21 @@ export interface SemanticScholarPaper {
     DOI?: string;
     ArXiv?: string;
     CorpusId?: string;
+    MAG?: string;
+    DBLP?: string;
   };
   url?: string;
   openAccessPdf?: {
     url: string;
+    status?: string;
   };
   journal?: {
     name?: string;
     volume?: string;
     pages?: string;
   };
+  publicationTypes?: string[];
+  publicationDate?: string;
 }
 
 export interface ArxivEntry {
