@@ -63,7 +63,9 @@ describe("OpenAlexAPI", () => {
       });
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
-      expect(requestUrl).toContain("authorships.author.display_name.search%3ASmith");
+      expect(requestUrl).toContain(
+        "authorships.author.display_name.search%3ASmith",
+      );
       expect(requestUrl).not.toContain("Johnson");
       expect(requestUrl).not.toContain("Williams");
     });
@@ -84,7 +86,9 @@ describe("OpenAlexAPI", () => {
       await openAlexAPI.search({ doi: "10.1234/test.doi" });
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
-      expect(requestUrl).toContain("doi%3Ahttps%3A%2F%2Fdoi.org%2F10.1234%2Ftest.doi");
+      expect(requestUrl).toContain(
+        "doi%3Ahttps%3A%2F%2Fdoi.org%2F10.1234%2Ftest.doi",
+      );
     });
   });
 
@@ -197,8 +201,12 @@ describe("OpenAlexAPI", () => {
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
 
-      expect(requestUrl).toContain("search=Semi+Supervised+Learning+with+Deep+Generative+Models");
-      expect(requestUrl).toContain("filter=authorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014");
+      expect(requestUrl).toContain(
+        "search=Semi+Supervised+Learning+with+Deep+Generative+Models",
+      );
+      expect(requestUrl).toContain(
+        "filter=authorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014",
+      );
     });
   });
 
