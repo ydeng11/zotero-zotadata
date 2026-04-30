@@ -111,7 +111,7 @@ describe("Metadata Pipeline Functions", () => {
       expect(item.addTag).toHaveBeenCalledWith("CrossRef Failed", 1);
     });
 
-    it("should add No DOI Found tag when no DOI discovered", async () => {
+    it("should return error when no DOI discovered", async () => {
       mockExtractDOI.mockReturnValue(null);
       mockDiscoverDOI.mockResolvedValue(null);
 
@@ -120,10 +120,9 @@ describe("Metadata Pipeline Functions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("No DOI found");
-      expect(item.addTag).toHaveBeenCalledWith("No DOI Found", 1);
     });
 
-    it("should add DOI Added tag when DOI is discovered", async () => {
+    it("should set DOI field when DOI is discovered", async () => {
       mockExtractDOI.mockReturnValue(null);
       mockDiscoverDOI.mockResolvedValue("10.1000/discovered.doi");
       mockFetchDOIMetadataViaTranslator.mockResolvedValue(true);
@@ -131,7 +130,10 @@ describe("Metadata Pipeline Functions", () => {
       const item = createMockItem({ title: "Test Paper" });
       await fetchDOIBasedMetadata(item);
 
-      expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
+      expect(item.setField).toHaveBeenCalledWith(
+        "DOI",
+        "10.1000/discovered.doi",
+      );
     });
   });
 

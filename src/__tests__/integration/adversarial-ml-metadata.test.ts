@@ -61,9 +61,6 @@ describe("MetadataFetcher - Adversarial Machine Learning at Scale Test", () => {
       "DOI",
       "10.48550/arxiv.1611.01236",
     );
-
-    // Verify tags were added correctly
-    expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
   });
 
   it("fetches correct metadata when given existing arXiv ID and verifies no tags added", async () => {
@@ -109,9 +106,6 @@ describe("MetadataFetcher - Adversarial Machine Learning at Scale Test", () => {
       "DOI",
       "10.48550/arXiv.1611.01236",
     );
-
-    // Verify tags were added correctly
-    expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
   });
 });
 

@@ -390,7 +390,6 @@ export class MetadataFetcher {
     ) {
       doi = resolvedDoi;
       item.setField("DOI", resolvedDoi);
-      item.addTag("DOI Added", 1);
       await item.saveTx();
       changes.push(
         `${existingDoi ? "Updated DOI" : "Added DOI"}: ${resolvedDoi}`,
@@ -402,7 +401,6 @@ export class MetadataFetcher {
     }
 
     if (!doi) {
-      item.addTag("No DOI Found", 1);
       await item.saveTx();
       return {
         success: false,
