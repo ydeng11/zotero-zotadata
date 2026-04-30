@@ -201,7 +201,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     }
 
     // DOI: handled by getPaperByDOI() method, not in general search
-    
+
     const searchQuery = queryParts.join(" ");
     params.append("query", searchQuery);
 
@@ -221,7 +221,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     return papers.map((paper) => {
       // DOI is in externalIds.DOI, not paper.doi
       const doi = paper.externalIds?.DOI || paper.doi;
-      
+
       const result: SearchResult = {
         title: paper.title,
         authors: paper.authors?.map((author) => author.name) || [],
@@ -251,7 +251,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     // DOI check - exact match or reject
     // DOI is in externalIds.DOI
     const paperDOI = paper.externalIds?.DOI || paper.doi;
-    
+
     if (query.doi) {
       if (paperDOI && this.cleanDOI(query.doi) === this.cleanDOI(paperDOI)) {
         return 1.0;
@@ -295,7 +295,10 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     if (query.arxivId) {
       // ArXiv ID is in externalIds.ArXiv
       const paperArxiv = paper.externalIds?.ArXiv;
-      if (paperArxiv && paperArxiv.toLowerCase() === query.arxivId.toLowerCase()) {
+      if (
+        paperArxiv &&
+        paperArxiv.toLowerCase() === query.arxivId.toLowerCase()
+      ) {
         confidence += 0.3; // Strong match for ArXiv ID
       } else {
         const titleContainsArxiv = paper.title

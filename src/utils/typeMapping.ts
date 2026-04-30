@@ -50,11 +50,11 @@ export function mapSemanticScholarTypeToZotero(
 
   for (const type of types) {
     if (!type) continue;
-    
+
     // Try exact match first (preserves camelCase like "JournalArticle")
     const exactMatch = SEMANTIC_SCHOLAR_TO_ZOTERO[type];
     if (exactMatch) return exactMatch;
-    
+
     // Then try case-insensitive match by comparing lowercase
     const typeLower = type.toLowerCase();
     for (const [key, value] of Object.entries(SEMANTIC_SCHOLAR_TO_ZOTERO)) {
