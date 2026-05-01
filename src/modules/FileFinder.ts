@@ -1284,6 +1284,8 @@ export class FileFinder {
     } catch {
       return isbn.replace(/[-\s]/g, "");
     }
+
+    return isbn.replace(/[-\s]/g, "");
   }
 
   private getItemTypeName(item: Zotero.Item): string {
