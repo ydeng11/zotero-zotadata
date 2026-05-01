@@ -113,10 +113,10 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Search for open access papers only
    */
   async searchOpenAccess(query: SearchQuery): Promise<SearchResult[]> {
-    const searchQuery = this.buildSearchQuery(query);
+    const searchParams = this.buildSearchQuery(query);
     // Semantic Scholar doesn't have a direct open access filter,
     // so we'll search normally and filter results
-    const endpoint = `/paper/search?query=${encodeURIComponent(searchQuery)}&limit=50&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
+    const endpoint = `/paper/search?${searchParams}&limit=50&fields=${SemanticScholarAPI.SEARCH_FIELDS}`;
 
     const response = await this.request<{
       total: number;

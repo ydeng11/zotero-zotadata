@@ -1,5 +1,6 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
+import { isExactTitleMatch } from "@/utils/similarity";
 import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
 import type { CrossRefWork } from "@/shared/core/types";
 
@@ -26,7 +27,10 @@ export class MetadataUpdateService {
       changes.push(`Updated title: ${metadataTitle}`);
     }
 
-    if (metadata.author?.length) {
+    if (
+      metadata.author?.length &&
+      this.shouldUpdateCrossRefAuthors(item, currentTitle, metadataTitle)
+    ) {
       this.applyCrossRefAuthors(item, metadata.author);
       changes.push(`Updated authors: ${metadata.author.length}`);
     }
@@ -119,6 +123,19 @@ export class MetadataUpdateService {
     if (currentAuthors.length > newAuthors.length * 1.5) return false;
 
     return newAuthors.length > currentAuthors.length;
+  }
+
+  private shouldUpdateCrossRefAuthors(
+    item: Zotero.Item,
+    currentTitle: string,
+    metadataTitle?: string,
+  ): boolean {
+    const currentAuthors = extractAuthorsFromItem(item);
+    if (currentAuthors.length === 0) return true;
+    if (!currentTitle.trim()) return true;
+    if (!metadataTitle) return false;
+
+    return isExactTitleMatch(currentTitle, metadataTitle);
   }
 
   private applyCrossRefAuthors(

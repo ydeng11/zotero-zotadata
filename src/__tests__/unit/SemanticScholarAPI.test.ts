@@ -94,6 +94,29 @@ describe("SemanticScholarAPI", () => {
   });
 
   describe("field handling", () => {
+    it("builds open access search URL without nesting query params", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          total: 0,
+          data: [],
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await semanticScholarAPI.searchOpenAccess({
+        title: "Open Access Paper",
+        authors: ["John Smith"],
+      });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("query=Open+Access+Paper");
+      expect(requestUrl).not.toContain("query=query%3D");
+    });
+
     it("requests externalIds field (not invalid doi field)", async () => {
       const mockResponse = {
         status: 200,

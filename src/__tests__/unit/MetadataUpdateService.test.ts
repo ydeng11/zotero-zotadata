@@ -175,6 +175,29 @@ describe("MetadataUpdateService", () => {
       );
     });
 
+    it("preserves existing authors when CrossRef title mismatches item title", async () => {
+      const item = createMockItem({
+        title: "Curated Local Paper",
+        DOI: "10.1234/stale",
+        creators: [
+          { firstName: "Original", lastName: "Author", creatorType: "author" },
+        ],
+      });
+
+      const staleMetadata = {
+        DOI: "10.1234/stale",
+        title: ["Completely Different Paper"],
+        author: [{ given: "Wrong", family: "Author" }],
+      };
+
+      const changes = await service.updateItemWithMetadata(item, staleMetadata);
+
+      expect(item.setCreators).not.toHaveBeenCalled();
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated authors"),
+      );
+    });
+
     it("preserves non-author creators when replacing authors", async () => {
       const item = createMockItem({
         title: "Test Paper",

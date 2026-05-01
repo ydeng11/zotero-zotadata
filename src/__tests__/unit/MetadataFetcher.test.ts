@@ -203,6 +203,46 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
   });
 
+  it("preserves existing authors when applying a weak search match", async () => {
+    vi.mocked(Zotero.ItemTypes.getName).mockImplementation((typeID: number) => {
+      if (typeID === 99) return "report";
+      if (typeID === 1) return "journalArticle";
+      if (typeID === 2) return "book";
+      if (typeID === 3) return "conferencePaper";
+      if (typeID === 4) return "preprint";
+      return "journalArticle";
+    });
+
+    const item = createMockItem({
+      itemTypeID: 99,
+      title: "Curated Local Title",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+
+    mockCrossRefAPI.search.mockResolvedValue([
+      {
+        title: "Completely Different Paper",
+        authors: ["Wrong Author"],
+        year: 2024,
+        confidence: 0.1,
+        source: "CrossRef",
+      },
+    ]);
+
+    const result = await fetcher.fetchMetadataForItem(item);
+
+    expect(result.success).toBe(true);
+    expect(item.setCreators).not.toHaveBeenCalled();
+    expect(item.getCreators()).toEqual([
+      {
+        firstName: "Original",
+        lastName: "Author",
+        creatorType: "author",
+      },
+    ]);
+  });
+
   it("treats translator-applied book metadata as a successful update", async () => {
     const item = createMockItem({
       ISBN: "9780123456789",

@@ -889,25 +889,30 @@ export class MetadataFetcher {
       }
 
       if (searchResult.authors && searchResult.authors.length > 0) {
-        const creators = item.getCreators();
-        const nonAuthors = creators.filter(
-          (creator) => creator.creatorType !== "author",
-        );
+        const shouldUpdateAuthors =
+          strongMatch ||
+          this.metadataUpdate.shouldUpdateAuthors(item, searchResult.authors);
+        if (shouldUpdateAuthors) {
+          const creators = item.getCreators();
+          const nonAuthors = creators.filter(
+            (creator) => creator.creatorType !== "author",
+          );
 
-        const newCreators = searchResult.authors.map((authorName) => {
-          const parts = authorName.split(" ");
-          const lastName = parts.pop() || "";
-          const firstName = parts.join(" ");
+          const newCreators = searchResult.authors.map((authorName) => {
+            const parts = authorName.split(" ");
+            const lastName = parts.pop() || "";
+            const firstName = parts.join(" ");
 
-          return {
-            creatorType: "author",
-            firstName,
-            lastName,
-          };
-        });
+            return {
+              creatorType: "author",
+              firstName,
+              lastName,
+            };
+          });
 
-        item.setCreators([...newCreators, ...nonAuthors]);
-        changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
+          item.setCreators([...newCreators, ...nonAuthors]);
+          changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
+        }
       }
 
       const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
