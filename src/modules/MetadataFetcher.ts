@@ -11,6 +11,7 @@ import {
   normalizeDoi,
   parseDoiFromExtra,
 } from "@/utils/itemSearchQuery";
+import { isExactTitleMatch } from "@/utils/similarity";
 import {
   extractYearFromDate,
   extractAuthorsFromItem,
@@ -865,6 +866,13 @@ export class MetadataFetcher {
       const strongMatch = this.isStrongMetadataMatch(query, searchResult);
 
       const currentTitle = (item.getField("title") as string) || "";
+      const exactTitleMatch =
+        Boolean(currentTitle.trim()) &&
+        Boolean(searchResult.title) &&
+        isExactTitleMatch(currentTitle, searchResult.title);
+      const canApplyBibliographicMetadata =
+        strongMatch || !currentTitle.trim() || exactTitleMatch;
+
       if (
         searchResult.title &&
         (strongMatch ||
@@ -915,35 +923,39 @@ export class MetadataFetcher {
         }
       }
 
-      const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
-      const containerField = getContainerTitleFieldForItemType(itemType);
-      if (
-        searchResult.containerTitle &&
-        containerField &&
-        !item.getField(containerField)
-      ) {
-        item.setField(containerField, searchResult.containerTitle);
-        changes.push(`Added ${containerField}: ${searchResult.containerTitle}`);
-      }
+      if (canApplyBibliographicMetadata) {
+        const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
+        const containerField = getContainerTitleFieldForItemType(itemType);
+        if (
+          searchResult.containerTitle &&
+          containerField &&
+          !item.getField(containerField)
+        ) {
+          item.setField(containerField, searchResult.containerTitle);
+          changes.push(
+            `Added ${containerField}: ${searchResult.containerTitle}`,
+          );
+        }
 
-      if (searchResult.volume && !item.getField("volume")) {
-        item.setField("volume", searchResult.volume);
-        changes.push(`Added volume: ${searchResult.volume}`);
-      }
+        if (searchResult.volume && !item.getField("volume")) {
+          item.setField("volume", searchResult.volume);
+          changes.push(`Added volume: ${searchResult.volume}`);
+        }
 
-      if (searchResult.issue && !item.getField("issue")) {
-        item.setField("issue", searchResult.issue);
-        changes.push(`Added issue: ${searchResult.issue}`);
-      }
+        if (searchResult.issue && !item.getField("issue")) {
+          item.setField("issue", searchResult.issue);
+          changes.push(`Added issue: ${searchResult.issue}`);
+        }
 
-      if (searchResult.pages && !item.getField("pages")) {
-        item.setField("pages", searchResult.pages);
-        changes.push(`Added pages: ${searchResult.pages}`);
-      }
+        if (searchResult.pages && !item.getField("pages")) {
+          item.setField("pages", searchResult.pages);
+          changes.push(`Added pages: ${searchResult.pages}`);
+        }
 
-      if (searchResult.language && !item.getField("language")) {
-        item.setField("language", searchResult.language);
-        changes.push(`Added language: ${searchResult.language}`);
+        if (searchResult.language && !item.getField("language")) {
+          item.setField("language", searchResult.language);
+          changes.push(`Added language: ${searchResult.language}`);
+        }
       }
 
       if (options.downloadPDFs && searchResult.pdfUrl) {

@@ -186,7 +186,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
     params.append("sort", "relevance");
     params.append(
       "select",
-      "DOI,title,original-title,author,published,container-title,URL,type,is-referenced-by-count,language",
+      "DOI,title,original-title,author,published,container-title,volume,issue,page,URL,type,is-referenced-by-count,language",
     );
 
     return params.toString();

@@ -404,9 +404,9 @@ export class BookMetadataService {
 
     const metadataAuthors =
       "authors" in metadata
-        ? metadata.authors.map((a) =>
-            typeof a === "string" ? a : a.name || "",
-          )
+        ? metadata.authors
+            .map((a) => (typeof a === "string" ? a : a.name || ""))
+            .filter((author) => author.trim().length > 0)
         : [];
 
     if (itemAuthors.length > 0 && metadataAuthors.length > 0) {

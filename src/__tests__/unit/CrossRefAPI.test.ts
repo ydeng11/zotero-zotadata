@@ -56,6 +56,17 @@ describe("CrossRefAPI", () => {
 
       expect(searchParams).toContain("query.bibliographic=2020");
     });
+
+    it("selects pagination fields needed for result enrichment", () => {
+      const searchParams = (crossRefAPI as any).buildSearchParams({
+        title: "Test Paper",
+      });
+      const selectedFields = new URLSearchParams(searchParams).get("select");
+
+      expect(selectedFields).toContain("volume");
+      expect(selectedFields).toContain("issue");
+      expect(selectedFields).toContain("page");
+    });
   });
 
   describe("search", () => {
