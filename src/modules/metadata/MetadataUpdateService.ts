@@ -1,6 +1,5 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
-import { isExactTitleMatch } from "@/utils/similarity";
 import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
 import type { CrossRefWork } from "@/shared/core/types";
 
@@ -108,8 +107,6 @@ export class MetadataUpdateService {
 
   shouldUpdateTitle(currentTitle: string, newTitle: string): boolean {
     if (!currentTitle) return true;
-    if (!newTitle) return false;
-    if (isExactTitleMatch(currentTitle, newTitle)) return false;
     return false;
   }
 

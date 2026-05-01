@@ -187,7 +187,7 @@ Books work differently from journal articles. The plugin handles books through:
 
 1. **Existing ISBN Check**: First checks if the book already has an ISBN field
 2. **Title-based Discovery**: If no ISBN, searches OpenLibrary and Google Books by exact title
-3. **Author Validation**: Uses 60% author overlap threshold to validate discovered metadata
+3. **Author Validation**: Uses 40% author overlap threshold to validate discovered metadata
 4. **ISBN Preference**: Prefers ISBN-13 over ISBN-10 for better compatibility
 
 #### Metadata Sources
