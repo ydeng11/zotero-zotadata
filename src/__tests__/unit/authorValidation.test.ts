@@ -97,7 +97,7 @@ describe("authorValidation", () => {
           "Generative Adversarial Nets",
           "Generative Adversarial Networks",
         ),
-      ).toBe(true);
+      ).toBe(false);
       expect(isExactTitleMatch("Test Title!", "test title")).toBe(true);
     });
   });
@@ -249,9 +249,7 @@ describe("authorValidation", () => {
 
       const result = validateMetadataMatch(item, candidate);
 
-      // With abbreviation expansion, "Nets" matches "Networks"
-      // Authors match and title matches (via abbreviation expansion)
-      expect(result.accept).toBe(true);
+      expect(result.accept).toBe(false);
     });
 
     it("accepts exact title match with complete metadata when no existing authors", () => {

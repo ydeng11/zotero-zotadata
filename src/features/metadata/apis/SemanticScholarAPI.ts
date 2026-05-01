@@ -219,8 +219,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
       return [];
     }
     return papers.map((paper) => {
-      // DOI is in externalIds.DOI, not paper.doi
-      const doi = paper.externalIds?.DOI || paper.doi;
+      const doi = paper.externalIds?.DOI;
 
       const result: SearchResult = {
         title: paper.title,
@@ -249,8 +248,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
     query: SearchQuery,
   ): number {
     // DOI check - exact match or reject
-    // DOI is in externalIds.DOI
-    const paperDOI = paper.externalIds?.DOI || paper.doi;
+    const paperDOI = paper.externalIds?.DOI;
 
     if (query.doi) {
       if (paperDOI && this.cleanDOI(query.doi) === this.cleanDOI(paperDOI)) {

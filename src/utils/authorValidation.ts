@@ -154,9 +154,8 @@ export function validateMetadataMatch(
       score = 0.9;
     } else {
       score =
-        0.4 * (titleMatchesExactly ? 1 : 0) +
         0.35 * (candidateAuthors.length > 0 ? 1 : 0) +
-        0.15 * 1 +
+        0.15 +
         0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
     }
   } else {

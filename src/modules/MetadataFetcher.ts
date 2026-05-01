@@ -886,12 +886,20 @@ export class MetadataFetcher {
         changes.push(`Updated title: ${searchResult.title}`);
       }
 
-      if (searchResult.doi && !item.getField("DOI")) {
+      if (
+        canApplyBibliographicMetadata &&
+        searchResult.doi &&
+        !item.getField("DOI")
+      ) {
         item.setField("DOI", searchResult.doi);
         changes.push(`Added DOI: ${searchResult.doi}`);
       }
 
-      if (searchResult.year && !item.getField("date")) {
+      if (
+        canApplyBibliographicMetadata &&
+        searchResult.year &&
+        !item.getField("date")
+      ) {
         item.setField("date", searchResult.year.toString());
         changes.push(`Added year: ${searchResult.year}`);
       }

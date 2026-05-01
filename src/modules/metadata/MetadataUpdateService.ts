@@ -109,7 +109,7 @@ export class MetadataUpdateService {
     return changes;
   }
 
-  shouldUpdateTitle(currentTitle: string, newTitle: string): boolean {
+  shouldUpdateTitle(currentTitle: string, _newTitle: string): boolean {
     if (!currentTitle) return true;
     return false;
   }

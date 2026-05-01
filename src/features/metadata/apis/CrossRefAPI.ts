@@ -110,6 +110,17 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Raw work list for structured query (title / author / year).
    */
   async fetchWorksByQuery(query: SearchQuery): Promise<CrossRefWork[]> {
+    if (
+      !query.title &&
+      !query.authors?.length &&
+      !query.doi &&
+      !query.containerTitle &&
+      !query.issn &&
+      !query.year
+    ) {
+      return [];
+    }
+
     const searchParams = this.buildSearchParams(query);
     const endpoint = `/works?${searchParams}`;
 
