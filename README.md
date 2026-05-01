@@ -179,6 +179,54 @@ When using the **Update Metadata** feature:
 - **Authors are Replaced**: New authors from metadata will replace existing authors (non-author creators like editors are preserved).
 - **Exact Title Required**: Only exact title matches will update metadata, preventing incorrect matches.
 
+### Book Metadata Fetching
+
+Books work differently from journal articles. The plugin handles books through:
+
+#### ISBN Discovery
+
+1. **Existing ISBN Check**: First checks if the book already has an ISBN field
+2. **Title-based Discovery**: If no ISBN, searches OpenLibrary and Google Books by exact title
+3. **Author Validation**: Uses 60% author overlap threshold to validate discovered metadata
+4. **ISBN Preference**: Prefers ISBN-13 over ISBN-10 for better compatibility
+
+#### Metadata Sources
+
+Books use three metadata sources in priority order:
+
+1. **Zotero Translator**: Built-in Zotero book translator (most accurate)
+2. **OpenLibrary API**: Comprehensive book metadata database
+3. **Google Books API**: Fallback source with industry identifiers
+
+#### Author Mismatch Detection
+
+When applying book metadata, the plugin validates author overlap:
+
+- **60% Threshold**: Requires at least 60% of local authors to match fetched authors
+- **Tag Added**: Items with low overlap get "Author Mismatch" tag for manual review
+- **Metadata Still Applied**: Even with mismatch, metadata is applied (trusts fetched data)
+
+Example:
+- Local book: "Design Patterns" with authors [Gamma, Johnson]
+- Fetched: "Design Patterns" with authors [Gamma, Johnson, Helm, Vlissides]
+- Overlap: 2/4 = 50% < 60% → "Author Mismatch" tag added
+
+#### Recommended Workflow for Books
+
+1. **Start with Title**: Books work best with accurate title
+2. **Add ISBN if Available**: ISBN provides the most accurate metadata match
+3. **Review Author Mismatch**: Check items tagged with "Author Mismatch" manually
+4. **Batch Operations**: Use batch fetch for multiple books (shows progress with ISBN)
+
+#### Progress Tracking
+
+For batch book metadata operations (2+ items):
+
+- **Progress Window**: Shows real-time status for each book
+- **ISBN Display**: Shows discovered ISBN: "Design Patterns (ISBN: 9780201633610)"
+- **Success/Failure**: Displays success count and failed items with errors
+- **Click to Close**: Window stays open if failures exist (auto-close on all success)
+
 ## Success Rates & Expectations
 
 ### PDF Retrieval Reality

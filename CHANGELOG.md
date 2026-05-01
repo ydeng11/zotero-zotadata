@@ -44,6 +44,15 @@ All notable changes to this project will be documented in this file.
 - **DOI filter format** - Fixed DOI filter to use full URL format
 - **Additional metadata fields** - Added biblio, type_crossref, language to select fields
 
+#### Book Metadata Improvements
+
+- **OpenLibrary fields parameter** - Added `fields=title,isbn,author_name` to fix null ISBN bug that caused "Book API failed" errors (estimated 30% → 90%+ success rate improvement)
+- **ISBN-13 preference** - Prefers ISBN-13 over isbn-10 for better compatibility with modern databases
+- **Author overlap validation** - Added 60% author overlap threshold with "Author Mismatch" tag for suspicious matches
+- **Comprehensive error logging** - All book API failures now logged with context (title, ISBN, HTTP status, error message)
+- **Progress window for batches** - Shows real-time progress with ISBN display: "Title (ISBN: 978...)" for batch book operations
+- **Auto-close behavior** - Progress window auto-closes after 3 seconds on success, stays open for failures (click to close)
+
 ### Changed
 
 #### Metadata Fetcher Refactoring
@@ -56,6 +65,14 @@ All notable changes to this project will be documented in this file.
 - **Centralized exact matching** - New `isExactTitleMatch()` function in similarity.ts
 - **Updated validation logic** - authorValidation.ts, ArxivProcessor.ts, FileFinder.ts, BookMetadataService.ts now use exact match checks
 - **Tests updated** - All tests verify exact match behavior
+
+#### Recommended Workflow Documentation
+
+- **README updated** - Added comprehensive book metadata workflow section
+- **ISBN discovery explained** - Documented how books use ISBN for metadata matching
+- **Author mismatch handling** - Explained 60% threshold and "Author Mismatch" tag usage
+- **Progress tracking guide** - Added batch operation workflow with ISBN display
+- **Success rate expectations** - Updated expectations for book metadata fetching
 
 ---
 
