@@ -5,6 +5,7 @@ import { calculateAuthorOverlap } from "@/utils/authorValidation";
 import type {
   BookMetadataSource,
   LegacyFetchResult,
+  MetadataUpdateResult,
   OpenLibraryBookMetadata,
   GoogleBooksVolumeInfo,
   TranslatorItem,
@@ -74,7 +75,20 @@ export class BookMetadataService {
       };
     }
 
-    changes.push(...(await this.updateItemWithBookMetadata(item, metadata)));
+    const updateResult = await this.updateItemWithBookMetadata(item, metadata);
+
+    if (updateResult.rejectionReason) {
+      await item.saveTx();
+      return {
+        success: false,
+        updated: false,
+        error: updateResult.rejectionReason,
+        source: "Book Metadata",
+        changes: [...changes, ...updateResult.changes],
+      };
+    }
+
+    changes.push(...updateResult.changes);
     item.addTag("Metadata Updated", 1);
     await item.saveTx();
     return {
@@ -379,7 +393,7 @@ export class BookMetadataService {
   async updateItemWithBookMetadata(
     item: Zotero.Item,
     metadata: OpenLibraryBookMetadata | GoogleBooksVolumeInfo,
-  ): Promise<string[]> {
+  ): Promise<MetadataUpdateResult> {
     const changes: string[] = [];
 
     const itemAuthors = item
@@ -398,16 +412,11 @@ export class BookMetadataService {
     if (itemAuthors.length > 0 && metadataAuthors.length > 0) {
       const overlap = calculateAuthorOverlap(itemAuthors, metadataAuthors);
 
-      if (overlap.overlapRatio < 0.6) {
-        item.addTag("Author Mismatch", 1);
-        changes.push(
-          `Warning: Author mismatch (${overlap.overlapRatio.toFixed(2)} overlap)`,
-        );
-
+      if (overlap.overlapRatio < 0.4) {
         await this.errorManager.handleError(
           this.errorManager.createError(
             ErrorType.VALIDATION_ERROR,
-            `Metadata applied with author mismatch`,
+            `Author mismatch - rejecting metadata`,
             {
               itemId: item.id,
               localAuthors: itemAuthors,
@@ -417,6 +426,11 @@ export class BookMetadataService {
           ),
           { notifyUser: false },
         );
+
+        return {
+          changes: [],
+          rejectionReason: `Author mismatch (${overlap.overlapRatio.toFixed(2)} overlap)`,
+        };
       }
     }
 
@@ -460,7 +474,7 @@ export class BookMetadataService {
     }
 
     await item.saveTx();
-    return changes;
+    return { changes };
   }
 
   private isTranslatorBookMetadata(

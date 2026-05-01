@@ -47,10 +47,12 @@ All notable changes to this project will be documented in this file.
 #### Book Metadata Improvements
 
 - **OpenLibrary fields parameter** - Added `fields=title,isbn,author_name` to fix null ISBN bug that caused "Book API failed" errors (estimated 30% → 90%+ success rate improvement)
-- **ISBN-13 preference** - Prefers ISBN-13 over isbn-10 for better compatibility with modern databases
-- **Author overlap validation** - Added 60% author overlap threshold with "Author Mismatch" tag for suspicious matches
+- **ISBN-13 preference** - Prefers ISBN-13 over ISBN-10 for better compatibility with modern databases
+- **Author overlap validation** - Added 40% author overlap threshold; rejects metadata if overlap < 40% when both item and fetched data have authors (changed from 60%)
+- **No tags added** - Failure reasons reported in progress window dialogue instead of adding tags to items
+- **Author validation skipped** - When item or fetched data has no authors, validation is skipped and metadata accepted
 - **Comprehensive error logging** - All book API failures now logged with context (title, ISBN, HTTP status, error message)
-- **Progress window for batches** - Shows real-time progress with ISBN display: "Title (ISBN: 978...)" for batch book operations
+- **Progress window for batches** - Shows real-time progress with ISBN display: "Title (ISBN: 978...)" for successful items, "Failed: Title - {reason}" for failures
 - **Auto-close behavior** - Progress window auto-closes after 3 seconds on success, stays open for failures (click to close)
 
 ### Changed
@@ -70,9 +72,9 @@ All notable changes to this project will be documented in this file.
 
 - **README updated** - Added comprehensive book metadata workflow section
 - **ISBN discovery explained** - Documented how books use ISBN for metadata matching
-- **Author mismatch handling** - Explained 60% threshold and "Author Mismatch" tag usage
-- **Progress tracking guide** - Added batch operation workflow with ISBN display
-- **Success rate expectations** - Updated expectations for book metadata fetching
+- **Author validation behavior** - Clarified 40% threshold, rejection behavior, and no-authors case
+- **Failure reasons documented** - Added failure message format and common failure scenarios
+- **Progress tracking guide** - Updated batch operation workflow with failure display format
 
 ---
 

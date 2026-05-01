@@ -239,19 +239,22 @@ export class MetadataFetcher {
         results.push(result);
 
         if (progressDialog) {
-          const isbnChange = result.changes.find((c) =>
-            c.startsWith("Added ISBN:"),
-          );
-          const isbn = isbnChange
-            ? isbnChange.replace("Added ISBN: ", "")
-            : null;
-
-          const displayText = isbn ? `${itemTitle} (ISBN: ${isbn})` : itemTitle;
-
           if (result.success) {
+            const isbnChange = result.changes.find((c) =>
+              c.startsWith("Added ISBN:"),
+            );
+            const isbn = isbnChange
+              ? isbnChange.replace("Added ISBN: ", "")
+              : null;
+
+            const displayText = isbn
+              ? `${itemTitle} (ISBN: ${isbn})`
+              : itemTitle;
+
             progressDialog.itemCompleted(displayText);
           } else {
-            progressDialog.itemFailed(displayText, result.errors.join("; "));
+            const failureReason = result.errors.join("; ");
+            progressDialog.itemFailed(itemTitle, failureReason);
           }
         }
       } catch (error) {

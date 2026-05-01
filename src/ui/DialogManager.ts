@@ -516,7 +516,9 @@ export class BatchProgressDialog {
     let details = "";
 
     if (itemTitle) {
-      details = error ? `Failed: ${itemTitle}` : `Completed: ${itemTitle}`;
+      details = error
+        ? `Failed: ${itemTitle} - ${error}`
+        : `Completed: ${itemTitle}`;
     }
 
     if (this.failed > 0) {

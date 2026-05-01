@@ -202,21 +202,23 @@ Books use three metadata sources in priority order:
 
 When applying book metadata, the plugin validates author overlap:
 
-- **60% Threshold**: Requires at least 60% of local authors to match fetched authors
-- **Tag Added**: Items with low overlap get "Author Mismatch" tag for manual review
-- **Metadata Still Applied**: Even with mismatch, metadata is applied (trusts fetched data)
+- **40% Threshold**: Requires at least 40% of local authors to match fetched authors when both have author data
+- **Validation Logic**: Only validates when both item and fetched data have authors; if overlap < 40%, metadata is NOT applied (match rejected)
+- **No Authors Case**: If item or fetched data has no authors, validation is skipped and metadata is accepted
 
 Example:
+
 - Local book: "Design Patterns" with authors [Gamma, Johnson]
 - Fetched: "Design Patterns" with authors [Gamma, Johnson, Helm, Vlissides]
-- Overlap: 2/4 = 50% < 60% → "Author Mismatch" tag added
+- Overlap: 2/4 = 50% >= 40% → Metadata applied successfully
+- Another example: Local book with authors [Smith], fetched with authors [Johnson, Williams]
+  - Overlap: 0/2 = 0% < 40% → Metadata rejected, progress window shows: "Failed: Book Title - Author mismatch (0.00 overlap)"
 
 #### Recommended Workflow for Books
 
 1. **Start with Title**: Books work best with accurate title
 2. **Add ISBN if Available**: ISBN provides the most accurate metadata match
-3. **Review Author Mismatch**: Check items tagged with "Author Mismatch" manually
-4. **Batch Operations**: Use batch fetch for multiple books (shows progress with ISBN)
+3. **Check Progress Window**: Review failure reasons for failed items in progress window
 
 #### Progress Tracking
 
@@ -226,6 +228,17 @@ For batch book metadata operations (2+ items):
 - **ISBN Display**: Shows discovered ISBN: "Design Patterns (ISBN: 9780201633610)"
 - **Success/Failure**: Displays success count and failed items with errors
 - **Click to Close**: Window stays open if failures exist (auto-close on all success)
+
+#### Failure Reasons
+
+The progress window shows detailed failure reasons for failed items:
+
+- **Author mismatch**: "Failed: {title} - Author mismatch ({overlap}% overlap)"
+- **No ISBN found**: "Failed: {title} - No ISBN found"
+- **Book API failed**: "Failed: {title} - Book API failed"
+- **Network errors**: "Failed: {title} - Network error"
+
+This allows you to quickly identify why specific items failed and take appropriate action.
 
 ## Success Rates & Expectations
 
