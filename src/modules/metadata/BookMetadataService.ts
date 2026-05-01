@@ -1,6 +1,7 @@
-import { ErrorManager } from "@/shared/core";
+import { ErrorManager, ErrorType } from "@/shared/core";
 import { cleanISBN, buildAlternativeISBNCandidates } from "@/utils/isbn";
 import { isExactTitleMatch } from "@/utils/similarity";
+import { calculateAuthorOverlap } from "@/utils/authorValidation";
 import type {
   BookMetadataSource,
   LegacyFetchResult,
@@ -117,24 +118,52 @@ export class BookMetadataService {
     try {
       const response = await Zotero.HTTP.request(
         "GET",
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=5`,
+        `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&fields=title,isbn,author_name&limit=5`,
         {
           headers: { Accept: "application/json" },
         },
       );
       if (response.status !== 200) {
+        const errorType =
+          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        await this.errorManager.handleError(
+          this.errorManager.createError(
+            errorType,
+            `OpenLibrary API returned status ${response.status}`,
+            { title, status: response.status },
+          ),
+          { notifyUser: false },
+        );
         return null;
       }
 
       const payload = JSON.parse(response.responseText) as {
-        docs?: Array<{ isbn?: string[]; title?: string }>;
+        docs?: Array<{
+          isbn?: string[];
+          title?: string;
+          author_name?: string[];
+        }>;
       };
       for (const doc of payload.docs ?? []) {
-        if (doc.isbn?.[0] && doc.title && isExactTitleMatch(doc.title, title)) {
-          return cleanISBN(doc.isbn[0]);
-        }
+        if (!doc.isbn || doc.isbn.length === 0) continue;
+        if (!doc.title || !isExactTitleMatch(doc.title, title)) continue;
+
+        const isbn13 = doc.isbn.find((isbn) => cleanISBN(isbn).length === 13);
+        const isbn10 = doc.isbn.find((isbn) => cleanISBN(isbn).length === 10);
+        return cleanISBN(isbn13 || isbn10 || doc.isbn[0]);
       }
-    } catch {
+    } catch (error) {
+      await this.errorManager.handleError(
+        this.errorManager.createError(
+          ErrorType.API_ERROR,
+          `OpenLibrary title search failed for "${title}"`,
+          {
+            title,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ),
+        { notifyUser: false },
+      );
       return null;
     }
 
@@ -154,6 +183,16 @@ export class BookMetadataService {
         },
       );
       if (response.status !== 200) {
+        const errorType =
+          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        await this.errorManager.handleError(
+          this.errorManager.createError(
+            errorType,
+            `Google Books API returned status ${response.status}`,
+            { title, status: response.status },
+          ),
+          { notifyUser: false },
+        );
         return null;
       }
 
@@ -176,7 +215,18 @@ export class BookMetadataService {
           }
         }
       }
-    } catch {
+    } catch (error) {
+      await this.errorManager.handleError(
+        this.errorManager.createError(
+          ErrorType.API_ERROR,
+          `Google Books title search failed for "${title}"`,
+          {
+            title,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ),
+        { notifyUser: false },
+      );
       return null;
     }
 
@@ -246,6 +296,16 @@ export class BookMetadataService {
         },
       );
       if (response.status !== 200) {
+        const errorType =
+          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        await this.errorManager.handleError(
+          this.errorManager.createError(
+            errorType,
+            `OpenLibrary Books API returned status ${response.status}`,
+            { isbn, status: response.status },
+          ),
+          { notifyUser: false },
+        );
         return null;
       }
 
@@ -254,7 +314,18 @@ export class BookMetadataService {
         { details?: OpenLibraryBookMetadata }
       >;
       return payload[`ISBN:${isbn}`]?.details ?? null;
-    } catch {
+    } catch (error) {
+      await this.errorManager.handleError(
+        this.errorManager.createError(
+          ErrorType.API_ERROR,
+          `OpenLibrary metadata fetch failed for ISBN ${isbn}`,
+          {
+            isbn,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ),
+        { notifyUser: false },
+      );
       return null;
     }
   }
@@ -272,6 +343,16 @@ export class BookMetadataService {
         },
       );
       if (response.status !== 200) {
+        const errorType =
+          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        await this.errorManager.handleError(
+          this.errorManager.createError(
+            errorType,
+            `Google Books API returned status ${response.status}`,
+            { isbn, status: response.status },
+          ),
+          { notifyUser: false },
+        );
         return null;
       }
 
@@ -279,7 +360,18 @@ export class BookMetadataService {
         items?: Array<{ volumeInfo?: GoogleBooksVolumeInfo }>;
       };
       return payload.items?.[0]?.volumeInfo ?? null;
-    } catch {
+    } catch (error) {
+      await this.errorManager.handleError(
+        this.errorManager.createError(
+          ErrorType.API_ERROR,
+          `Google Books metadata fetch failed for ISBN ${isbn}`,
+          {
+            isbn,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ),
+        { notifyUser: false },
+      );
       return null;
     }
   }
@@ -289,6 +381,45 @@ export class BookMetadataService {
     metadata: OpenLibraryBookMetadata | GoogleBooksVolumeInfo,
   ): Promise<string[]> {
     const changes: string[] = [];
+
+    const itemAuthors = item
+      .getCreators()
+      .filter((c) => c.creatorType === "author")
+      .map((c) => c.lastName || c.name || "")
+      .filter(Boolean);
+
+    const metadataAuthors =
+      "authors" in metadata
+        ? metadata.authors.map((a) =>
+            typeof a === "string" ? a : a.name || "",
+          )
+        : [];
+
+    if (itemAuthors.length > 0 && metadataAuthors.length > 0) {
+      const overlap = calculateAuthorOverlap(itemAuthors, metadataAuthors);
+
+      if (overlap.overlapRatio < 0.6) {
+        item.addTag("Author Mismatch", 1);
+        changes.push(
+          `Warning: Author mismatch (${overlap.overlapRatio.toFixed(2)} overlap)`,
+        );
+
+        await this.errorManager.handleError(
+          this.errorManager.createError(
+            ErrorType.VALIDATION_ERROR,
+            `Metadata applied with author mismatch`,
+            {
+              itemId: item.id,
+              localAuthors: itemAuthors,
+              fetchedAuthors: metadataAuthors,
+              overlapRatio: overlap.overlapRatio,
+            },
+          ),
+          { notifyUser: false },
+        );
+      }
+    }
+
     const currentTitle = String(item.getField("title") ?? "");
     if (metadata.title && (!currentTitle || currentTitle.length < 10)) {
       item.setField("title", metadata.title);
@@ -407,7 +538,18 @@ export class BookMetadataService {
 
       await item.saveTx();
       return true;
-    } catch {
+    } catch (error) {
+      await this.errorManager.handleError(
+        this.errorManager.createError(
+          ErrorType.API_ERROR,
+          `Zotero Translator failed`,
+          {
+            identifier,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        ),
+        { notifyUser: false },
+      );
       return false;
     }
   }

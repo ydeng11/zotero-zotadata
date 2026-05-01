@@ -5,6 +5,7 @@ import {
   SemanticScholarAPI,
 } from "@/features/metadata/apis";
 import { DownloadManager } from "@/services/DownloadManager";
+import { DialogManager } from "@/ui";
 import {
   isSearchQueryActionable,
   normalizeDoi,
@@ -60,6 +61,7 @@ export class MetadataFetcher {
   private bookMetadata: BookMetadataService;
   private metadataUpdate: MetadataUpdateService;
   private config: Partial<AttachmentFinderConfig>;
+  private dialogManager: DialogManager;
 
   constructor(
     addonData: {
@@ -92,6 +94,7 @@ export class MetadataFetcher {
       addonData.services?.bookMetadata ?? new BookMetadataService();
     this.metadataUpdate =
       addonData.services?.metadataUpdate ?? new MetadataUpdateService();
+    this.dialogManager = new DialogManager({ config: this.config });
   }
 
   get doiDiscoveryService(): DOIDiscoveryService {
@@ -216,26 +219,62 @@ export class MetadataFetcher {
       );
     }
 
-    const { items: _items, ...perItemOptions } = options;
-    const results = await Promise.allSettled(
-      selectedItems.map((item) =>
-        this.fetchMetadataForItem(item, perItemOptions),
-      ),
-    );
+    const progressDialog =
+      selectedItems.length >= 2
+        ? this.dialogManager.showBatchProgress(
+            "Fetching Metadata",
+            selectedItems.length,
+          )
+        : null;
 
-    return results.map((result, index) => {
-      if (result.status === "fulfilled") {
-        return result.value;
-      } else {
-        return {
+    const { items: _items, ...perItemOptions } = options;
+    const results: MetadataResult[] = [];
+
+    for (let i = 0; i < selectedItems.length; i++) {
+      const item = selectedItems[i];
+      const itemTitle = item.getField("title") || `Item ${i + 1}`;
+
+      try {
+        const result = await this.fetchMetadataForItem(item, perItemOptions);
+        results.push(result);
+
+        if (progressDialog) {
+          const isbnChange = result.changes.find((c) =>
+            c.startsWith("Added ISBN:"),
+          );
+          const isbn = isbnChange
+            ? isbnChange.replace("Added ISBN: ", "")
+            : null;
+
+          const displayText = isbn ? `${itemTitle} (ISBN: ${isbn})` : itemTitle;
+
+          if (result.success) {
+            progressDialog.itemCompleted(displayText);
+          } else {
+            progressDialog.itemFailed(displayText, result.errors.join("; "));
+          }
+        }
+      } catch (error) {
+        const errorResult: MetadataResult = {
           success: false,
-          item: selectedItems[index],
+          item,
           source: "MetadataFetcher",
           changes: [],
-          errors: [this.formatSettledReason(result.reason)],
+          errors: [this.formatSettledReason(error)],
         };
+        results.push(errorResult);
+
+        if (progressDialog) {
+          progressDialog.itemFailed(itemTitle, errorResult.errors.join("; "));
+        }
       }
-    });
+    }
+
+    if (progressDialog) {
+      progressDialog.complete();
+    }
+
+    return results;
   }
 
   async fetchMetadataForItem(

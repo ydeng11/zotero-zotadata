@@ -537,10 +537,11 @@ export class BatchProgressDialog {
     const message = `${this.operation} completed: ${this.successful} successful, ${this.failed} failed`;
     this.progressDialog.updateMessage(message);
 
-    // Auto-close after a delay
-    setTimeout(() => {
-      this.progressDialog.close();
-    }, 2000);
+    if (this.failed === 0) {
+      setTimeout(() => {
+        this.progressDialog.close();
+      }, 3000);
+    }
   }
 
   /**
