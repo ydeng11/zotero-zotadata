@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.1] - 2025-05-02
+
+### Fixed
+
+#### Book Metadata Author Handling
+
+- **Author replacement for books** - Fixed bug where fetching metadata for books would append authors instead of replacing them, causing duplicate author entries
+- **Empty creators guard** - Added guard to preserve existing authors when translator returns empty creators array
+- **Consistent behavior** - Book metadata author handling now matches DOI-based (journal article) behavior
+
+#### Code Quality
+
+- **Removed dead code** - Cleaned up unused `allowMoreCompleteReplacement` option from translator metadata methods
+
+---
+
 ## [1.5.0] - 2025-04-30
 
 ### Added
