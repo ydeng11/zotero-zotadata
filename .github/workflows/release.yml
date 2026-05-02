@@ -60,6 +60,47 @@ jobs:
       - name: Build XPI
         run: npx zotero-plugin build
 
+      - name: Extract changelog for version
+        id: changelog
+        run: |
+          VERSION=${{ inputs.version }}
+          CHANGELOG_FILE="CHANGELOG.md"
+          
+          # Create release notes with installation instructions
+          cat > /tmp/release_body.txt << 'EOF'
+          ### Installation
+          
+          1. Download the XPI file below
+          2. Open Zotero 8
+          3. Go to Tools → Add-ons
+          4. Click gear icon → Install Add-on From File...
+          5. Select the downloaded XPI file
+          6. Restart Zotero
+          
+          ### Compatibility
+          
+          - Zotero 8.x only
+          
+          ---
+          
+          EOF
+          
+          if [ -f "$CHANGELOG_FILE" ]; then
+            # Extract content for this version (between ## [version] and next ## or ---)
+            awk -v ver="$VERSION" '
+              BEGIN { found=0 }
+              /^## \[.*\]/ { 
+                if (found) exit
+                if (index($0, "[" ver "]") > 0) found=1
+              }
+              found && !/^## \[.*\]/ { print }
+            ' "$CHANGELOG_FILE" | sed '/^---$/,$d' >> /tmp/release_body.txt
+            
+            echo "changelog_file=/tmp/release_body.txt" >> $GITHUB_OUTPUT
+          else
+            echo "changelog_file=/tmp/release_body.txt" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
@@ -67,19 +108,7 @@ jobs:
         with:
           tag_name: v${{ inputs.version }}
           name: Release v${{ inputs.version }}
-          body: |
-            ## Zotero Zotadata v${{ inputs.version }}
-
-            ### Installation
-            1. Download the XPI file below
-            2. Open Zotero 8
-            3. Go to Tools → Add-ons
-            4. Click gear icon → Install Add-on From File...
-            5. Select the downloaded XPI file
-            6. Restart Zotero
-
-            ### Compatibility
-            - Zotero 8.x only
+          body_path: ${{ steps.changelog.outputs.changelog_file || '/dev/null' }}
           draft: false
           prerelease: ${{ contains(inputs.version, '-') }}
           files: |
