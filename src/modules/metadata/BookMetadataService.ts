@@ -441,10 +441,7 @@ export class BookMetadataService {
     }
 
     const authors = "authors" in metadata ? metadata.authors : undefined;
-    const existingAuthors = item
-      .getCreators()
-      .filter((c) => c.creatorType === "author");
-    if (authors?.length && existingAuthors.length === 0) {
+    if (authors?.length) {
       this.applyBookAuthors(item, authors);
       changes.push(`Updated authors: ${authors.length}`);
     }
@@ -511,10 +508,7 @@ export class BookMetadataService {
     item: Zotero.Item,
     identifier: Record<string, unknown>,
     fields: readonly string[],
-    options: {
-      allowMoreCompleteReplacement?: boolean;
-      finalizeChange?: () => boolean;
-    } = {},
+    options: { finalizeChange?: () => boolean } = {},
   ): Promise<boolean> {
     const translate = this.createTranslatorSearch();
     if (!translate) {
@@ -537,7 +531,6 @@ export class BookMetadataService {
       let changed = this.applyTranslatedCreators(
         item,
         translated.getCreators(),
-        options.allowMoreCompleteReplacement ?? false,
       );
       changed = this.applyTranslatedFields(item, translated, fields) || changed;
       if (options.finalizeChange?.()) {
@@ -585,23 +578,41 @@ export class BookMetadataService {
       firstName?: string;
       lastName?: string;
     }>,
-    allowMoreCompleteReplacement = false,
   ): boolean {
     const currentCreators = item.getCreators();
-    if (
-      currentCreators.length === 0 ||
-      (allowMoreCompleteReplacement && creators.length > currentCreators.length)
-    ) {
-      item.setCreators(
-        creators.map((creator) => ({
-          creatorType: creator.creatorType ?? "author",
-          firstName: creator.firstName ?? "",
-          lastName: creator.lastName ?? "",
-        })),
-      );
-      return creators.length > 0;
+
+    const authorsFromTranslation = creators.filter(
+      (c) => c.creatorType === "author" || !c.creatorType,
+    );
+
+    if (authorsFromTranslation.length === 0) {
+      return false;
     }
-    return false;
+
+    const nonAuthorsFromTranslation = creators.filter(
+      (c) => c.creatorType && c.creatorType !== "author",
+    );
+    const existingNonAuthors = currentCreators.filter(
+      (c) => c.creatorType !== "author",
+    );
+
+    const newAuthors = authorsFromTranslation.map((creator) => ({
+      creatorType: "author" as const,
+      firstName: creator.firstName ?? "",
+      lastName: creator.lastName ?? "",
+    }));
+
+    const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
+      creatorType: creator.creatorType ?? "author",
+      firstName: creator.firstName ?? "",
+      lastName: creator.lastName ?? "",
+    }));
+
+    const finalNonAuthors =
+      nonAuthorsFromTranslation.length > 0 ? newNonAuthors : existingNonAuthors;
+
+    item.setCreators([...newAuthors, ...finalNonAuthors]);
+    return true;
   }
 
   private applyTranslatedFields(

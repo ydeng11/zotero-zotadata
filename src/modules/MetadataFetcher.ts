@@ -193,7 +193,6 @@ export class MetadataFetcher {
       },
       DOI_TRANSLATOR_FIELDS,
       {
-        allowMoreCompleteReplacement: true,
         finalizeChange: () => {
           if (String(item.getField("DOI") ?? "").trim()) {
             return false;
@@ -537,10 +536,7 @@ export class MetadataFetcher {
     item: Zotero.Item,
     identifier: Record<string, unknown>,
     fields: readonly string[],
-    options: {
-      allowMoreCompleteReplacement?: boolean;
-      finalizeChange?: () => boolean;
-    } = {},
+    options: { finalizeChange?: () => boolean } = {},
   ): Promise<boolean> {
     const translate = this.createTranslatorSearch();
     if (!translate) {
@@ -563,7 +559,6 @@ export class MetadataFetcher {
       let changed = this.applyTranslatedCreators(
         item,
         translated.getCreators(),
-        options.allowMoreCompleteReplacement ?? false,
       );
       changed = this.applyTranslatedFields(item, translated, fields) || changed;
       if (options.finalizeChange?.()) {
@@ -600,23 +595,41 @@ export class MetadataFetcher {
       firstName?: string;
       lastName?: string;
     }>,
-    allowMoreCompleteReplacement = false,
   ): boolean {
     const currentCreators = item.getCreators();
-    if (
-      currentCreators.length === 0 ||
-      (allowMoreCompleteReplacement && creators.length > currentCreators.length)
-    ) {
-      item.setCreators(
-        creators.map((creator) => ({
-          creatorType: creator.creatorType ?? "author",
-          firstName: creator.firstName ?? "",
-          lastName: creator.lastName ?? "",
-        })),
-      );
-      return creators.length > 0;
+
+    const authorsFromTranslation = creators.filter(
+      (c) => c.creatorType === "author" || !c.creatorType,
+    );
+
+    if (authorsFromTranslation.length === 0) {
+      return false;
     }
-    return false;
+
+    const nonAuthorsFromTranslation = creators.filter(
+      (c) => c.creatorType && c.creatorType !== "author",
+    );
+    const existingNonAuthors = currentCreators.filter(
+      (c) => c.creatorType !== "author",
+    );
+
+    const newAuthors = authorsFromTranslation.map((creator) => ({
+      creatorType: "author" as const,
+      firstName: creator.firstName ?? "",
+      lastName: creator.lastName ?? "",
+    }));
+
+    const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
+      creatorType: creator.creatorType ?? "author",
+      firstName: creator.firstName ?? "",
+      lastName: creator.lastName ?? "",
+    }));
+
+    const finalNonAuthors =
+      nonAuthorsFromTranslation.length > 0 ? newNonAuthors : existingNonAuthors;
+
+    item.setCreators([...newAuthors, ...finalNonAuthors]);
+    return true;
   }
 
   private applyTranslatedFields(
