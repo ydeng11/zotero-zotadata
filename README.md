@@ -340,22 +340,26 @@ This plugin integrates with several external APIs and services:
 zotero-zotadata/
 ├── src/                         # TypeScript source code
 │   ├── apis/                    # External API integrations (CrossRef, OpenAlex, etc.)
-│   ├── core/                    # Core utilities, types, error management
-│   ├── features/                # Feature modules (attachment, metadata)
-│   ├── modules/                 # Feature modules (MetadataFetcher, ArxivProcessor)
-│   ├── services/                # Shared services (Cache, Download, API)
-│   ├── shared/                  # Shared utilities and core components
+│   ├── features/                # Feature modules (attachment, metadata, arxiv)
+│   ├── modules/                 # Core feature modules (MetadataFetcher, ArxivProcessor, FileFinder)
+│   ├── services/                # Feature services (Download, ResourceManager, SciHub)
+│   ├── shared/                  # Shared infrastructure
+│   │   ├── core/                # Core types, error management
+│   │   ├── services/            # Shared services (Cache, RateLimiter)
+│   │   └── utils/               # Shared utilities (File, String, URL, Zotero)
 │   ├── ui/                      # UI components (Menu, Dialog, Preferences)
-│   ├── utils/                   # Utility functions
+│   ├── utils/                   # Feature-specific utilities (ISBN, author validation, etc.)
 │   ├── constants/               # Constants and configuration
 │   ├── __tests__/               # Test files
 │   ├── index.ts                 # Main plugin class
-│   └── addon.ts                 # Entry point bridging to bootstrap.js
+│   ├── addon.ts                 # Entry point bridging to bootstrap.js
+│   └── plugin.ts                # Plugin implementation
 ├── typings/                     # Custom TypeScript declarations
 ├── addon/                       # Zotero plugin scaffold
 │   ├── bootstrap.js             # Plugin bootstrap for Zotero 8
 │   ├── manifest.json            # Plugin metadata (Zotero 8 format)
-│   └── locale/                  # Localization files (en-US, zh-CN)
+│   ├── locale/                  # Localization files (en-US, zh-CN)
+│   └── content/                 # Plugin UI content (XUL, XHTML, icons)
 ├── skin/                        # Plugin assets (icons, legacy CSS)
 ├── assets/                      # Documentation assets
 │   ├── images/                  # Screenshots and diagrams
@@ -366,6 +370,21 @@ zotero-zotadata/
 ├── AGENTS.md                    # Development guidelines and conventions
 └── README.md                    # This file
 ```
+
+### Directory Organization
+
+The project uses a split structure to separate shared infrastructure from feature-specific code:
+
+**Shared Infrastructure (`src/shared/`)**:
+- Core types and error management used across all features
+- Generic services like caching and rate limiting
+- Universal utilities for file, string, URL, and Zotero operations
+
+**Feature-Specific (`src/` root level)**:
+- API integrations tailored to specific metadata sources
+- Feature modules with business logic (metadata fetching, arXiv processing)
+- Feature services for download management and Sci-Hub integration
+- Utilities for specific use cases (ISBN validation, author matching, etc.)
 
 ## Development
 
@@ -494,7 +513,7 @@ This version supports both Zotero 8 and Zotero 9:
 3. **Build Tool**: Replaced `build.sh` with `zotero-plugin-scaffold` npm package
 4. **Node.js Requirement**: Now requires Node.js 22+ (was 18+)
 
-### Architecture Improvements (v1.4.0)
+### Architecture Improvements (v1.5.0)
 
 1. **Modular Design**: MetadataFetcher refactored into separate services:
    - `DOIDiscoveryService` - DOI search across multiple APIs
