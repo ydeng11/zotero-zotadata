@@ -5,16 +5,18 @@ import {
   SemanticScholarAPI,
 } from "@/features/metadata/apis";
 import { DownloadManager } from "@/services/DownloadManager";
+import { DialogManager } from "@/ui";
 import {
   isSearchQueryActionable,
   normalizeDoi,
   parseDoiFromExtra,
 } from "@/utils/itemSearchQuery";
-import { calculateTitleSimilarity } from "@/utils/similarity";
+import { isExactTitleMatch } from "@/utils/similarity";
 import {
   extractYearFromDate,
   extractAuthorsFromItem,
 } from "@/utils/itemFields";
+import { getContainerTitleFieldForItemType } from "@/utils/typeMapping";
 import {
   BookMetadataService,
   DOIDiscoveryService,
@@ -60,6 +62,7 @@ export class MetadataFetcher {
   private bookMetadata: BookMetadataService;
   private metadataUpdate: MetadataUpdateService;
   private config: Partial<AttachmentFinderConfig>;
+  private dialogManager: DialogManager;
 
   constructor(
     addonData: {
@@ -92,6 +95,7 @@ export class MetadataFetcher {
       addonData.services?.bookMetadata ?? new BookMetadataService();
     this.metadataUpdate =
       addonData.services?.metadataUpdate ?? new MetadataUpdateService();
+    this.dialogManager = new DialogManager({ config: this.config });
   }
 
   get doiDiscoveryService(): DOIDiscoveryService {
@@ -216,26 +220,65 @@ export class MetadataFetcher {
       );
     }
 
-    const { items: _items, ...perItemOptions } = options;
-    const results = await Promise.allSettled(
-      selectedItems.map((item) =>
-        this.fetchMetadataForItem(item, perItemOptions),
-      ),
-    );
+    const progressDialog =
+      selectedItems.length >= 2
+        ? this.dialogManager.showBatchProgress(
+            "Fetching Metadata",
+            selectedItems.length,
+          )
+        : null;
 
-    return results.map((result, index) => {
-      if (result.status === "fulfilled") {
-        return result.value;
-      } else {
-        return {
+    const { items: _items, ...perItemOptions } = options;
+    const results: MetadataResult[] = [];
+
+    for (let i = 0; i < selectedItems.length; i++) {
+      const item = selectedItems[i];
+      const itemTitle = item.getField("title") || `Item ${i + 1}`;
+
+      try {
+        const result = await this.fetchMetadataForItem(item, perItemOptions);
+        results.push(result);
+
+        if (progressDialog) {
+          if (result.success) {
+            const isbnChange = result.changes.find((c) =>
+              c.startsWith("Added ISBN:"),
+            );
+            const isbn = isbnChange
+              ? isbnChange.replace("Added ISBN: ", "")
+              : null;
+
+            const displayText = isbn
+              ? `${itemTitle} (ISBN: ${isbn})`
+              : itemTitle;
+
+            progressDialog.itemCompleted(displayText);
+          } else {
+            const failureReason = result.errors.join("; ");
+            progressDialog.itemFailed(itemTitle, failureReason);
+          }
+        }
+      } catch (error) {
+        const errorResult: MetadataResult = {
           success: false,
-          item: selectedItems[index],
+          item,
           source: "MetadataFetcher",
           changes: [],
-          errors: [this.formatSettledReason(result.reason)],
+          errors: [this.formatSettledReason(error)],
         };
+        results.push(errorResult);
+
+        if (progressDialog) {
+          progressDialog.itemFailed(itemTitle, errorResult.errors.join("; "));
+        }
       }
-    });
+    }
+
+    if (progressDialog) {
+      progressDialog.complete();
+    }
+
+    return results;
   }
 
   async fetchMetadataForItem(
@@ -390,7 +433,6 @@ export class MetadataFetcher {
     ) {
       doi = resolvedDoi;
       item.setField("DOI", resolvedDoi);
-      item.addTag("DOI Added", 1);
       await item.saveTx();
       changes.push(
         `${existingDoi ? "Updated DOI" : "Added DOI"}: ${resolvedDoi}`,
@@ -402,7 +444,6 @@ export class MetadataFetcher {
     }
 
     if (!doi) {
-      item.addTag("No DOI Found", 1);
       await item.saveTx();
       return {
         success: false,
@@ -825,6 +866,13 @@ export class MetadataFetcher {
       const strongMatch = this.isStrongMetadataMatch(query, searchResult);
 
       const currentTitle = (item.getField("title") as string) || "";
+      const exactTitleMatch =
+        Boolean(currentTitle.trim()) &&
+        Boolean(searchResult.title) &&
+        isExactTitleMatch(currentTitle, searchResult.title);
+      const canApplyBibliographicMetadata =
+        strongMatch || !currentTitle.trim() || exactTitleMatch;
+
       if (
         searchResult.title &&
         (strongMatch ||
@@ -838,12 +886,20 @@ export class MetadataFetcher {
         changes.push(`Updated title: ${searchResult.title}`);
       }
 
-      if (searchResult.doi && !item.getField("DOI")) {
+      if (
+        canApplyBibliographicMetadata &&
+        searchResult.doi &&
+        !item.getField("DOI")
+      ) {
         item.setField("DOI", searchResult.doi);
         changes.push(`Added DOI: ${searchResult.doi}`);
       }
 
-      if (searchResult.year && !item.getField("date")) {
+      if (
+        canApplyBibliographicMetadata &&
+        searchResult.year &&
+        !item.getField("date")
+      ) {
         item.setField("date", searchResult.year.toString());
         changes.push(`Added year: ${searchResult.year}`);
       }
@@ -872,6 +928,41 @@ export class MetadataFetcher {
 
           item.setCreators([...newCreators, ...nonAuthors]);
           changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
+        }
+      }
+
+      if (canApplyBibliographicMetadata) {
+        const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
+        const containerField = getContainerTitleFieldForItemType(itemType);
+        if (
+          searchResult.containerTitle &&
+          containerField &&
+          !item.getField(containerField)
+        ) {
+          item.setField(containerField, searchResult.containerTitle);
+          changes.push(
+            `Added ${containerField}: ${searchResult.containerTitle}`,
+          );
+        }
+
+        if (searchResult.volume && !item.getField("volume")) {
+          item.setField("volume", searchResult.volume);
+          changes.push(`Added volume: ${searchResult.volume}`);
+        }
+
+        if (searchResult.issue && !item.getField("issue")) {
+          item.setField("issue", searchResult.issue);
+          changes.push(`Added issue: ${searchResult.issue}`);
+        }
+
+        if (searchResult.pages && !item.getField("pages")) {
+          item.setField("pages", searchResult.pages);
+          changes.push(`Added pages: ${searchResult.pages}`);
+        }
+
+        if (searchResult.language && !item.getField("language")) {
+          item.setField("language", searchResult.language);
+          changes.push(`Added language: ${searchResult.language}`);
         }
       }
 

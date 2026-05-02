@@ -1,28 +1,10 @@
-export function calculateTitleSimilarity(
-  title1: string,
-  title2: string,
-): number {
-  const normalize = (value: string): string =>
-    value
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const normalizedOne = normalize(title1);
-  const normalizedTwo = normalize(title2);
-  if (normalizedOne === normalizedTwo) {
-    return 1;
-  }
-
-  const wordsOne = new Set(normalizedOne.split(" ").filter(Boolean));
-  const wordsTwo = new Set(normalizedTwo.split(" ").filter(Boolean));
-  const intersection = new Set(
-    [...wordsOne].filter((word) => wordsTwo.has(word)),
-  );
-  const union = new Set([...wordsOne, ...wordsTwo]);
-  return union.size > 0 ? intersection.size / union.size : 0;
+export function isExactTitleMatch(title1: string, title2: string): boolean {
+  const normalize = (s: string): string => {
+    const lowercased = s.toLowerCase();
+    const cleaned = lowercased.replace(/[^\w\s]/g, " ");
+    return cleaned.replace(/\s+/g, "").trim();
+  };
+  return normalize(title1) === normalize(title2);
 }
 
 export function calculateStringSimilarity(str1: string, str2: string): number {

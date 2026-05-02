@@ -11,6 +11,11 @@ export interface LegacyFetchResult {
   changes: string[];
 }
 
+export interface MetadataUpdateResult {
+  changes: string[];
+  rejectionReason?: string;
+}
+
 export interface TranslatorItem {
   deleted?: boolean;
   getCreators(): Array<{

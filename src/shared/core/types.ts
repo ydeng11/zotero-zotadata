@@ -118,6 +118,10 @@ export interface SearchQuery {
   doi?: string;
   isbn?: string;
   arxivId?: string;
+  containerTitle?: string;
+  issn?: string;
+  volume?: string;
+  issue?: string;
 }
 
 export interface SearchResult {
@@ -129,6 +133,12 @@ export interface SearchResult {
   pdfUrl?: string;
   confidence: number;
   source: string;
+  containerTitle?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  language?: string;
+  itemType?: string;
 }
 
 export interface PublishedVersionInfo {
@@ -207,8 +217,18 @@ export interface OpenAlexWork {
   primary_location?: {
     source?: {
       display_name: string;
+      issn?: string[];
     };
   };
+  biblio?: {
+    volume?: string;
+    issue?: string;
+    first_page?: string;
+    last_page?: string;
+  };
+  language?: string;
+  type?: string;
+  type_crossref?: string;
   open_access?: {
     is_oa: boolean;
     oa_url?: string;
@@ -219,6 +239,7 @@ export interface SemanticScholarPaper {
   paperId: string;
   title: string;
   authors: Array<{
+    authorId?: string;
     name: string;
   }>;
   year?: number;
@@ -228,11 +249,21 @@ export interface SemanticScholarPaper {
     DOI?: string;
     ArXiv?: string;
     CorpusId?: string;
+    MAG?: string;
+    DBLP?: string;
   };
   url?: string;
   openAccessPdf?: {
     url: string;
+    status?: string;
   };
+  journal?: {
+    name?: string;
+    volume?: string;
+    pages?: string;
+  };
+  publicationTypes?: string[];
+  publicationDate?: string;
 }
 
 export interface ArxivEntry {

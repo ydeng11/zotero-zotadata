@@ -1,4 +1,6 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { isExactTitleMatch } from "@/utils/similarity";
+import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import type {
   OpenAlexWork,
   SearchQuery,
@@ -24,7 +26,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    */
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const searchParams = this.buildSearchParams(query);
-    const endpoint = `/works?${searchParams}&per-page=25&sort=relevance_score:desc`;
+    const endpoint = `/works?${searchParams}`;
 
     const response = await this.request<{
       results: OpenAlexWork[];
@@ -63,26 +65,9 @@ export class OpenAlexAPI extends BaseMetadataAPI {
       return this.search(query);
     }
 
-    const titleQuery = this.cleanTitle(query.title);
-    const authorQuery = query.authors[0]; // Use first author
-    const filters = [
-      `title.search:${titleQuery}`,
-      `authorships.author.display_name.search:${authorQuery}`,
-    ];
+    const searchParams = this.buildSearchParams(query);
+    const endpoint = `/works?${searchParams}`;
 
-    if (query.year) {
-      filters.push(`publication_year:${query.year}`);
-    }
-
-    const searchParams = new URLSearchParams({
-      filter: filters.join(","),
-      select:
-        "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
-      "per-page": "10",
-      sort: "relevance_score:desc",
-    });
-
-    const endpoint = `/works?${searchParams.toString()}`;
     const response = await this.request<{
       results: OpenAlexWork[];
     }>(endpoint);
@@ -94,8 +79,10 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Search for open access versions
    */
   async searchOpenAccess(query: SearchQuery): Promise<SearchResult[]> {
-    const searchParams = this.buildSearchParams(query);
-    const endpoint = `/works?${searchParams}&filter=open_access.is_oa:true&per-page=15&sort=relevance_score:desc`;
+    const searchParams = this.buildSearchParams(query, [
+      "open_access.is_oa:true",
+    ]);
+    const endpoint = `/works?${searchParams}`;
 
     const response = await this.request<{
       results: OpenAlexWork[];
@@ -107,20 +94,21 @@ export class OpenAlexAPI extends BaseMetadataAPI {
   /**
    * Build search parameters for OpenAlex API
    */
-  private buildSearchParams(query: SearchQuery): string {
+  private buildSearchParams(
+    query: SearchQuery,
+    additionalFilters?: string[],
+  ): string {
     const params = new URLSearchParams();
     const filters: string[] = [];
 
     if (query.title) {
-      filters.push(`title.search:${this.cleanTitle(query.title)}`);
+      params.append("search", this.cleanTitle(query.title));
     }
 
     if (query.authors && query.authors.length > 0) {
-      const authorFilters = query.authors
-        .slice(0, 3)
-        .map((author) => `authorships.author.display_name.search:${author}`)
-        .join("|");
-      filters.push(authorFilters);
+      filters.push(
+        `authorships.author.display_name.search:${query.authors[0]}`,
+      );
     }
 
     if (query.year) {
@@ -128,7 +116,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     }
 
     if (query.doi) {
-      filters.push(`doi:${this.cleanDOI(query.doi)}`);
+      filters.push(`doi:https://doi.org/${this.cleanDOI(query.doi)}`);
+    }
+
+    if (additionalFilters) {
+      filters.push(...additionalFilters);
     }
 
     if (filters.length > 0) {
@@ -137,8 +129,10 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     params.append(
       "select",
-      "id,doi,title,display_name,authorships,publication_year,primary_location,open_access",
+      "id,doi,title,display_name,authorships,publication_year,primary_location,open_access,biblio,type_crossref,language",
     );
+    params.append("per-page", "25");
+    params.append("sort", "relevance_score:desc");
 
     return params.toString();
   }
@@ -151,6 +145,12 @@ export class OpenAlexAPI extends BaseMetadataAPI {
     originalQuery: SearchQuery,
   ): SearchResult[] {
     return (works ?? []).map((work) => {
+      const pages = work.biblio?.first_page
+        ? work.biblio.last_page
+          ? `${work.biblio.first_page}-${work.biblio.last_page}`
+          : work.biblio.first_page
+        : undefined;
+
       const result: SearchResult = {
         title: work.display_name || work.title,
         authors:
@@ -163,6 +163,12 @@ export class OpenAlexAPI extends BaseMetadataAPI {
         pdfUrl: work.open_access?.oa_url || undefined,
         confidence: this.calculateConfidence(work, originalQuery),
         source: "OpenAlex",
+        containerTitle: work.primary_location?.source?.display_name,
+        volume: work.biblio?.volume,
+        issue: work.biblio?.issue,
+        pages,
+        language: work.language,
+        itemType: mapCrossRefTypeToZotero(work.type_crossref),
       };
 
       return result;
@@ -173,25 +179,36 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Calculate confidence score for search result
    */
   private calculateConfidence(work: OpenAlexWork, query: SearchQuery): number {
-    let confidence = 0.6; // Base confidence for OpenAlex
-
-    // Title similarity
-    if (query.title && work.display_name) {
-      const similarity = this.calculateTitleSimilarity(
-        query.title,
-        work.display_name,
-      );
-      confidence += similarity * 0.3;
+    // DOI check - exact match or reject
+    if (query.doi) {
+      if (work.doi) {
+        const workDOI = work.doi.replace("https://doi.org/", "");
+        if (this.cleanDOI(query.doi) === this.cleanDOI(workDOI)) {
+          return 1.0;
+        }
+      }
+      return 0.1;
     }
 
-    // Author match
+    // Title check - must match if title is in query
+    if (query.title && work.display_name) {
+      if (!isExactTitleMatch(query.title, work.display_name)) {
+        return 0.1;
+      }
+    }
+
+    let confidence = 0.6;
+
+    if (query.title && work.display_name) {
+      confidence += 0.3;
+    }
+
     if (query.authors && work.authorships) {
       const workAuthors = work.authorships.map((a) => a.author.display_name);
       const authorMatch = this.calculateAuthorMatch(query.authors, workAuthors);
       confidence += authorMatch * 0.25;
     }
 
-    // Year match
     if (query.year && work.publication_year) {
       const yearDiff = Math.abs(query.year - work.publication_year);
       if (yearDiff === 0) confidence += 0.15;
@@ -199,52 +216,11 @@ export class OpenAlexAPI extends BaseMetadataAPI {
       else if (yearDiff <= 2) confidence += 0.05;
     }
 
-    // DOI exact match
-    if (query.doi && work.doi) {
-      const workDOI = work.doi.replace("https://doi.org/", "");
-      if (this.cleanDOI(query.doi) === this.cleanDOI(workDOI)) {
-        confidence = 1.0;
-      }
-    }
-
-    // Open access bonus
     if (work.open_access?.is_oa && work.open_access.oa_url) {
       confidence += 0.1;
     }
 
     return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Calculate title similarity using word overlap
-   */
-  private calculateTitleSimilarity(title1: string, title2: string): number {
-    const normalize = (str: string) =>
-      str
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const words1 = new Set(
-      normalize(title1)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-    const words2 = new Set(
-      normalize(title2)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-
-    if (words1.size === 0 || words2.size === 0) return 0;
-
-    const intersection = new Set(
-      [...words1].filter((word) => words2.has(word)),
-    );
-    const union = new Set([...words1, ...words2]);
-
-    return intersection.size / union.size;
   }
 
   /**

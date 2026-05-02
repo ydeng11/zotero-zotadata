@@ -1,3 +1,4 @@
+import { isExactTitleMatch } from "@/utils/similarity";
 import type { SearchResult } from "@/shared/core/types";
 
 interface ZoteroCreator {
@@ -130,25 +131,12 @@ export function validateMetadataMatch(
   const yearDiff = Math.abs(itemYear - candidateYear);
 
   const itemTitle = item.getField("title") || "";
-  const titleSimilarity = calculateTitleSimilarity(itemTitle, candidate.title);
-  const isExactMatch = isExactTitleMatch(itemTitle, candidate.title);
-
-  if (titleSimilarity > 0.4 && yearDiff > 3 && overlap.overlapRatio >= 0.8) {
-    return {
-      accept: false,
-      score: 0,
-      reason: `Year differs too much for similar title (${yearDiff} years)`,
-      matchedAuthors: overlap.matchCount,
-      authorOverlap: overlap.overlapRatio,
-    };
-  }
+  const titleMatchesExactly = isExactTitleMatch(itemTitle, candidate.title);
 
   let score: number;
 
   if (itemAuthors.length === 0) {
-    // Special handling for items with no authors
-    if (isExactMatch) {
-      // For exact title matches with no existing authors, require complete metadata
+    if (titleMatchesExactly) {
       if (
         candidateAuthors.length === 0 ||
         candidate.year === undefined ||
@@ -163,21 +151,16 @@ export function validateMetadataMatch(
           authorOverlap: 0,
         };
       }
-      // Give exact matches a high score to ensure they're prioritized
       score = 0.9;
     } else {
-      // When item has no authors, we can be more confident about adding metadata
-      // Give full credit for author-related fields since we're adding them fresh
       score =
-        0.4 * titleSimilarity +
-        0.35 * (candidateAuthors.length > 0 ? 1 : 0) + // Full author score if candidate has authors
-        0.15 * 1 + // Full author count score (no existing authors to conflict with)
+        0.35 * (candidateAuthors.length > 0 ? 1 : 0) +
+        0.15 +
         0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
     }
   } else {
-    // Original scoring for items with existing authors
     score =
-      0.4 * titleSimilarity +
+      0.4 * (titleMatchesExactly ? 1 : 0) +
       0.35 * overlap.overlapRatio +
       0.15 * (authorCountDiff <= 2 ? 1 : authorCountDiff <= 4 ? 0.5 : 0) +
       0.1 * (yearDiff <= 1 ? 1 : yearDiff <= 3 ? 0.5 : 0);
@@ -196,50 +179,4 @@ export function validateMetadataMatch(
     matchedAuthors: overlap.matchCount,
     authorOverlap: overlap.overlapRatio,
   };
-}
-
-export function isExactTitleMatch(title1: string, title2: string): boolean {
-  const normalize = (s: string): string =>
-    s
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\s+/g, "")
-      .trim();
-
-  return normalize(title1) === normalize(title2);
-}
-
-export function calculateTitleSimilarity(
-  title1: string,
-  title2: string,
-): number {
-  // Check for exact match first
-  if (isExactTitleMatch(title1, title2)) {
-    return 1.0;
-  }
-
-  const normalize = (s: string): string =>
-    s
-      .toLowerCase()
-      .replace(/[^\w\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const words1 = new Set(
-    normalize(title1)
-      .split(" ")
-      .filter((w) => w.length > 2),
-  );
-  const words2 = new Set(
-    normalize(title2)
-      .split(" ")
-      .filter((w) => w.length > 2),
-  );
-
-  if (words1.size === 0 || words2.size === 0) return 0;
-
-  const intersection = new Set([...words1].filter((w) => words2.has(w)));
-  const union = new Set([...words1, ...words2]);
-
-  return union.size > 0 ? intersection.size / union.size : 0;
 }

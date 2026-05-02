@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2025-04-30
+
+### Added
+
+#### Semantic Scholar API Improvements
+
+- **Publication types support** - Added `publicationTypes` and `publicationDate` fields to search results
+- **DOI extraction from externalIds** - Fixed DOI retrieval using `externalIds.DOI` instead of invalid `doi` field
+- **Publication type mapping** - Maps Semantic Scholar types to Zotero item types (journalArticle, conferencePaper, preprint, etc.)
+
+#### Bibliographic Metadata Capture
+
+- **Extended SearchResult fields** - Added `containerTitle`, `volume`, `issue`, `pages`, `language`, and `itemType`
+- **API response enrichment** - All APIs now capture bibliographic metadata (CrossRef, OpenAlex, Semantic Scholar)
+- **Better metadata completeness** - Volume, issue, pages now populated from API responses
+
+### Fixed
+
+#### Metadata Matching Quality (Issue #12)
+
+- **Exact title matching** - Replaced fuzzy similarity scoring with exact title matching to prevent weak matches from overwriting correct metadata
+- **Abbreviation expansion** - Common abbreviations expanded for better matching (nets→networks, ml→machine learning)
+- **Prevents incorrect matches** - Cases like "GAN" matching unrelated papers or quantum ML papers matching adversarial ML papers are now rejected
+
+#### Author Handling (Issue #13)
+
+- **Author replacement instead of appending** - Fixed duplicate authors bug where metadata fetch would append new authors instead of replacing existing ones
+- **Creator type preservation** - Non-author creators (editors, translators) are preserved during author updates
+
+#### Semantic Scholar Query Building
+
+- **Single author queries** - Use only first author for queries (matching CrossRef approach)
+- **URLSearchParams encoding** - Proper query parameter encoding
+- **DOI filter format** - Fixed DOI filter to use full URL format (doi:https://doi.org/xxx)
+
+#### OpenAlex API Query Building
+
+- **Search parameter fix** - Use recommended 'search' parameter instead of deprecated 'title.search' filter
+- **Single author queries** - Query only first author instead of multiple with OR logic
+- **DOI filter format** - Fixed DOI filter to use full URL format
+- **Additional metadata fields** - Added biblio, type_crossref, language to select fields
+
+#### Book Metadata Improvements
+
+- **OpenLibrary fields parameter** - Added `fields=title,isbn,author_name` to fix null ISBN bug that caused "Book API failed" errors (estimated 30% → 90%+ success rate improvement)
+- **ISBN-13 preference** - Prefers ISBN-13 over ISBN-10 for better compatibility with modern databases
+- **Author overlap validation** - Added 40% author overlap threshold; rejects metadata if overlap < 40% when both item and fetched data have authors (changed from 60%)
+- **No tags added** - Failure reasons reported in progress window dialogue instead of adding tags to items
+- **Author validation skipped** - When item or fetched data has no authors, validation is skipped and metadata accepted
+- **Comprehensive error logging** - All book API failures now logged with context (title, ISBN, HTTP status, error message)
+- **Progress window for batches** - Shows real-time progress with ISBN display: "Title (ISBN: 978...)" for successful items, "Failed: Title - {reason}" for failures
+- **Auto-close behavior** - Progress window auto-closes after 3 seconds on success, stays open for failures (click to close)
+
+### Changed
+
+#### Metadata Fetcher Refactoring
+
+- **Removed DOI discovery tags** - "DOI Added" and "No DOI Found" tags removed as DOI discovery is an internal detail
+- **Cleaner workflow** - DOI discovery no longer adds visual clutter to items
+
+#### Exact Match Implementation
+
+- **Centralized exact matching** - New `isExactTitleMatch()` function in similarity.ts
+- **Updated validation logic** - authorValidation.ts, ArxivProcessor.ts, FileFinder.ts, BookMetadataService.ts now use exact match checks
+- **Tests updated** - All tests verify exact match behavior
+
+#### Recommended Workflow Documentation
+
+- **README updated** - Added comprehensive book metadata workflow section
+- **ISBN discovery explained** - Documented how books use ISBN for metadata matching
+- **Author validation behavior** - Clarified 40% threshold, rejection behavior, and no-authors case
+- **Failure reasons documented** - Added failure message format and common failure scenarios
+- **Progress tracking guide** - Updated batch operation workflow with failure display format
+
+---
+
 ## [1.4.0] - 2025-04-18
 
 ### Added

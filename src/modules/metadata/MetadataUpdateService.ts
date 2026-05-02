@@ -1,6 +1,6 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
-import { calculateStringSimilarity } from "@/utils/similarity";
+import { isExactTitleMatch } from "@/utils/similarity";
 import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
 import type { CrossRefWork } from "@/shared/core/types";
 
@@ -22,12 +22,15 @@ export class MetadataUpdateService {
     const metadataTitle = Array.isArray(metadata.title)
       ? metadata.title[0]
       : metadata.title;
-    if (metadataTitle && (!currentTitle || currentTitle.length < 10)) {
+    if (metadataTitle && this.shouldUpdateTitle(currentTitle, metadataTitle)) {
       item.setField("title", metadataTitle);
       changes.push(`Updated title: ${metadataTitle}`);
     }
 
-    if (metadata.author?.length && item.getCreators().length === 0) {
+    if (
+      metadata.author?.length &&
+      this.shouldUpdateCrossRefAuthors(item, currentTitle, metadataTitle)
+    ) {
       this.applyCrossRefAuthors(item, metadata.author);
       changes.push(`Updated authors: ${metadata.author.length}`);
     }
@@ -106,16 +109,9 @@ export class MetadataUpdateService {
     return changes;
   }
 
-  shouldUpdateTitle(currentTitle: string, newTitle: string): boolean {
+  shouldUpdateTitle(currentTitle: string, _newTitle: string): boolean {
     if (!currentTitle) return true;
-    if (!newTitle) return false;
-
-    const similarity = calculateStringSimilarity(
-      currentTitle.toLowerCase(),
-      newTitle.toLowerCase(),
-    );
-
-    return similarity < 0.8 && newTitle.length > currentTitle.length;
+    return false;
   }
 
   shouldUpdateAuthors(item: Zotero.Item, newAuthors: string[]): boolean {
@@ -129,45 +125,34 @@ export class MetadataUpdateService {
     return newAuthors.length > currentAuthors.length;
   }
 
+  private shouldUpdateCrossRefAuthors(
+    item: Zotero.Item,
+    currentTitle: string,
+    metadataTitle?: string,
+  ): boolean {
+    const currentAuthors = extractAuthorsFromItem(item);
+    if (currentAuthors.length === 0) return true;
+    if (!currentTitle.trim()) return true;
+    if (!metadataTitle) return false;
+
+    return isExactTitleMatch(currentTitle, metadataTitle);
+  }
+
   private applyCrossRefAuthors(
     item: Zotero.Item,
     authors: Array<{ given?: string; family: string }>,
   ): void {
-    const editableItem = item as Zotero.Item & {
-      numCreators?: () => number;
-      setCreator?: (
-        index: number,
-        creator: {
-          creatorTypeID: number;
-          firstName: string;
-          lastName: string;
-        },
-      ) => void;
-    };
-
-    if (typeof editableItem.setCreator === "function") {
-      const creatorTypeID = (
-        Zotero as typeof Zotero & {
-          CreatorTypes?: { getPrimaryIDForType: (typeID: number) => number };
-        }
-      ).CreatorTypes?.getPrimaryIDForType(item.itemTypeID);
-
-      authors.forEach((author) => {
-        editableItem.setCreator?.(editableItem.numCreators?.() ?? 0, {
-          creatorTypeID: creatorTypeID ?? 1,
-          firstName: author.given ?? "",
-          lastName: author.family,
-        });
-      });
-      return;
-    }
-
-    item.setCreators(
-      authors.map((author) => ({
-        creatorType: "author",
-        firstName: author.given ?? "",
-        lastName: author.family,
-      })),
+    const existingCreators = item.getCreators();
+    const nonAuthors = existingCreators.filter(
+      (creator) => creator.creatorType !== "author",
     );
+
+    const newAuthors = authors.map((author) => ({
+      creatorType: "author" as const,
+      firstName: author.given ?? "",
+      lastName: author.family,
+    }));
+
+    item.setCreators([...newAuthors, ...nonAuthors]);
   }
 }

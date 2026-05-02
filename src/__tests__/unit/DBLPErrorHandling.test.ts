@@ -74,7 +74,7 @@ describe("DBLP Error Handling", () => {
     (globalThis.Zotero.HTTP.request as unknown as ReturnType<typeof vi.fn>) =
       mockRequest;
 
-    const doi = await (fetcher as any).searchDBLPForDOI(item);
+    const doi = await fetcher.doiDiscoveryService.searchDBLPForDOI(item);
 
     // Should return null instead of throwing an error
     expect(doi).toBeNull();
@@ -103,14 +103,14 @@ describe("DBLP Error Handling", () => {
     (globalThis.Zotero.HTTP.request as unknown as ReturnType<typeof vi.fn>) =
       mockRequest;
 
-    const doi = await (fetcher as any).searchDBLPForDOI(item);
+    const doi = await fetcher.doiDiscoveryService.searchDBLPForDOI(item);
 
     // Should return null instead of throwing a JSON parse error
     expect(doi).toBeNull();
 
     // Should log the JSON parsing error
     expect(globalThis.Zotero.log).toHaveBeenCalledWith(
-      expect.stringContaining("DBLP API returned invalid JSON"),
+      expect.stringContaining("DBLP search failed"),
     );
   });
 
@@ -125,7 +125,7 @@ describe("DBLP Error Handling", () => {
       .fn()
       .mockRejectedValue(new Error("Network error"));
 
-    const doi = await (fetcher as any).searchDBLPForDOI(item);
+    const doi = await fetcher.doiDiscoveryService.searchDBLPForDOI(item);
 
     // Should return null instead of throwing an error
     expect(doi).toBeNull();

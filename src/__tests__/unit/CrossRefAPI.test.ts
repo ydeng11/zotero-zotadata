@@ -22,49 +22,50 @@ describe("CrossRefAPI", () => {
   });
 
   describe("search query building", () => {
-    it("includes multiple authors in search query", () => {
+    it("uses correct query.title parameter", () => {
+      const query: SearchQuery = {
+        title: "Test Paper",
+      };
+
+      const searchParams = (crossRefAPI as any).buildSearchParams(query);
+
+      expect(searchParams).toContain("query.title=Test+Paper");
+    });
+
+    it("uses query.author with first author only", () => {
       const query: SearchQuery = {
         title: "Test Paper",
         authors: ["Smith", "Johnson", "Williams"],
-        year: 2020,
       };
 
-      const searchQuery = (crossRefAPI as any).buildSearchQuery(query);
+      const searchParams = (crossRefAPI as any).buildSearchParams(query);
 
-      expect(searchQuery).toContain("Smith");
-      expect(searchQuery).toContain("Johnson");
-      expect(searchQuery).toContain("Williams");
-      expect(searchQuery).toMatch(/author.*Smith|Smith.*author/i);
-      expect(searchQuery).toMatch(/author.*Johnson|Johnson.*author/i);
-      expect(searchQuery).toMatch(/author.*Williams|Williams.*author/i);
+      expect(searchParams).toContain("query.author=Smith");
+      expect(searchParams).not.toContain("Johnson");
+      expect(searchParams).not.toContain("Williams");
     });
 
-    it("uses OR logic for multiple authors", () => {
+    it("includes year in query.bibliographic", () => {
       const query: SearchQuery = {
         title: "Test Paper",
-        authors: ["Smith", "Johnson", "Williams"],
+        authors: ["Smith"],
         year: 2020,
       };
 
-      const searchQuery = (crossRefAPI as any).buildSearchQuery(query);
+      const searchParams = (crossRefAPI as any).buildSearchParams(query);
 
-      expect(searchQuery).toContain(" OR ");
+      expect(searchParams).toContain("query.bibliographic=2020");
     });
 
-    it("limits authors to 3 for better disambiguation", () => {
-      const query: SearchQuery = {
+    it("selects pagination fields needed for result enrichment", () => {
+      const searchParams = (crossRefAPI as any).buildSearchParams({
         title: "Test Paper",
-        authors: ["Smith", "Johnson", "Williams", "Brown", "Davis"],
-        year: 2020,
-      };
+      });
+      const selectedFields = new URLSearchParams(searchParams).get("select");
 
-      const searchQuery = (crossRefAPI as any).buildSearchQuery(query);
-
-      expect(searchQuery).toContain("Smith");
-      expect(searchQuery).toContain("Johnson");
-      expect(searchQuery).toContain("Williams");
-      expect(searchQuery).not.toContain("Brown");
-      expect(searchQuery).not.toContain("Davis");
+      expect(selectedFields).toContain("volume");
+      expect(selectedFields).toContain("issue");
+      expect(selectedFields).toContain("page");
     });
   });
 

@@ -6,6 +6,7 @@ import {
   buildAcceptLanguageHeader,
   matchesPreferredLanguage,
 } from "@/utils/locale";
+import { isExactTitleMatch } from "@/utils/similarity";
 import {
   extractArxivIdFromItem,
   getCanonicalArxivDoiForItem,
@@ -299,7 +300,7 @@ export class FileFinder {
         return false;
       }
 
-      return FileFinder.titleSimilarity(work.title, title) >= 0.9;
+      return isExactTitleMatch(work.title, title);
     } catch {
       return false;
     }
@@ -514,7 +515,7 @@ export class FileFinder {
       ];
       for (const match of matches) {
         const entryTitle = match[1].replace(/\s+/g, " ").trim();
-        if (FileFinder.titleSimilarity(entryTitle, title) > 0.8) {
+        if (isExactTitleMatch(entryTitle, title)) {
           return match[2];
         }
       }
@@ -1285,22 +1286,6 @@ export class FileFinder {
     }
 
     return isbn.replace(/[-\s]/g, "");
-  }
-
-  private static titleSimilarity(title1: string, title2: string): number {
-    const normalize = (value: string): string =>
-      value
-        .toLowerCase()
-        .replace(/[^\w\s]/g, "")
-        .replace(/\b(the|a|an|and|or|but|in|on|at|to|for|of|with|by)\b/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const one = new Set(normalize(title1).split(" ").filter(Boolean));
-    const two = new Set(normalize(title2).split(" ").filter(Boolean));
-    const intersection = new Set([...one].filter((word) => two.has(word)));
-    const union = new Set([...one, ...two]);
-    return union.size > 0 ? intersection.size / union.size : 0;
   }
 
   private getItemTypeName(item: Zotero.Item): string {

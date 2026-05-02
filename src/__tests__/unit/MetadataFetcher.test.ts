@@ -203,6 +203,60 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
   });
 
+  it("preserves existing authors and bibliographic fields for a weak search match", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+
+    const changes = await (fetcher as any).applyMetadataToItem(
+      item,
+      {
+        title: "Completely Different Paper",
+        authors: ["Wrong Author"],
+        year: 2024,
+        confidence: 0.1,
+        source: "CrossRef",
+        containerTitle: "Wrong Journal",
+        volume: "42",
+        issue: "7",
+        pages: "100-120",
+        language: "en",
+      },
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author"],
+        year: 2020,
+      },
+      {},
+    );
+
+    expect(changes).toEqual([]);
+    expect(item.setCreators).not.toHaveBeenCalled();
+    expect(item.getCreators()).toEqual([
+      {
+        firstName: "Original",
+        lastName: "Author",
+        creatorType: "author",
+      },
+    ]);
+    expect(item.setField).not.toHaveBeenCalledWith(
+      "publicationTitle",
+      "Wrong Journal",
+    );
+    expect(item.setField).not.toHaveBeenCalledWith("volume", "42");
+    expect(item.setField).not.toHaveBeenCalledWith("issue", "7");
+    expect(item.setField).not.toHaveBeenCalledWith("pages", "100-120");
+    expect(item.setField).not.toHaveBeenCalledWith("language", "en");
+    expect(item.getField("publicationTitle")).toBe("");
+    expect(item.getField("volume")).toBe("");
+    expect(item.getField("issue")).toBe("");
+    expect(item.getField("pages")).toBe("");
+    expect(item.getField("language")).toBe("");
+  });
+
   it("treats translator-applied book metadata as a successful update", async () => {
     const item = createMockItem({
       ISBN: "9780123456789",

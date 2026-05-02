@@ -111,7 +111,7 @@ describe("Metadata Pipeline Functions", () => {
       expect(item.addTag).toHaveBeenCalledWith("CrossRef Failed", 1);
     });
 
-    it("should add No DOI Found tag when no DOI discovered", async () => {
+    it("should return error when no DOI discovered", async () => {
       mockExtractDOI.mockReturnValue(null);
       mockDiscoverDOI.mockResolvedValue(null);
 
@@ -120,10 +120,9 @@ describe("Metadata Pipeline Functions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("No DOI found");
-      expect(item.addTag).toHaveBeenCalledWith("No DOI Found", 1);
     });
 
-    it("should add DOI Added tag when DOI is discovered", async () => {
+    it("should set DOI field when DOI is discovered", async () => {
       mockExtractDOI.mockReturnValue(null);
       mockDiscoverDOI.mockResolvedValue("10.1000/discovered.doi");
       mockFetchDOIMetadataViaTranslator.mockResolvedValue(true);
@@ -131,7 +130,10 @@ describe("Metadata Pipeline Functions", () => {
       const item = createMockItem({ title: "Test Paper" });
       await fetchDOIBasedMetadata(item);
 
-      expect(item.addTag).toHaveBeenCalledWith("DOI Added", 1);
+      expect(item.setField).toHaveBeenCalledWith(
+        "DOI",
+        "10.1000/discovered.doi",
+      );
     });
   });
 
@@ -294,8 +296,6 @@ describe("Metadata Pipeline Functions", () => {
 
     it("should update authors when item has no creators", async () => {
       const item = createMockItem({ creators: [] });
-      item.numCreators = () => 0;
-      item.setCreator = vi.fn();
 
       const metadata = {
         author: [
@@ -306,12 +306,47 @@ describe("Metadata Pipeline Functions", () => {
 
       await updateItemWithMetadata(item, metadata);
 
-      expect(item.setCreator).toHaveBeenCalledTimes(2);
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
     });
 
-    it("should not update authors when item already has creators", async () => {
-      const item = createMockItem({ creators: [{ lastName: "Existing" }] });
-      item.setCreator = vi.fn();
+    it("should REPLACE existing authors (fix for issue #13 - duplicate authors bug)", async () => {
+      const item = createMockItem({
+        creators: [
+          { firstName: "Existing", lastName: "Author", creatorType: "author" },
+          { firstName: "Another", lastName: "Old", creatorType: "author" },
+        ],
+      });
+
+      const metadata = {
+        author: [
+          { given: "John", family: "Smith" },
+          { given: "Jane", family: "Doe" },
+        ],
+      };
+
+      await updateItemWithMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
+    });
+
+    it("should preserve non-author creators (editors, translators) when replacing authors", async () => {
+      const item = createMockItem({
+        creators: [
+          { firstName: "Existing", lastName: "Author", creatorType: "author" },
+          { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+          {
+            firstName: "Text",
+            lastName: "Translator",
+            creatorType: "translator",
+          },
+        ],
+      });
 
       const metadata = {
         author: [{ given: "John", family: "Smith" }],
@@ -319,7 +354,15 @@ describe("Metadata Pipeline Functions", () => {
 
       await updateItemWithMetadata(item, metadata);
 
-      expect(item.setCreator).not.toHaveBeenCalled();
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+        {
+          creatorType: "translator",
+          firstName: "Text",
+          lastName: "Translator",
+        },
+      ]);
     });
 
     it("should update volume/issue/pages", async () => {
@@ -424,10 +467,8 @@ describe("Metadata Pipeline Functions", () => {
       expect(item.setField).toHaveBeenCalledWith("title", "New Book Title");
     });
 
-    it("should update authors from OpenLibrary format", async () => {
+    it("should update authors from OpenLibrary format when item has no authors", async () => {
       const item = createMockItem({ creators: [] });
-      item.numCreators = () => 0;
-      item.setCreator = vi.fn();
 
       const metadata = {
         authors: [{ name: "John Smith" }, { name: "Jane Doe" }],
@@ -435,13 +476,14 @@ describe("Metadata Pipeline Functions", () => {
 
       await updateItemWithBookMetadata(item, metadata);
 
-      expect(item.setCreator).toHaveBeenCalledTimes(2);
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
     });
 
-    it("should handle authors as string array", async () => {
+    it("should handle authors as string array when item has no authors", async () => {
       const item = createMockItem({ creators: [] });
-      item.numCreators = () => 0;
-      item.setCreator = vi.fn();
 
       const metadata = {
         authors: ["John Smith", "Jane Doe"],
@@ -449,7 +491,64 @@ describe("Metadata Pipeline Functions", () => {
 
       await updateItemWithBookMetadata(item, metadata);
 
-      expect(item.setCreator).toHaveBeenCalledTimes(2);
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
+    });
+
+    it("should REPLACE existing authors when metadata has authors (fix for duplicate bug)", async () => {
+      const item = createMockItem({
+        creators: [
+          { firstName: "Old", lastName: "Author", creatorType: "author" },
+        ],
+      });
+
+      const metadata = {
+        authors: [{ name: "John Smith" }],
+      };
+
+      await updateItemWithBookMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+      ]);
+    });
+
+    it("should preserve non-author creators (editors) when replacing authors", async () => {
+      const item = createMockItem({
+        creators: [
+          { firstName: "Old", lastName: "Author", creatorType: "author" },
+          { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+        ],
+      });
+
+      const metadata = {
+        authors: [{ name: "John Smith" }],
+      };
+
+      await updateItemWithBookMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+      ]);
+    });
+
+    it("should not update authors when item has existing authors and metadata has no authors", async () => {
+      const item = createMockItem({
+        creators: [
+          { firstName: "Existing", lastName: "Author", creatorType: "author" },
+        ],
+      });
+
+      const metadata = {
+        title: "Book Title",
+      };
+
+      await updateItemWithBookMetadata(item, metadata);
+
+      expect(item.setCreators).not.toHaveBeenCalled();
     });
 
     it("should update publisher", async () => {

@@ -143,19 +143,21 @@ Select multiple items to process them all at once. A progress dialog will show t
 
 ## Metadata Fetching
 
-### Author Disambiguation
+### Metadata Matching
 
-The plugin uses multi-factor validation to ensure correct metadata matching, especially for papers with identical titles:
+The plugin uses strict matching criteria to ensure correct metadata:
 
-1. **Author Overlap**: Validates that search results share authors with the item
-2. **Author Count Similarity**: Rejects matches with drastically different author counts
-3. **Year Proximity**: Considers publication year in scoring
-4. **Title Similarity**: Uses word-based similarity scoring
-5. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+1. **Exact Title Match**: Requires exact title match (with abbreviation expansion like nets→networks, ml→machine learning)
+2. **Author Overlap**: Validates that search results share authors with the item
+3. **Author Count Similarity**: Rejects matches with drastically different author counts
+4. **arXiv Fallback**: Falls back to arXiv DOI when published DOI not found
+
+This prevents weak/partial matches (e.g., "GAN" matching unrelated papers, or quantum ML papers matching adversarial ML papers) from overwriting correct metadata.
 
 For best results, ensure your items have:
 
 - Complete author lists (not just first author)
+- Accurate title
 - Publication year
 - arXiv ID in Extra field (format: `arXiv: XXXX.XXXXX`)
 
@@ -163,16 +165,80 @@ For best results, ensure your items have:
 
 This famous paper has multiple versions and even other papers with identical titles. The plugin correctly identifies it by:
 
-1. Matching multiple authors (Goodfellow, Bengio, etc.)
-2. Checking year (2014 vs 2023 for other papers)
+1. Exact title match with abbreviation expansion
+2. Matching multiple authors (Goodfellow, Bengio, etc.)
 3. Falling back to arXiv DOI (10.48550/arxiv.1406.2661) if published DOI not found
+
+Weak matches like "GAN" or papers with similar titles but different authors are rejected.
 
 ### Update Metadata Best Practices
 
 When using the **Update Metadata** feature:
 
 - **DOI is Critical**: The feature heavily relies on a correct DOI for accurate metadata retrieval. If the DOI is missing or incorrect, results may be unreliable.
-- **Remove Authors First**: For best results, consider removing the authors field before updating metadata. This allows the plugin to search and match based on title and DOI without being confused by incomplete or incorrect author information.
+- **Authors are Replaced**: New authors from metadata will replace existing authors (non-author creators like editors are preserved).
+- **Exact Title Required**: Only exact title matches will update metadata, preventing incorrect matches.
+
+### Book Metadata Fetching
+
+Books work differently from journal articles. The plugin handles books through:
+
+#### ISBN Discovery
+
+1. **Existing ISBN Check**: First checks if the book already has an ISBN field
+2. **Title-based Discovery**: If no ISBN, searches OpenLibrary and Google Books by exact title
+3. **Author Validation**: Uses 40% author overlap threshold to validate discovered metadata
+4. **ISBN Preference**: Prefers ISBN-13 over ISBN-10 for better compatibility
+
+#### Metadata Sources
+
+Books use three metadata sources in priority order:
+
+1. **Zotero Translator**: Built-in Zotero book translator (most accurate)
+2. **OpenLibrary API**: Comprehensive book metadata database
+3. **Google Books API**: Fallback source with industry identifiers
+
+#### Author Mismatch Detection
+
+When applying book metadata, the plugin validates author overlap:
+
+- **40% Threshold**: Requires at least 40% of local authors to match fetched authors when both have author data
+- **Validation Logic**: Only validates when both item and fetched data have authors; if overlap < 40%, metadata is NOT applied (match rejected)
+- **No Authors Case**: If item or fetched data has no authors, validation is skipped and metadata is accepted
+
+Example:
+
+- Local book: "Design Patterns" with authors [Gamma, Johnson]
+- Fetched: "Design Patterns" with authors [Gamma, Johnson, Helm, Vlissides]
+- Overlap: 2/4 = 50% >= 40% → Metadata applied successfully
+- Another example: Local book with authors [Smith], fetched with authors [Johnson, Williams]
+  - Overlap: 0/2 = 0% < 40% → Metadata rejected, progress window shows: "Failed: Book Title - Author mismatch (0.00 overlap)"
+
+#### Recommended Workflow for Books
+
+1. **Start with Title**: Books work best with accurate title
+2. **Add ISBN if Available**: ISBN provides the most accurate metadata match
+3. **Check Progress Window**: Review failure reasons for failed items in progress window
+
+#### Progress Tracking
+
+For batch book metadata operations (2+ items):
+
+- **Progress Window**: Shows real-time status for each book
+- **ISBN Display**: Shows discovered ISBN: "Design Patterns (ISBN: 9780201633610)"
+- **Success/Failure**: Displays success count and failed items with errors
+- **Click to Close**: Window stays open if failures exist (auto-close on all success)
+
+#### Failure Reasons
+
+The progress window shows detailed failure reasons for failed items:
+
+- **Author mismatch**: "Failed: {title} - Author mismatch ({overlap}% overlap)"
+- **No ISBN found**: "Failed: {title} - No ISBN found"
+- **Book API failed**: "Failed: {title} - Book API failed"
+- **Network errors**: "Failed: {title} - Network error"
+
+This allows you to quickly identify why specific items failed and take appropriate action.
 
 ## Success Rates & Expectations
 

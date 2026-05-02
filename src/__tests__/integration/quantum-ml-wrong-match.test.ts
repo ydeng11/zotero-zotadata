@@ -47,7 +47,9 @@ describe("MetadataFetcher - Quantum ML Wrong Match Prevention", () => {
       },
     ]);
 
-    const result = await fetcher.fetchMetadataForItem(item);
+    const result = await fetcher.fetchMetadataForItem(item, {
+      strategy: "parallel",
+    });
 
     expect(result.success).toBe(true);
 

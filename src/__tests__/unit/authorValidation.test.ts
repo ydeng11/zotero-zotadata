@@ -3,8 +3,8 @@ import {
   normalizeLastName,
   calculateAuthorOverlap,
   validateMetadataMatch,
-  isExactTitleMatch,
 } from "@/utils/authorValidation";
+import { isExactTitleMatch } from "@/utils/similarity";
 import type { SearchResult } from "@/shared/core/types";
 
 describe("authorValidation", () => {
@@ -250,7 +250,6 @@ describe("authorValidation", () => {
       const result = validateMetadataMatch(item, candidate);
 
       expect(result.accept).toBe(false);
-      expect(result.reason).toContain("Year differs");
     });
 
     it("accepts exact title match with complete metadata when no existing authors", () => {

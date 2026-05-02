@@ -3,6 +3,7 @@ import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI"
 import { FileFinder } from "@/modules/FileFinder";
 import { StringUtils } from "@/shared/utils/StringUtils";
 import { matchesPreferredLanguage } from "@/utils/locale";
+import { isExactTitleMatch } from "@/utils/similarity";
 import type {
   ArxivProcessResult,
   CrossRefWork,
@@ -202,40 +203,12 @@ export class ArxivProcessor {
     return null;
   }
 
-  static titleSimilarity(title1: string, title2: string): number {
-    const normalize = (s: string): string =>
-      s
-        .toLowerCase()
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const words1 = new Set(
-      normalize(title1)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-    const words2 = new Set(
-      normalize(title2)
-        .split(" ")
-        .filter((w) => w.length > 2),
-    );
-
-    if (words1.size === 0 || words2.size === 0) {
-      return 0;
-    }
-
-    const intersection = new Set([...words1].filter((w) => words2.has(w)));
-    const union = new Set([...words1, ...words2]);
-    return intersection.size / union.size;
-  }
-
   private async searchCrossRefByArxivId(
     arxivId: string,
     itemTitle: string,
   ): Promise<string | null> {
     const works = await this.crossRefAPI.fetchWorksByArxivId(arxivId);
-    return this.pickCrossRefPublishedDOI(works, itemTitle, 0.7);
+    return this.pickCrossRefPublishedDOI(works, itemTitle);
   }
 
   private async searchCrossRefForPublishedVersion(
@@ -247,13 +220,12 @@ export class ArxivProcessor {
     }
 
     const works = await this.crossRefAPI.fetchWorksByQuery(query);
-    return this.pickCrossRefPublishedDOI(works, query.title, 0.9);
+    return this.pickCrossRefPublishedDOI(works, query.title);
   }
 
   private pickCrossRefPublishedDOI(
     works: CrossRefWork[],
     itemTitle: string,
-    minSimilarity: number,
   ): string | null {
     for (const work of works) {
       if (!work.DOI || ArxivProcessor.isArxivPreprintCrossRefWork(work)) {
@@ -264,11 +236,7 @@ export class ArxivProcessor {
         continue;
       }
 
-      const similarity = ArxivProcessor.getBestCrossRefTitleSimilarity(
-        work,
-        itemTitle,
-      );
-      if (similarity < minSimilarity) {
+      if (!ArxivProcessor.hasExactCrossRefTitleMatch(work, itemTitle)) {
         continue;
       }
 
@@ -302,7 +270,7 @@ export class ArxivProcessor {
       quoted,
       10,
     );
-    return this.pickPublishedFromPapers(papers, title, 0.7);
+    return this.pickPublishedFromPapers(papers, title);
   }
 
   private async searchSemanticScholarRelaxedPublished(
@@ -313,21 +281,19 @@ export class ArxivProcessor {
       cleaned,
       15,
     );
-    return this.pickPublishedFromPapers(papers, title, 0.9);
+    return this.pickPublishedFromPapers(papers, title);
   }
 
   private pickPublishedFromPapers(
     papers: SemanticScholarPaper[],
     itemTitle: string,
-    minSimilarity: number,
   ): string | null {
     for (const paper of papers) {
       if (ArxivProcessor.isArxivVenue(paper.venue)) {
         continue;
       }
 
-      const sim = ArxivProcessor.titleSimilarity(itemTitle, paper.title);
-      if (sim < minSimilarity) {
+      if (!isExactTitleMatch(itemTitle, paper.title ?? "")) {
         continue;
       }
 
@@ -388,20 +354,12 @@ export class ArxivProcessor {
     return [...new Set(titles)];
   }
 
-  private static getBestCrossRefTitleSimilarity(
+  private static hasExactCrossRefTitleMatch(
     work: CrossRefWork,
     itemTitle: string,
-  ): number {
+  ): boolean {
     const candidateTitles = ArxivProcessor.getCrossRefCandidateTitles(work);
-    if (candidateTitles.length === 0) {
-      return 0;
-    }
-
-    return Math.max(
-      ...candidateTitles.map((title) =>
-        ArxivProcessor.titleSimilarity(itemTitle, title),
-      ),
-    );
+    return candidateTitles.some((title) => isExactTitleMatch(itemTitle, title));
   }
 
   private static getPreferredCrossRefTitle(work: CrossRefWork): string | null {
