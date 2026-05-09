@@ -446,6 +446,21 @@ export class ProgressDialog {
     }
   }
 
+  addDescription(message: string): void {
+    if (this.closed) return;
+
+    try {
+      if (
+        this.progressWindow &&
+        typeof this.progressWindow.addDescription === "function"
+      ) {
+        this.progressWindow.addDescription(message);
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+  }
+
   /**
    * Close progress dialog
    */
@@ -530,6 +545,9 @@ export class BatchProgressDialog {
       this.totalItems,
       message,
     );
+    if (details) {
+      this.progressDialog.addDescription(details);
+    }
   }
 
   /**

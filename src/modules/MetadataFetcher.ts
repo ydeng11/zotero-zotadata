@@ -243,13 +243,21 @@ export class MetadataFetcher {
             const isbnChange = result.changes.find((c) =>
               c.startsWith("Added ISBN:"),
             );
+            const fallbackISBNChange = result.changes.find((c) =>
+              c.startsWith("Used fallback edition ISBN:"),
+            );
             const isbn = isbnChange
               ? isbnChange.replace("Added ISBN: ", "")
               : null;
+            const fallbackISBN = fallbackISBNChange
+              ? fallbackISBNChange.replace("Used fallback edition ISBN: ", "")
+              : null;
 
-            const displayText = isbn
-              ? `${itemTitle} (ISBN: ${isbn})`
-              : itemTitle;
+            const displayText = fallbackISBN
+              ? `${itemTitle} (used fallback edition ISBN: ${fallbackISBN})`
+              : isbn
+                ? `${itemTitle} (ISBN: ${isbn})`
+                : itemTitle;
 
             progressDialog.itemCompleted(displayText);
           } else {
