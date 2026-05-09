@@ -120,6 +120,22 @@ describe("BookMetadataService", () => {
     expect(result.changes).toContain("Stored fallback edition ISBN in Extra");
   });
 
+  it("uses fallback when the Zotero title includes an author prefix", async () => {
+    mockBookMetadataHTTP();
+    const item = createMockItem({
+      ISBN: "978-1399603591",
+      title: "Joe Abercrombie - The Devils",
+      itemTypeID: 2,
+    });
+
+    const result = await service.fetchISBNBasedMetadata(item);
+
+    expect(result.success).toBe(true);
+    expect(item.getField("extra")).toContain(
+      "Zotadata fallback edition: 9781399603560",
+    );
+  });
+
   it("rejects fallback ISBN candidates with a mismatched title", async () => {
     httpRequest.mockImplementation((_method: string, url: string) => {
       if (url.includes("search.json")) {

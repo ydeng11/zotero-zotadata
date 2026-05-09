@@ -25,6 +25,11 @@ interface FallbackISBNCandidate {
   source: "OpenLibrary" | "Google Books";
 }
 
+interface FallbackBookQuery {
+  title: string;
+  authors: string[];
+}
+
 export class BookMetadataService {
   private errorManager: ErrorManager;
   private lastBookMetadataLookup: BookMetadataLookupResult | null = null;
@@ -315,35 +320,85 @@ export class BookMetadataService {
   private async discoverFallbackISBNCandidates(
     item: Zotero.Item,
   ): Promise<FallbackISBNCandidate[]> {
+    const queries = this.getFallbackBookQueries(item);
+    if (queries.length === 0) {
+      return [];
+    }
+
+    for (const query of queries) {
+      const openLibraryCandidates =
+        await this.searchOpenLibraryForFallbackISBNs(item, query);
+      if (openLibraryCandidates.length > 0) {
+        return openLibraryCandidates;
+      }
+    }
+
+    for (const query of queries) {
+      const googleBooksCandidates =
+        await this.searchGoogleBooksForFallbackISBNs(item, query);
+      if (googleBooksCandidates.length > 0) {
+        return googleBooksCandidates;
+      }
+    }
+
+    return [];
+  }
+
+  private getFallbackBookQueries(item: Zotero.Item): FallbackBookQuery[] {
     const title = String(item.getField("title") ?? "").trim();
     if (!title) {
       return [];
     }
 
-    const openLibraryCandidates = await this.searchOpenLibraryForFallbackISBNs(
-      item,
-      title,
-    );
-    if (openLibraryCandidates.length > 0) {
-      return openLibraryCandidates;
+    const itemAuthors = this.getItemAuthorNames(item);
+    const queries: FallbackBookQuery[] = [];
+    const seen = new Set<string>();
+    const addQuery = (queryTitle: string, authors: string[]): void => {
+      const cleanTitle = queryTitle.trim();
+      const cleanAuthors = authors
+        .map((author) => author.trim())
+        .filter(Boolean);
+      const key = `${cleanTitle.toLowerCase()}|${cleanAuthors.join(";").toLowerCase()}`;
+      if (!cleanTitle || seen.has(key)) {
+        return;
+      }
+
+      seen.add(key);
+      queries.push({ title: cleanTitle, authors: cleanAuthors });
+    };
+
+    for (const separator of [" - ", " – ", " — ", ": "]) {
+      const separatorIndex = title.indexOf(separator);
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const beforeSeparator = title.slice(0, separatorIndex).trim();
+      const afterSeparator = title
+        .slice(separatorIndex + separator.length)
+        .trim();
+
+      if (beforeSeparator && afterSeparator && itemAuthors.length === 0) {
+        addQuery(afterSeparator, [beforeSeparator]);
+      }
     }
 
-    return this.searchGoogleBooksForFallbackISBNs(item, title);
+    addQuery(title, itemAuthors);
+    return queries;
   }
 
   private async searchOpenLibraryForFallbackISBNs(
     item: Zotero.Item,
-    title: string,
+    query: FallbackBookQuery,
   ): Promise<FallbackISBNCandidate[]> {
-    const authors = this.getItemAuthorNames(item);
-    const authorQuery = authors[0]
-      ? `&author=${encodeURIComponent(authors[0])}`
+    const authorQuery = query.authors[0]
+      ? `&author=${encodeURIComponent(query.authors[0])}`
       : "";
 
     try {
       const response = await Zotero.HTTP.request(
         "GET",
-        `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}${authorQuery}&fields=title,isbn,author_name&limit=5`,
+        `https://openlibrary.org/search.json?title=${encodeURIComponent(query.title)}${authorQuery}&fields=title,isbn,author_name&limit=5`,
         {
           headers: { Accept: "application/json" },
         },
@@ -363,7 +418,7 @@ export class BookMetadataService {
       const candidates: FallbackISBNCandidate[] = [];
       for (const doc of payload.docs ?? []) {
         if (
-          !this.isValidFallbackMatch(item, title, doc.title, doc.author_name)
+          !this.isValidFallbackMatch(item, query, doc.title, doc.author_name)
         ) {
           continue;
         }
@@ -378,9 +433,9 @@ export class BookMetadataService {
       await this.errorManager.handleError(
         this.errorManager.createError(
           ErrorType.API_ERROR,
-          `OpenLibrary fallback ISBN search failed for "${title}"`,
+          `OpenLibrary fallback ISBN search failed for "${query.title}"`,
           {
-            title,
+            title: query.title,
             error: error instanceof Error ? error.message : String(error),
           },
         ),
@@ -392,15 +447,16 @@ export class BookMetadataService {
 
   private async searchGoogleBooksForFallbackISBNs(
     item: Zotero.Item,
-    title: string,
+    query: FallbackBookQuery,
   ): Promise<FallbackISBNCandidate[]> {
-    const authors = this.getItemAuthorNames(item);
-    const authorQuery = authors[0] ? ` inauthor:"${authors[0]}"` : "";
+    const authorQuery = query.authors[0]
+      ? ` inauthor:"${query.authors[0]}"`
+      : "";
 
     try {
       const response = await Zotero.HTTP.request(
         "GET",
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${title}"${authorQuery}`)}&maxResults=5`,
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${query.title}"${authorQuery}`)}&maxResults=5`,
         {
           headers: { Accept: "application/json" },
         },
@@ -426,7 +482,7 @@ export class BookMetadataService {
         if (
           !this.isValidFallbackMatch(
             item,
-            title,
+            query,
             volumeInfo?.title,
             volumeInfo?.authors,
           )
@@ -449,9 +505,9 @@ export class BookMetadataService {
       await this.errorManager.handleError(
         this.errorManager.createError(
           ErrorType.API_ERROR,
-          `Google Books fallback ISBN search failed for "${title}"`,
+          `Google Books fallback ISBN search failed for "${query.title}"`,
           {
-            title,
+            title: query.title,
             error: error instanceof Error ? error.message : String(error),
           },
         ),
@@ -463,24 +519,26 @@ export class BookMetadataService {
 
   private isValidFallbackMatch(
     item: Zotero.Item,
-    itemTitle: string,
+    query: FallbackBookQuery,
     candidateTitle?: string,
     candidateAuthors: string[] = [],
   ): boolean {
-    if (!candidateTitle || !isExactTitleMatch(candidateTitle, itemTitle)) {
+    if (!candidateTitle || !isExactTitleMatch(candidateTitle, query.title)) {
       return false;
     }
 
     const itemAuthors = this.getItemAuthorNames(item);
+    const expectedAuthors =
+      itemAuthors.length > 0 ? itemAuthors : query.authors;
     const usableCandidateAuthors = candidateAuthors.filter(
       (author) => author.trim().length > 0,
     );
-    if (itemAuthors.length === 0 || usableCandidateAuthors.length === 0) {
+    if (expectedAuthors.length === 0 || usableCandidateAuthors.length === 0) {
       return true;
     }
 
     return (
-      calculateAuthorOverlap(itemAuthors, usableCandidateAuthors)
+      calculateAuthorOverlap(expectedAuthors, usableCandidateAuthors)
         .overlapRatio >= 0.4
     );
   }
