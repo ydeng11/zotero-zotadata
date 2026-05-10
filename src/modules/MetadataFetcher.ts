@@ -295,6 +295,13 @@ export class MetadataFetcher {
     return this.errorManager.wrapAsync(
       async () => {
         const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
+        this.logDebug("Fetch metadata item branch selected", {
+          itemId: item.id,
+          itemTypeID: item.itemTypeID,
+          itemType,
+          title: String(item.getField("title") ?? ""),
+          isbn: String(item.getField("ISBN") ?? ""),
+        });
         let legacyResult: LegacyFetchResult | null = null;
 
         if (
@@ -304,6 +311,13 @@ export class MetadataFetcher {
         ) {
           legacyResult = await this.fetchDOIBasedMetadata(item);
           if (legacyResult.success || legacyResult.changes.length > 0) {
+            this.logDebug("Returning DOI-based metadata result", {
+              itemId: item.id,
+              success: legacyResult.success,
+              source: legacyResult.source,
+              error: legacyResult.error,
+              changes: legacyResult.changes,
+            });
             return {
               success: legacyResult.success,
               item,
@@ -313,8 +327,18 @@ export class MetadataFetcher {
             };
           }
         } else if (itemType === "book") {
+          this.logDebug("Entering book ISBN metadata path", {
+            itemId: item.id,
+          });
           legacyResult = await this.bookMetadata.fetchISBNBasedMetadata(item);
           if (legacyResult) {
+            this.logDebug("Returning book ISBN metadata result", {
+              itemId: item.id,
+              success: legacyResult.success,
+              source: legacyResult.source,
+              error: legacyResult.error,
+              changes: legacyResult.changes,
+            });
             return {
               success: legacyResult.success,
               item,
@@ -326,7 +350,16 @@ export class MetadataFetcher {
         }
 
         const query = this.buildSearchQuery(item);
+        this.logDebug("Falling through to general metadata search", {
+          itemId: item.id,
+          itemType,
+          query,
+        });
         if (!isSearchQueryActionable(query)) {
+          this.logDebug("General metadata search query is not actionable", {
+            itemId: item.id,
+            query,
+          });
           return {
             success: false,
             item,
@@ -339,6 +372,11 @@ export class MetadataFetcher {
         }
 
         const searchResults = await this.searchMultipleAPIs(query, options);
+        this.logDebug("General metadata search completed", {
+          itemId: item.id,
+          resultCount: searchResults.length,
+          sources: searchResults.map((result) => result.source),
+        });
         if (searchResults.length === 0) {
           return {
             success: false,
@@ -350,6 +388,11 @@ export class MetadataFetcher {
         }
 
         const bestResult = this.selectBestResult(searchResults, options);
+        this.logDebug("Selected general metadata result", {
+          itemId: item.id,
+          source: bestResult.source,
+          title: bestResult.title,
+        });
         const changes = await this.applyMetadataToItem(
           item,
           bestResult,
@@ -368,6 +411,17 @@ export class MetadataFetcher {
       ErrorType.API_ERROR,
       { operation: "fetchMetadataForItem", itemId: item.id },
     );
+  }
+
+  private logDebug(message: string, context?: Record<string, unknown>): void {
+    try {
+      const details = context ? ` ${JSON.stringify(context)}` : "";
+      if (typeof Zotero !== "undefined" && Zotero.log) {
+        Zotero.log(`Zotadata MetadataFetcher: ${message}${details}`);
+      }
+    } catch {
+      // Logging must never affect metadata fetching.
+    }
   }
 
   async searchByDOI(

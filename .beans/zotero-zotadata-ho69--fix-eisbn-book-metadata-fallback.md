@@ -5,7 +5,7 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-05-09T04:15:11Z
-updated_at: 2026-05-10T03:43:57Z
+updated_at: 2026-05-10T03:48:16Z
 ---
 
 Implement guarded book metadata fallback when exact ISBN lookup fails.\n\n- [x] Add failing regression tests for eISBN fallback and rejection cases\n- [x] Implement guarded title/author fallback ISBN discovery\n- [x] Store accepted fallback ISBN in Extra and expose it in changes/dialog text\n- [x] Run targeted tests and type check\n- [x] Run Code Simplifier review if patch exceeds 50 changed lines\n- [x] Complete bean with summary
@@ -39,3 +39,11 @@ Add targeted Zotero.log diagnostics to the book ISBN fallback search path so run
 ## Search Path Logging
 
 Added Zotero.log diagnostics throughout the book ISBN fallback path. Logs now include ISBN extraction, exact ISBN candidates, translator/OpenLibrary/Google metadata lookup outcomes, fallback query title/authors plus creator runtime shape, OpenLibrary and Google fallback search status/counts, accepted/rejected candidate documents, fallback ISBN attempts, and final all-path failure. Rebuilt .scaffold/dist/zotadata.xpi with the logging and verified the bundle contains the Zotadata BookMetadataService log prefix.
+
+## Outer Branch Logging Follow-up
+
+User only sees menu and Zotero translator logs, not BookMetadataService logs. Add MetadataFetcher-level logging to identify the item type and branch before the code reaches either book ISBN handling or general translator/search handling.
+
+## Outer Branch Logging
+
+Added Zotero.log diagnostics in MetadataFetcher.fetchMetadataForItem. Logs now show the Zotero itemTypeID/itemType/title/ISBN before branching, whether the book ISBN path is entered, whether the book result is returned, and when the item falls through to general metadata search. Rebuilt .scaffold/dist/zotadata.xpi and verified both Zotadata MetadataFetcher and Zotadata BookMetadataService log prefixes are in the bundle.
