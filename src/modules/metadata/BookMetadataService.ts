@@ -13,6 +13,11 @@ import type {
 } from "./types";
 import { BOOK_TRANSLATOR_FIELDS as BOOK_FIELDS } from "./types";
 
+const GOOGLE_BOOKS_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "Mozilla/5.0",
+} as const;
+
 export class BookMetadataService {
   private errorManager: ErrorManager;
 
@@ -135,11 +140,11 @@ export class BookMetadataService {
         `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&fields=title,isbn,author_name&limit=5`,
         {
           headers: { Accept: "application/json" },
+          successCodes: false,
         },
       );
       if (response.status !== 200) {
-        const errorType =
-          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
           this.errorManager.createError(
             errorType,
@@ -193,12 +198,12 @@ export class BookMetadataService {
         "GET",
         `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${title}"`)}&maxResults=5`,
         {
-          headers: { Accept: "application/json" },
+          headers: GOOGLE_BOOKS_HEADERS,
+          successCodes: false,
         },
       );
       if (response.status !== 200) {
-        const errorType =
-          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
           this.errorManager.createError(
             errorType,
@@ -307,11 +312,11 @@ export class BookMetadataService {
         {
           headers: { Accept: "application/json" },
           timeout: 15000,
+          successCodes: false,
         },
       );
       if (response.status !== 200) {
-        const errorType =
-          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
           this.errorManager.createError(
             errorType,
@@ -352,13 +357,13 @@ export class BookMetadataService {
         "GET",
         `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`,
         {
-          headers: { Accept: "application/json" },
+          headers: GOOGLE_BOOKS_HEADERS,
           timeout: 15000,
+          successCodes: false,
         },
       );
       if (response.status !== 200) {
-        const errorType =
-          response.status === 429 ? ErrorType.RATE_LIMIT : ErrorType.API_ERROR;
+        const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
           this.errorManager.createError(
             errorType,
@@ -388,6 +393,18 @@ export class BookMetadataService {
       );
       return null;
     }
+  }
+
+  private getHTTPStatusErrorType(status: number): ErrorType {
+    if (status === 429) {
+      return ErrorType.RATE_LIMIT;
+    }
+
+    if (status === 408 || status >= 500) {
+      return ErrorType.NETWORK_ERROR;
+    }
+
+    return ErrorType.API_ERROR;
   }
 
   async updateItemWithBookMetadata(

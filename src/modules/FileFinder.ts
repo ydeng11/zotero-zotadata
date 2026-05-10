@@ -687,6 +687,7 @@ export class FileFinder {
         {
           headers: this.buildRequestHeaders({
             Accept: "application/json",
+            "User-Agent": "Mozilla/5.0",
           }),
           timeout: 15000,
         },

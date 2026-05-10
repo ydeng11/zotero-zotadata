@@ -124,7 +124,7 @@ declare global {
           body?: string | ArrayBuffer;
           responseType?: string;
           timeout?: number;
-          successCodes?: number[];
+          successCodes?: number[] | false;
         },
       ): Promise<{
         status: number;
