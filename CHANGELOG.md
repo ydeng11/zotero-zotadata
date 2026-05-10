@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.2] - 2025-05-10
+
+### Added
+
+#### Google Books API Key Support
+
+- **Configurable API key** - Added `api.googlebooks.key` preference for authenticated Google Books API calls with higher quotas
+- **Enable/disable toggle** - Added `api.googlebooks.enabled` preference to toggle Google Books integration on/off
+- **Settings UI entries** - Both preferences visible in the \"API Settings\" section of the plugin preferences dialog
+- **URL construction** - API key appended as `&key=...` query parameter to all Google Books API requests when configured
+
+### Changed
+
+- **BookMetadataService** constructor now accepts optional `googleBooksApiKey` and `googleBooksEnabled` parameters
+- **MetadataFetcher** wires `PreferencesManager` through to `BookMetadataService` for API key access
+- **Google Books calls skipped** entirely when `api.googlebooks.enabled` is set to `false`
+
+### Fixed
+
+- **Code quality** - Replaced `let` with `const` in `buildGoogleBooksUrl` helper
+
+---
+
 ## [1.5.1] - 2025-05-02
 
 ### Fixed

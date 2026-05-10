@@ -97,6 +97,7 @@ Access Settings by:
   - Stored locally in Zotero preferences
   - Only used for API requests, never shared
 - **CORE API Key**: Optional key for higher rate limits
+- **Google Books API Key**: Optional key for higher Google Books API quotas (available in Settings)
 
 ### PDF Download Sources
 
@@ -293,8 +294,8 @@ This plugin integrates with several external APIs and services:
 #### OpenLibrary & Google Books APIs
 
 - **Purpose**: Book metadata and ISBN discovery
-- **Rate Limit**: Standard API limits
-- **Authentication**: None required for basic use
+- **Rate Limit**: Standard API limits (higher with Google Books API key)
+- **Authentication**: Google Books API key optional for higher quotas (configure in Settings)
 
 ### PDF Sources
 
