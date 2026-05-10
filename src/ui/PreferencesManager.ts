@@ -41,6 +41,8 @@ interface PluginPreferences {
   "api.arxiv.enabled": boolean;
   "api.libgen.enabled": boolean;
   "api.pmc.enabled": boolean;
+  "api.googlebooks.enabled": boolean;
+  "api.googlebooks.key": string;
   "api.timeout": number;
   "api.retries": number;
   "api.unpaywall.email": string;
@@ -165,6 +167,8 @@ export class PreferencesManager {
       "api.arxiv.enabled": this.getPreference("api.arxiv.enabled", true),
       "api.libgen.enabled": this.getPreference("api.libgen.enabled", false),
       "api.pmc.enabled": this.getPreference("api.pmc.enabled", true),
+      "api.googlebooks.enabled": this.getPreference("api.googlebooks.enabled", true),
+      "api.googlebooks.key": this.getPreference("api.googlebooks.key", ""),
       "api.timeout": this.getPreference("api.timeout", 30),
       "api.retries": this.getPreference("api.retries", 3),
       "api.unpaywall.email": this.getPreference("api.unpaywall.email", ""),
@@ -249,6 +253,20 @@ export class PreferencesManager {
   }
 
   /**
+   * Get the configured Google Books API key (empty string if not set).
+   */
+  getGoogleBooksApiKey(): string {
+    return this.getPreference("api.googlebooks.key", "");
+  }
+
+  /**
+   * Check if Google Books API is enabled.
+   */
+  isGoogleBooksEnabled(): boolean {
+    return this.getPreference("api.googlebooks.enabled", true);
+  }
+
+  /**
    * Get preference configuration for UI
    */
   getPreferenceConfig(): PreferenceSection[] {
@@ -299,6 +317,20 @@ export class PreferencesManager {
             label: "Enable PubMed Central API",
             description: "Search for open access papers from PMC",
             defaultValue: true,
+          },
+          {
+            key: "api.googlebooks.enabled",
+            type: "boolean",
+            label: "Enable Google Books API",
+            description: "Search for book metadata from Google Books",
+            defaultValue: true,
+          },
+          {
+            key: "api.googlebooks.key",
+            type: "string",
+            label: "Google Books API Key",
+            description: "API key for Google Books (optional, increases quota)",
+            defaultValue: "",
           },
           {
             key: "api.timeout",
