@@ -20,6 +20,12 @@ describe("BookMetadataService", () => {
         ...globalThis.Zotero.Utilities,
         cleanISBN: (isbn: string) => isbn.replace(/[-\s]/g, ""),
       },
+      CreatorTypes: {
+        ...(globalThis.Zotero as unknown as { CreatorTypes: object })
+          .CreatorTypes,
+        getName: (creatorTypeID: number) =>
+          creatorTypeID === 1 ? "author" : "editor",
+      },
     });
   });
 
@@ -120,7 +126,34 @@ describe("BookMetadataService", () => {
     expect(result.changes).toContain("Stored fallback edition ISBN in Extra");
   });
 
-  it("uses fallback when the Zotero title includes an author prefix", async () => {
+  it("uses fallback with a Zotero full-name author creator", async () => {
+    mockBookMetadataHTTP();
+    const item = createMockItem({
+      ISBN: "978-1-3996-0359-1",
+      title: "The Devils",
+      itemTypeID: 2,
+    });
+    vi.mocked(item.getCreators).mockReturnValue([
+      {
+        creatorTypeID: 1,
+        lastName: "Joe Abercrombie",
+      } as unknown as ReturnType<typeof item.getCreators>[number],
+    ]);
+
+    const result = await service.fetchISBNBasedMetadata(item);
+
+    expect(result.success).toBe(true);
+    expect(
+      httpRequest.mock.calls.some(([, url]) =>
+        String(url).includes("author=Joe%20Abercrombie"),
+      ),
+    ).toBe(true);
+    expect(item.getField("extra")).toContain(
+      "Zotadata fallback edition: 9781399603560",
+    );
+  });
+
+  it("does not derive fallback author data from a prefixed title", async () => {
     mockBookMetadataHTTP();
     const item = createMockItem({
       ISBN: "978-1399603591",
@@ -130,9 +163,14 @@ describe("BookMetadataService", () => {
 
     const result = await service.fetchISBNBasedMetadata(item);
 
-    expect(result.success).toBe(true);
-    expect(item.getField("extra")).toContain(
-      "Zotadata fallback edition: 9781399603560",
+    expect(result.success).toBe(false);
+    expect(
+      httpRequest.mock.calls.some(([, url]) =>
+        String(url).includes("author=Joe%20Abercrombie"),
+      ),
+    ).toBe(false);
+    expect(item.getField("extra")).not.toContain(
+      "Zotadata fallback edition:",
     );
   });
 

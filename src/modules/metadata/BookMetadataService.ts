@@ -30,6 +30,15 @@ interface FallbackBookQuery {
   authors: string[];
 }
 
+type ZoteroCreator = ReturnType<Zotero.Item["getCreators"]>[number] & {
+  creatorTypeID?: number;
+};
+
+type CreatorTypesWithName = {
+  getName?: (creatorTypeID: number) => string;
+  getPrimaryIDForType?: (creatorType: string) => number;
+};
+
 export class BookMetadataService {
   private errorManager: ErrorManager;
   private lastBookMetadataLookup: BookMetadataLookupResult | null = null;
@@ -350,41 +359,7 @@ export class BookMetadataService {
       return [];
     }
 
-    const itemAuthors = this.getItemAuthorNames(item);
-    const queries: FallbackBookQuery[] = [];
-    const seen = new Set<string>();
-    const addQuery = (queryTitle: string, authors: string[]): void => {
-      const cleanTitle = queryTitle.trim();
-      const cleanAuthors = authors
-        .map((author) => author.trim())
-        .filter(Boolean);
-      const key = `${cleanTitle.toLowerCase()}|${cleanAuthors.join(";").toLowerCase()}`;
-      if (!cleanTitle || seen.has(key)) {
-        return;
-      }
-
-      seen.add(key);
-      queries.push({ title: cleanTitle, authors: cleanAuthors });
-    };
-
-    for (const separator of [" - ", " – ", " — ", ": "]) {
-      const separatorIndex = title.indexOf(separator);
-      if (separatorIndex === -1) {
-        continue;
-      }
-
-      const beforeSeparator = title.slice(0, separatorIndex).trim();
-      const afterSeparator = title
-        .slice(separatorIndex + separator.length)
-        .trim();
-
-      if (beforeSeparator && afterSeparator && itemAuthors.length === 0) {
-        addQuery(afterSeparator, [beforeSeparator]);
-      }
-    }
-
-    addQuery(title, itemAuthors);
-    return queries;
+    return [{ title, authors: this.getItemAuthorNames(item) }];
   }
 
   private async searchOpenLibraryForFallbackISBNs(
@@ -546,13 +521,45 @@ export class BookMetadataService {
   private getItemAuthorNames(item: Zotero.Item): string[] {
     return item
       .getCreators()
-      .filter((creator) => creator.creatorType === "author")
-      .map((creator) =>
-        [creator.firstName, creator.lastName || creator.name]
-          .filter(Boolean)
-          .join(" "),
-      )
+      .filter((creator) => this.isAuthorCreator(creator))
+      .map((creator) => this.getCreatorName(creator))
       .filter((author) => author.trim().length > 0);
+  }
+
+  private isAuthorCreator(creator: ZoteroCreator): boolean {
+    if (creator.creatorType) {
+      return creator.creatorType === "author";
+    }
+
+    if (typeof creator.creatorTypeID === "number") {
+      const creatorTypes = (Zotero as unknown as {
+        CreatorTypes?: CreatorTypesWithName;
+      }).CreatorTypes;
+      const creatorTypeName = creatorTypes?.getName?.(creator.creatorTypeID);
+      if (creatorTypeName) {
+        return creatorTypeName === "author";
+      }
+
+      const authorCreatorTypeID =
+        creatorTypes?.getPrimaryIDForType?.("author");
+      if (typeof authorCreatorTypeID === "number") {
+        return creator.creatorTypeID === authorCreatorTypeID;
+      }
+    }
+
+    return true;
+  }
+
+  private getCreatorName(creator: ZoteroCreator): string {
+    const singleFieldName = creator.name ?? "";
+    if (singleFieldName.trim()) {
+      return singleFieldName.trim();
+    }
+
+    return [creator.firstName, creator.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
   }
 
   private buildFallbackCandidates(
