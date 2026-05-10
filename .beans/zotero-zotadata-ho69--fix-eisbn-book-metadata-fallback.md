@@ -5,7 +5,7 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-05-09T04:15:11Z
-updated_at: 2026-05-10T03:26:49Z
+updated_at: 2026-05-10T03:33:53Z
 ---
 
 Implement guarded book metadata fallback when exact ISBN lookup fails.\n\n- [x] Add failing regression tests for eISBN fallback and rejection cases\n- [x] Implement guarded title/author fallback ISBN discovery\n- [x] Store accepted fallback ISBN in Extra and expose it in changes/dialog text\n- [x] Run targeted tests and type check\n- [x] Run Code Simplifier review if patch exceeds 50 changed lines\n- [x] Complete bean with summary
@@ -23,3 +23,11 @@ User confirmed the corrected Zotero item still fails: Title "The Devils", Author
 ## Correction
 
 Removed the author-prefixed title fallback. The reported corrected Zotero item now uses the actual full-name Author creator row for fallback search, including Zotero runtime creatorTypeID shapes. Added regressions for full-name author fallback and for not deriving author data from a prefixed title. Revalidated with targeted tests, type-check, full test suite, live OpenLibrary probe, and production build.
+
+## Reopened Live Failure
+
+User reports the corrected Zotero item still returns Book API Failed. Need run a service-level live test through the search fallback path for Title The Devils, Author Joe Abercrombie, ISBN 978-1-3996-0359-1 and identify the actual rejection point.
+
+## Live Search Path Result
+
+Ran a temporary service-level live Vitest diagnostic for the reported item: Title The Devils, Author Joe Abercrombie as a Zotero internal full-name creator, ISBN 978-1-3996-0359-1. Both BookMetadataService.fetchISBNBasedMetadata and the menu-facing MetadataFetcher.fetchMetadataForItem succeeded. Trace: OpenLibrary direct ISBN lookups for the ebook variants returned empty objects, Google Books returned 429 quota errors, OpenLibrary title+author search returned fallback ISBN 9781399603560, and OpenLibrary metadata lookup for that ISBN returned publisher Orion Publishing Co and date 06 May 2025. Result changes included Used fallback edition ISBN: 9781399603560 and Stored fallback edition ISBN in Extra. The built XPI also contains the creatorTypeID fallback code. Remaining likely causes are stale installed XPI / Zotero extension caching, or a runtime creator shape not covered by the diagnostic.
