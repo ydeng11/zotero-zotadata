@@ -50,10 +50,16 @@ export class BookMetadataService {
   async fetchISBNBasedMetadata(item: Zotero.Item): Promise<LegacyFetchResult> {
     const changes: string[] = [];
     let isbn = this.extractISBN(item);
+    this.logDebug("ISBN metadata fetch started", {
+      itemId: item.id,
+      title: String(item.getField("title") ?? ""),
+      extractedISBN: isbn,
+    });
 
     if (!isbn) {
       isbn = await this.discoverISBN(item);
       if (isbn) {
+        this.logDebug("Discovered ISBN for item without ISBN", { isbn });
         item.setField("ISBN", isbn);
         item.addTag("ISBN Added", 1);
         await item.saveTx();
@@ -62,6 +68,7 @@ export class BookMetadataService {
     }
 
     if (!isbn) {
+      this.logDebug("No ISBN available after discovery");
       item.addTag("No ISBN Found", 1);
       await item.saveTx();
       return {
@@ -76,6 +83,9 @@ export class BookMetadataService {
     this.lastBookMetadataLookup = null;
     const metadata = await this.fetchBookMetadata(isbn, item);
     if (!metadata) {
+      this.logDebug("Book metadata lookup failed after all ISBN paths", {
+        isbn,
+      });
       item.addTag("Book API Failed", 1);
       await item.saveTx();
       return {
@@ -89,6 +99,10 @@ export class BookMetadataService {
 
     const lookupResult = this.lastBookMetadataLookup;
     if (lookupResult?.fallbackISBN) {
+      this.logDebug("Using fallback edition ISBN for metadata", {
+        originalISBN: isbn,
+        fallbackISBN: lookupResult.fallbackISBN,
+      });
       changes.push(`Used fallback edition ISBN: ${lookupResult.fallbackISBN}`);
       if (this.storeFallbackEditionISBN(item, lookupResult.fallbackISBN)) {
         changes.push("Stored fallback edition ISBN in Extra");
@@ -114,6 +128,9 @@ export class BookMetadataService {
     const updateResult = await this.updateItemWithBookMetadata(item, metadata);
 
     if (updateResult.rejectionReason) {
+      this.logDebug("Book metadata update rejected", {
+        reason: updateResult.rejectionReason,
+      });
       await item.saveTx();
       return {
         success: false,
@@ -298,31 +315,65 @@ export class BookMetadataService {
   ): Promise<BookMetadataLookupResult | null> {
     const attemptedISBNs = new Set<string>();
     const lookupCandidates = [isbn, ...buildAlternativeISBNCandidates(isbn)];
+    this.logDebug("Trying exact ISBN metadata candidates", {
+      isbn,
+      lookupCandidates,
+    });
 
     for (const candidate of lookupCandidates) {
       attemptedISBNs.add(cleanISBN(candidate));
+      this.logDebug("Trying exact ISBN metadata candidate", { candidate });
       const metadata = await this.lookupBookMetadata(candidate, item);
       if (metadata) {
+        this.logDebug("Exact ISBN metadata candidate succeeded", {
+          candidate,
+        });
         return { metadata };
       }
+      this.logDebug("Exact ISBN metadata candidate failed", { candidate });
     }
 
-    for (const candidate of await this.discoverFallbackISBNCandidates(item)) {
+    const fallbackCandidates = await this.discoverFallbackISBNCandidates(item);
+    this.logDebug("Fallback ISBN discovery completed", {
+      fallbackCandidates,
+    });
+
+    for (const candidate of fallbackCandidates) {
       const cleanCandidate = cleanISBN(candidate.isbn);
       if (attemptedISBNs.has(cleanCandidate)) {
+        this.logDebug("Skipping already attempted fallback ISBN", {
+          isbn: cleanCandidate,
+          source: candidate.source,
+        });
         continue;
       }
 
       attemptedISBNs.add(cleanCandidate);
+      this.logDebug("Trying fallback ISBN metadata candidate", {
+        isbn: cleanCandidate,
+        source: candidate.source,
+      });
       const metadata = await this.lookupBookMetadata(cleanCandidate, item);
       if (metadata) {
+        this.logDebug("Fallback ISBN metadata candidate succeeded", {
+          isbn: cleanCandidate,
+          source: candidate.source,
+        });
         return {
           metadata,
           fallbackISBN: cleanCandidate,
         };
       }
+      this.logDebug("Fallback ISBN metadata candidate failed", {
+        isbn: cleanCandidate,
+        source: candidate.source,
+      });
     }
 
+    this.logDebug("No book metadata found from exact or fallback ISBN paths", {
+      isbn,
+      attemptedISBNs: [...attemptedISBNs],
+    });
     return null;
   }
 
@@ -330,6 +381,7 @@ export class BookMetadataService {
     item: Zotero.Item,
   ): Promise<FallbackISBNCandidate[]> {
     const queries = this.getFallbackBookQueries(item);
+    this.logDebug("Prepared fallback book search queries", { queries });
     if (queries.length === 0) {
       return [];
     }
@@ -337,6 +389,11 @@ export class BookMetadataService {
     for (const query of queries) {
       const openLibraryCandidates =
         await this.searchOpenLibraryForFallbackISBNs(item, query);
+      this.logDebug("OpenLibrary fallback search result", {
+        query,
+        candidateCount: openLibraryCandidates.length,
+        candidates: openLibraryCandidates,
+      });
       if (openLibraryCandidates.length > 0) {
         return openLibraryCandidates;
       }
@@ -345,6 +402,11 @@ export class BookMetadataService {
     for (const query of queries) {
       const googleBooksCandidates =
         await this.searchGoogleBooksForFallbackISBNs(item, query);
+      this.logDebug("Google Books fallback search result", {
+        query,
+        candidateCount: googleBooksCandidates.length,
+        candidates: googleBooksCandidates,
+      });
       if (googleBooksCandidates.length > 0) {
         return googleBooksCandidates;
       }
@@ -359,7 +421,13 @@ export class BookMetadataService {
       return [];
     }
 
-    return [{ title, authors: this.getItemAuthorNames(item) }];
+    const authors = this.getItemAuthorNames(item);
+    this.logDebug("Built fallback query from Zotero item fields", {
+      title,
+      authors,
+      creators: this.getCreatorDebugInfo(item),
+    });
+    return [{ title, authors }];
   }
 
   private async searchOpenLibraryForFallbackISBNs(
@@ -371,6 +439,7 @@ export class BookMetadataService {
       : "";
 
     try {
+      this.logDebug("Searching OpenLibrary for fallback ISBNs", { query });
       const response = await Zotero.HTTP.request(
         "GET",
         `https://openlibrary.org/search.json?title=${encodeURIComponent(query.title)}${authorQuery}&fields=title,isbn,author_name&limit=5`,
@@ -379,6 +448,10 @@ export class BookMetadataService {
         },
       );
       if (response.status !== 200) {
+        this.logDebug("OpenLibrary fallback search returned non-200", {
+          query,
+          status: response.status,
+        });
         return [];
       }
 
@@ -389,15 +462,31 @@ export class BookMetadataService {
           author_name?: string[];
         }>;
       };
+      this.logDebug("OpenLibrary fallback search returned docs", {
+        query,
+        docCount: payload.docs?.length ?? 0,
+      });
 
       const candidates: FallbackISBNCandidate[] = [];
       for (const doc of payload.docs ?? []) {
         if (
           !this.isValidFallbackMatch(item, query, doc.title, doc.author_name)
         ) {
+          this.logDebug("Rejected OpenLibrary fallback doc", {
+            query,
+            docTitle: doc.title,
+            docAuthors: doc.author_name,
+            docISBNs: doc.isbn,
+          });
           continue;
         }
 
+        this.logDebug("Accepted OpenLibrary fallback doc", {
+          query,
+          docTitle: doc.title,
+          docAuthors: doc.author_name,
+          docISBNs: doc.isbn,
+        });
         candidates.push(
           ...this.buildFallbackCandidates(doc.isbn ?? [], "OpenLibrary"),
         );
@@ -416,6 +505,10 @@ export class BookMetadataService {
         ),
         { notifyUser: false },
       );
+      this.logDebug("OpenLibrary fallback search threw", {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -429,6 +522,7 @@ export class BookMetadataService {
       : "";
 
     try {
+      this.logDebug("Searching Google Books for fallback ISBNs", { query });
       const response = await Zotero.HTTP.request(
         "GET",
         `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${query.title}"${authorQuery}`)}&maxResults=5`,
@@ -437,6 +531,10 @@ export class BookMetadataService {
         },
       );
       if (response.status !== 200) {
+        this.logDebug("Google Books fallback search returned non-200", {
+          query,
+          status: response.status,
+        });
         return [];
       }
 
@@ -450,6 +548,10 @@ export class BookMetadataService {
           };
         }>;
       };
+      this.logDebug("Google Books fallback search returned items", {
+        query,
+        itemCount: payload.items?.length ?? 0,
+      });
 
       const candidates: FallbackISBNCandidate[] = [];
       for (const itemInfo of payload.items ?? []) {
@@ -462,9 +564,21 @@ export class BookMetadataService {
             volumeInfo?.authors,
           )
         ) {
+          this.logDebug("Rejected Google Books fallback item", {
+            query,
+            itemTitle: volumeInfo?.title,
+            itemAuthors: volumeInfo?.authors,
+            itemIdentifiers: volumeInfo?.industryIdentifiers,
+          });
           continue;
         }
 
+        this.logDebug("Accepted Google Books fallback item", {
+          query,
+          itemTitle: volumeInfo?.title,
+          itemAuthors: volumeInfo?.authors,
+          itemIdentifiers: volumeInfo?.industryIdentifiers,
+        });
         candidates.push(
           ...this.buildFallbackCandidates(
             volumeInfo?.industryIdentifiers?.map(
@@ -488,6 +602,10 @@ export class BookMetadataService {
         ),
         { notifyUser: false },
       );
+      this.logDebug("Google Books fallback search threw", {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -562,6 +680,35 @@ export class BookMetadataService {
       .trim();
   }
 
+  private getCreatorDebugInfo(item: Zotero.Item): Array<Record<string, unknown>> {
+    return item.getCreators().map((creator) => {
+      const runtimeCreator = creator as ZoteroCreator & {
+        fieldMode?: number;
+      };
+      return {
+        creatorType: runtimeCreator.creatorType,
+        creatorTypeID: runtimeCreator.creatorTypeID,
+        fieldMode: runtimeCreator.fieldMode,
+        firstName: runtimeCreator.firstName,
+        lastName: runtimeCreator.lastName,
+        name: runtimeCreator.name,
+        treatedAsAuthor: this.isAuthorCreator(runtimeCreator),
+        extractedName: this.getCreatorName(runtimeCreator),
+      };
+    });
+  }
+
+  private logDebug(message: string, context?: Record<string, unknown>): void {
+    try {
+      const details = context ? ` ${JSON.stringify(context)}` : "";
+      if (typeof Zotero !== "undefined" && Zotero.log) {
+        Zotero.log(`Zotadata BookMetadataService: ${message}${details}`);
+      }
+    } catch {
+      // Logging must never affect metadata fetching.
+    }
+  }
+
   private buildFallbackCandidates(
     isbns: string[],
     source: FallbackISBNCandidate["source"],
@@ -608,20 +755,43 @@ export class BookMetadataService {
     isbn: string,
     item: Zotero.Item,
   ): Promise<BookMetadataSource | null> {
+    this.logDebug("Lookup metadata for ISBN", { isbn });
     const translatorSuccess = await this.fetchBookMetadataViaTranslator(
       isbn,
       item,
     );
     if (translatorSuccess) {
+      this.logDebug("Zotero translator metadata lookup succeeded", { isbn });
       return { source: "Zotero Translator", success: true };
     }
+    this.logDebug("Zotero translator metadata lookup did not update item", {
+      isbn,
+    });
 
     const openLibrary = await this.fetchOpenLibraryMetadata(isbn);
     if (openLibrary) {
+      this.logDebug("OpenLibrary metadata lookup succeeded", {
+        isbn,
+        title: openLibrary.title,
+      });
       return openLibrary;
     }
+    this.logDebug("OpenLibrary metadata lookup did not return metadata", {
+      isbn,
+    });
 
-    return this.fetchGoogleBooksMetadata(isbn);
+    const googleBooks = await this.fetchGoogleBooksMetadata(isbn);
+    if (googleBooks) {
+      this.logDebug("Google Books metadata lookup succeeded", {
+        isbn,
+        title: googleBooks.title,
+      });
+    } else {
+      this.logDebug("Google Books metadata lookup did not return metadata", {
+        isbn,
+      });
+    }
+    return googleBooks;
   }
 
   private async fetchBookMetadataViaTranslator(
@@ -665,7 +835,13 @@ export class BookMetadataService {
         string,
         { details?: OpenLibraryBookMetadata }
       >;
-      return payload[`ISBN:${isbn}`]?.details ?? null;
+      const metadata = payload[`ISBN:${isbn}`]?.details ?? null;
+      this.logDebug("OpenLibrary metadata response parsed", {
+        isbn,
+        status: response.status,
+        found: Boolean(metadata),
+      });
+      return metadata;
     } catch (error) {
       await this.errorManager.handleError(
         this.errorManager.createError(
@@ -711,7 +887,14 @@ export class BookMetadataService {
       const payload = JSON.parse(response.responseText) as {
         items?: Array<{ volumeInfo?: GoogleBooksVolumeInfo }>;
       };
-      return payload.items?.[0]?.volumeInfo ?? null;
+      const metadata = payload.items?.[0]?.volumeInfo ?? null;
+      this.logDebug("Google Books metadata response parsed", {
+        isbn,
+        status: response.status,
+        itemCount: payload.items?.length ?? 0,
+        found: Boolean(metadata),
+      });
+      return metadata;
     } catch (error) {
       await this.errorManager.handleError(
         this.errorManager.createError(
