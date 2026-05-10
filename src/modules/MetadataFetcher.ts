@@ -6,6 +6,7 @@ import {
 } from "@/features/metadata/apis";
 import { DownloadManager } from "@/services/DownloadManager";
 import { DialogManager } from "@/ui";
+import { PreferencesManager } from "@/ui/PreferencesManager";
 import {
   isSearchQueryActionable,
   normalizeDoi,
@@ -50,6 +51,7 @@ export interface MetadataFetcherServices {
   doiDiscovery?: DOIDiscoveryService;
   bookMetadata?: BookMetadataService;
   metadataUpdate?: MetadataUpdateService;
+  preferencesManager?: PreferencesManager;
 }
 
 export class MetadataFetcher {
@@ -92,7 +94,13 @@ export class MetadataFetcher {
     }
 
     this.bookMetadata =
-      addonData.services?.bookMetadata ?? new BookMetadataService();
+      addonData.services?.bookMetadata ??
+      new BookMetadataService({
+        googleBooksApiKey:
+          addonData.services?.preferencesManager?.getGoogleBooksApiKey() ?? "",
+        googleBooksEnabled:
+          addonData.services?.preferencesManager?.isGoogleBooksEnabled() ?? true,
+      });
     this.metadataUpdate =
       addonData.services?.metadataUpdate ?? new MetadataUpdateService();
     this.dialogManager = new DialogManager({ config: this.config });

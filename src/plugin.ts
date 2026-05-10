@@ -510,6 +510,9 @@ export class ZotadataPlugin {
           ...this.config,
           downloads: { maxConcurrent: this.config.maxConcurrentDownloads },
         },
+        services: {
+          preferencesManager: this.preferencesManager ?? undefined,
+        },
       });
     }
     return this.metadataFetcher;
