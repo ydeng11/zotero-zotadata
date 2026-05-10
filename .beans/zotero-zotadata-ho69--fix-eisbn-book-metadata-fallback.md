@@ -5,7 +5,7 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-05-09T04:15:11Z
-updated_at: 2026-05-10T03:48:16Z
+updated_at: 2026-05-10T18:03:48Z
 ---
 
 Implement guarded book metadata fallback when exact ISBN lookup fails.\n\n- [x] Add failing regression tests for eISBN fallback and rejection cases\n- [x] Implement guarded title/author fallback ISBN discovery\n- [x] Store accepted fallback ISBN in Extra and expose it in changes/dialog text\n- [x] Run targeted tests and type check\n- [x] Run Code Simplifier review if patch exceeds 50 changed lines\n- [x] Complete bean with summary
@@ -47,3 +47,11 @@ User only sees menu and Zotero translator logs, not BookMetadataService logs. Ad
 ## Outer Branch Logging
 
 Added Zotero.log diagnostics in MetadataFetcher.fetchMetadataForItem. Logs now show the Zotero itemTypeID/itemType/title/ISBN before branching, whether the book ISBN path is entered, whether the book result is returned, and when the item falls through to general metadata search. Rebuilt .scaffold/dist/zotadata.xpi and verified both Zotadata MetadataFetcher and Zotadata BookMetadataService log prefixes are in the bundle.
+
+## Extra Persistence Follow-up
+
+User reports metadata now updates but fallback ISBN is not visible in Extra. Move fallback Extra append to after successful non-translator metadata update and add logs for whether the line was appended, already present, and what Extra contains after setField.
+
+## Extra Persistence Fix
+
+Changed fallback Extra storage timing so the fallback line is appended after a successful non-translator book metadata update instead of before updateItemWithBookMetadata saves other fields. Translator metadata still stores before its final save. Added logs for already-present fallback lines and for previous/next/read-back Extra content after setField. Rebuilt .scaffold/dist/zotadata.xpi and verified the bundle contains the new Extra write diagnostics.

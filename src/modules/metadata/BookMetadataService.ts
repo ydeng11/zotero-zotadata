@@ -97,19 +97,20 @@ export class BookMetadataService {
       };
     }
 
-    const lookupResult = this.lastBookMetadataLookup;
-    if (lookupResult?.fallbackISBN) {
+    const fallbackISBN = this.lastBookMetadataLookup?.fallbackISBN;
+    if (fallbackISBN) {
       this.logDebug("Using fallback edition ISBN for metadata", {
         originalISBN: isbn,
-        fallbackISBN: lookupResult.fallbackISBN,
+        fallbackISBN,
       });
-      changes.push(`Used fallback edition ISBN: ${lookupResult.fallbackISBN}`);
-      if (this.storeFallbackEditionISBN(item, lookupResult.fallbackISBN)) {
-        changes.push("Stored fallback edition ISBN in Extra");
-      }
+      changes.push(`Used fallback edition ISBN: ${fallbackISBN}`);
     }
 
     if (this.isTranslatorBookMetadata(metadata)) {
+      if (fallbackISBN && this.storeFallbackEditionISBN(item, fallbackISBN)) {
+        changes.push("Stored fallback edition ISBN in Extra");
+      }
+
       item.addTag("Metadata Updated", 1);
       item.addTag("Via Zotero Translator", 1);
       await item.saveTx();
@@ -142,6 +143,9 @@ export class BookMetadataService {
     }
 
     changes.push(...updateResult.changes);
+    if (fallbackISBN && this.storeFallbackEditionISBN(item, fallbackISBN)) {
+      changes.push("Stored fallback edition ISBN in Extra");
+    }
     item.addTag("Metadata Updated", 1);
     await item.saveTx();
     return {
@@ -744,10 +748,21 @@ export class BookMetadataService {
     if (
       currentExtra.split(/\r?\n/).some((existing) => existing.trim() === line)
     ) {
+      this.logDebug("Fallback edition ISBN already present in Extra", {
+        fallbackISBN,
+        extra: currentExtra,
+      });
       return false;
     }
 
-    item.setField("extra", currentExtra ? `${currentExtra}\n${line}` : line);
+    const nextExtra = currentExtra ? `${currentExtra}\n${line}` : line;
+    item.setField("extra", nextExtra);
+    this.logDebug("Stored fallback edition ISBN in Extra field", {
+      fallbackISBN,
+      previousExtra: currentExtra,
+      nextExtra,
+      readBackExtra: String(item.getField("extra") ?? ""),
+    });
     return true;
   }
 
