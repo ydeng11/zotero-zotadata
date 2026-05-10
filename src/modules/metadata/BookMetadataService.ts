@@ -86,7 +86,6 @@ export class BookMetadataService {
       this.logDebug("Book metadata lookup failed after all ISBN paths", {
         isbn,
       });
-      item.addTag("Book API Failed", 1);
       await item.saveTx();
       return {
         success: false,

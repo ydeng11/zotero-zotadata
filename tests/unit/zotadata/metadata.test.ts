@@ -228,7 +228,7 @@ describe("Metadata Pipeline Functions", () => {
       });
     });
 
-    it("should add Book API Failed tag when metadata fetch fails", async () => {
+    it("should report book API failure without tagging the item", async () => {
       mockExtractISBN.mockReturnValue("9780123456789");
       mockFetchBookMetadata.mockResolvedValue(null);
 
@@ -237,7 +237,7 @@ describe("Metadata Pipeline Functions", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Book API failed");
-      expect(item.addTag).toHaveBeenCalledWith("Book API Failed", 1);
+      expect(item.addTag).not.toHaveBeenCalledWith("Book API Failed", 1);
     });
 
     it("should add No ISBN Found tag when no ISBN discovered", async () => {

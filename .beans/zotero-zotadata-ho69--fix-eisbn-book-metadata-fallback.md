@@ -5,7 +5,7 @@ status: completed
 type: bug
 priority: normal
 created_at: 2026-05-09T04:15:11Z
-updated_at: 2026-05-10T18:03:48Z
+updated_at: 2026-05-10T18:10:57Z
 ---
 
 Implement guarded book metadata fallback when exact ISBN lookup fails.\n\n- [x] Add failing regression tests for eISBN fallback and rejection cases\n- [x] Implement guarded title/author fallback ISBN discovery\n- [x] Store accepted fallback ISBN in Extra and expose it in changes/dialog text\n- [x] Run targeted tests and type check\n- [x] Run Code Simplifier review if patch exceeds 50 changed lines\n- [x] Complete bean with summary
@@ -55,3 +55,11 @@ User reports metadata now updates but fallback ISBN is not visible in Extra. Mov
 ## Extra Persistence Fix
 
 Changed fallback Extra storage timing so the fallback line is appended after a successful non-translator book metadata update instead of before updateItemWithBookMetadata saves other fields. Translator metadata still stores before its final save. Added logs for already-present fallback lines and for previous/next/read-back Extra content after setField. Rebuilt .scaffold/dist/zotadata.xpi and verified the bundle contains the new Extra write diagnostics.
+
+## Remove Book API Failed Tag
+
+User requested removing the Book API Failed tag side effect while preserving failure reporting through returned errors/results.
+
+## Removed Failure Tag
+
+Removed the Zotero tag side effect for Book API Failed while preserving the returned error string for UI/reporting. Updated the legacy unit expectation to assert the item is not tagged on book API failure. Rebuilt .scaffold/dist/zotadata.xpi and verified the bundle no longer contains a Book API Failed tag write.
