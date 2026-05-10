@@ -71,7 +71,7 @@ jobs:
           ### Installation
           
           1. Download the XPI file below
-          2. Open Zotero 8
+          2. Open Zotero 9
           3. Go to Tools → Add-ons
           4. Click gear icon → Install Add-on From File...
           5. Select the downloaded XPI file
@@ -79,7 +79,7 @@ jobs:
           
           ### Compatibility
           
-          - Zotero 8.x only
+          - Zotero 8.x & 9.x
           
           ---
           
