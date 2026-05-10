@@ -194,11 +194,10 @@ export class BookMetadataService {
   }
 
   private buildGoogleBooksUrl(path: string, queryParams: string): string {
-    let url = `https://www.googleapis.com/books/v1/${path}?${queryParams}`;
-    if (this.googleBooksApiKey) {
-      url += `&key=${encodeURIComponent(this.googleBooksApiKey)}`;
-    }
-    return url;
+    const base = `https://www.googleapis.com/books/v1/${path}?${queryParams}`;
+    return this.googleBooksApiKey
+      ? `${base}&key=${encodeURIComponent(this.googleBooksApiKey)}`
+      : base;
   }
 
   private async searchGoogleBooksForISBN(

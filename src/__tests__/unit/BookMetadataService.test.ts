@@ -119,4 +119,77 @@ describe("BookMetadataService", () => {
       }),
     );
   });
+
+  it("skips Google Books calls when googleBooksEnabled is false", async () => {
+    const disabledService = new BookMetadataService({
+      googleBooksEnabled: false,
+    });
+    const request = vi.fn();
+    vi.stubGlobal("Zotero", {
+      ...globalThis.Zotero,
+      HTTP: { request },
+      Translate: undefined,
+      log: vi.fn(),
+    });
+
+    const item = createMockItem({ ISBN: "9781399603591" });
+    const metadata = await disabledService.fetchBookMetadata("9781399603591", item);
+
+    expect(metadata).toBeNull();
+    // When Google Books is disabled AND OpenLibrary/Translator fail,
+    // no Google Books HTTP request should be made at all.
+    // The only HTTP requests would be for OpenLibrary (non-Google).
+    const googleCalls = request.mock.calls.filter(
+      (call: [string, string, ...unknown[]]) =>
+        typeof call[1] === "string" && call[1].includes("googleapis.com"),
+    );
+    expect(googleCalls).toHaveLength(0);
+  });
+
+  it("appends API key to Google Books URL when configured", async () => {
+    const keyedService = new BookMetadataService({
+      googleBooksApiKey: "test-api-key-123",
+    });
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 404,
+        responseText: "{}",
+        response: "{}",
+        getResponseHeader: () => null,
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        responseText: JSON.stringify({
+          items: [
+            {
+              volumeInfo: {
+                title: "Dune",
+                industryIdentifiers: [
+                  { type: "ISBN_13", identifier: "9780441013593" },
+                ],
+              },
+            },
+          ],
+        }),
+        response: "{}",
+        getResponseHeader: () => null,
+      });
+    vi.stubGlobal("Zotero", {
+      ...globalThis.Zotero,
+      HTTP: { request },
+      log: vi.fn(),
+    });
+
+    const item = createMockItem({ title: "Dune" });
+    await keyedService.discoverISBN(item);
+
+    // The Google Books call should include the API key
+    const googleCall = request.mock.calls.find(
+      (call: [string, string, ...unknown[]]) =>
+        typeof call[1] === "string" && call[1].includes("googleapis.com"),
+    );
+    expect(googleCall).toBeDefined();
+    expect(googleCall[1]).toContain("&key=test-api-key-123");
+  });
 });
