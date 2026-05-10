@@ -20,9 +20,13 @@ const GOOGLE_BOOKS_HEADERS = {
 
 export class BookMetadataService {
   private errorManager: ErrorManager;
+  private readonly googleBooksApiKey: string;
+  private readonly googleBooksEnabled: boolean;
 
-  constructor() {
+  constructor(options: { googleBooksApiKey?: string; googleBooksEnabled?: boolean } = {}) {
     this.errorManager = new ErrorManager();
+    this.googleBooksApiKey = options.googleBooksApiKey ?? "";
+    this.googleBooksEnabled = options.googleBooksEnabled ?? true;
   }
 
   async fetchISBNBasedMetadata(item: Zotero.Item): Promise<LegacyFetchResult> {
@@ -189,14 +193,31 @@ export class BookMetadataService {
     return null;
   }
 
+  private buildGoogleBooksUrl(path: string, queryParams: string): string {
+    let url = `https://www.googleapis.com/books/v1/${path}?${queryParams}`;
+    if (this.googleBooksApiKey) {
+      url += `&key=${encodeURIComponent(this.googleBooksApiKey)}`;
+    }
+    return url;
+  }
+
   private async searchGoogleBooksForISBN(
     item: Zotero.Item,
     title: string,
   ): Promise<string | null> {
+    if (!this.googleBooksEnabled) {
+      return null;
+    }
+
     try {
+      const url = this.buildGoogleBooksUrl(
+        "volumes",
+        `q=${encodeURIComponent(`intitle:"${title}"`)}&maxResults=5`,
+      );
+
       const response = await Zotero.HTTP.request(
         "GET",
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(`intitle:"${title}"`)}&maxResults=5`,
+        url,
         {
           headers: GOOGLE_BOOKS_HEADERS,
           successCodes: false,
@@ -352,10 +373,19 @@ export class BookMetadataService {
   private async fetchGoogleBooksMetadata(
     isbn: string,
   ): Promise<GoogleBooksVolumeInfo | null> {
+    if (!this.googleBooksEnabled) {
+      return null;
+    }
+
     try {
+      const url = this.buildGoogleBooksUrl(
+        "volumes",
+        `q=isbn:${encodeURIComponent(isbn)}`,
+      );
+
       const response = await Zotero.HTTP.request(
         "GET",
-        `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`,
+        url,
         {
           headers: GOOGLE_BOOKS_HEADERS,
           timeout: 15000,
