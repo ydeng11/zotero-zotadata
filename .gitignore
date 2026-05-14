@@ -17,6 +17,9 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 
+# Build outputs
+.scaffold/
+
 # Environment variables
 .env
 .env.local
@@ -40,5 +43,11 @@ Thumbs.db
 # Build outputs
 dist/
 build/
-.scaffold/
+
+# Design docs / planning artifacts
+.beans/
+.planning/
+.rulesify/
+.claude/
 docs/
+scripts/

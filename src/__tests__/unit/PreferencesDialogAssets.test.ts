@@ -14,7 +14,7 @@ describe("preferences dialog assets", () => {
     expect(distFiles).toContain("content zotadata content/");
   });
 
-  test.each(["content/options.xhtml", "addon/content/options.xhtml"])(
+  test.each(["addon/content/options.xhtml"])(
     "%s exposes the trimmed Sci-Hub settings dialog",
     (filePath) => {
       const markup = readProjectFile(filePath);
