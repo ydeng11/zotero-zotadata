@@ -96,7 +96,7 @@ describe("MetadataUpdateService", () => {
         author: [{ given: "Test", family: "Author" }],
       };
 
-      const changes = await service.updateItemWithMetadata(item, metadata);
+      await service.updateItemWithMetadata(item, metadata);
 
       expect(item.setField).not.toHaveBeenCalledWith(
         "title",
@@ -175,6 +175,74 @@ describe("MetadataUpdateService", () => {
       );
     });
 
+    it("does not overwrite existing authors when CrossRef authors have no overlap", async () => {
+      const item = createMockItem({
+        title: "Test Paper",
+        DOI: "10.1234/test",
+        date: "2020",
+        creators: [
+          { firstName: "Original", lastName: "Author", creatorType: "author" },
+        ],
+      });
+
+      const metadata = {
+        DOI: "10.1234/test",
+        title: ["Test Paper"],
+        published: { "date-parts": [[2020]] },
+        author: [
+          { given: "Unrelated", family: "Person" },
+          { given: "Another", family: "Mismatch" },
+        ],
+      };
+
+      const changes = await service.updateItemWithMetadata(item, metadata);
+
+      expect(item.setCreators).not.toHaveBeenCalled();
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated authors"),
+      );
+      expect(item.getCreators()).toEqual([
+        {
+          firstName: "Original",
+          lastName: "Author",
+          creatorType: "author",
+        },
+      ]);
+    });
+
+    it("rewrites authors idempotently for validated CrossRef metadata", async () => {
+      const item = createMockItem({
+        title: "Test Paper",
+        DOI: "10.1234/test",
+        date: "2020",
+        creators: [
+          { firstName: "J.", lastName: "Smith", creatorType: "author" },
+          { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+        ],
+      });
+
+      const metadata = {
+        DOI: "10.1234/test",
+        title: ["Test Paper"],
+        published: { "date-parts": [[2020]] },
+        author: [
+          { given: "John", family: "Smith" },
+          { given: "Jane", family: "Doe" },
+        ],
+      };
+
+      await service.updateItemWithMetadata(item, metadata);
+      const creatorsAfterFirstUpdate = item.getCreators();
+      await service.updateItemWithMetadata(item, metadata);
+
+      expect(item.getCreators()).toEqual(creatorsAfterFirstUpdate);
+      expect(item.getCreators()).toEqual([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+        { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+      ]);
+    });
+
     it("preserves existing authors when CrossRef title mismatches item title", async () => {
       const item = createMockItem({
         title: "Curated Local Paper",
@@ -214,12 +282,69 @@ describe("MetadataUpdateService", () => {
         author: [{ given: "New", family: "Author" }],
       };
 
-      const changes = await service.updateItemWithMetadata(item, metadata);
+      await service.updateItemWithMetadata(item, metadata);
 
       expect(item.setCreators).toHaveBeenCalledWith([
         { creatorType: "author", firstName: "New", lastName: "Author" },
         { creatorType: "editor", firstName: "Book", lastName: "Editor" },
       ]);
+    });
+
+    it("does not let OpenAlex supplement overwrite authors without overlap", async () => {
+      const item = createMockItem({
+        title: "Test Paper",
+        DOI: "10.1234/test",
+        date: "2020",
+        creators: [
+          { firstName: "Original", lastName: "Author", creatorType: "author" },
+        ],
+      });
+      const typedService = service as unknown as {
+        openAlexAPI: {
+          getWorkByDOI: ReturnType<typeof vi.fn>;
+        };
+      };
+      typedService.openAlexAPI.getWorkByDOI = vi.fn().mockResolvedValue({
+        title: "Test Paper",
+        authors: ["Unrelated Person", "Another Mismatch"],
+        year: 2020,
+      });
+
+      const changes = await service.supplementDOIMetadata(item, "10.1234/test");
+
+      expect(item.setCreators).not.toHaveBeenCalled();
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated authors"),
+      );
+    });
+
+    it("rewrites authors from OpenAlex supplement when metadata validates", async () => {
+      const item = createMockItem({
+        title: "Test Paper",
+        DOI: "10.1234/test",
+        date: "2020",
+        creators: [
+          { firstName: "J.", lastName: "Smith", creatorType: "author" },
+        ],
+      });
+      const typedService = service as unknown as {
+        openAlexAPI: {
+          getWorkByDOI: ReturnType<typeof vi.fn>;
+        };
+      };
+      typedService.openAlexAPI.getWorkByDOI = vi.fn().mockResolvedValue({
+        title: "Test Paper",
+        authors: ["John Smith", "Jane Doe"],
+        year: 2020,
+      });
+
+      const changes = await service.supplementDOIMetadata(item, "10.1234/test");
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      ]);
+      expect(changes).toContainEqual("Updated authors: John Smith, Jane Doe");
     });
   });
 });

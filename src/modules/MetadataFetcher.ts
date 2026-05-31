@@ -17,6 +17,7 @@ import {
   extractYearFromDate,
   extractAuthorsFromItem,
 } from "@/utils/itemFields";
+import { shouldRewriteAuthorsForMetadata } from "@/utils/authorValidation";
 import { getContainerTitleFieldForItemType } from "@/utils/typeMapping";
 import {
   BookMetadataService,
@@ -99,7 +100,8 @@ export class MetadataFetcher {
         googleBooksApiKey:
           addonData.services?.preferencesManager?.getGoogleBooksApiKey() ?? "",
         googleBooksEnabled:
-          addonData.services?.preferencesManager?.isGoogleBooksEnabled() ?? true,
+          addonData.services?.preferencesManager?.isGoogleBooksEnabled() ??
+          true,
       });
     this.metadataUpdate =
       addonData.services?.metadataUpdate ?? new MetadataUpdateService();
@@ -567,6 +569,8 @@ export class MetadataFetcher {
       let changed = this.applyTranslatedCreators(
         item,
         translated.getCreators(),
+        translated,
+        identifier,
       );
       changed = this.applyTranslatedFields(item, translated, fields) || changed;
       if (options.finalizeChange?.()) {
@@ -603,6 +607,8 @@ export class MetadataFetcher {
       firstName?: string;
       lastName?: string;
     }>,
+    translated: TranslatorItem,
+    identifier: Record<string, unknown>,
   ): boolean {
     const currentCreators = item.getCreators();
 
@@ -626,6 +632,25 @@ export class MetadataFetcher {
       firstName: creator.firstName ?? "",
       lastName: creator.lastName ?? "",
     }));
+
+    const authorNames = newAuthors.map((creator) =>
+      [creator.firstName, creator.lastName].filter(Boolean).join(" ").trim(),
+    );
+    const identifierDoi =
+      typeof identifier.DOI === "string" ? identifier.DOI : undefined;
+    const translatedDate = translated.getField("date");
+    const canRewriteAuthors = shouldRewriteAuthorsForMetadata(item, {
+      title: translated.getField("title"),
+      authors: authorNames,
+      year: extractYearFromDate(translatedDate),
+      doi: identifierDoi,
+      source: "Zotero Translator",
+      confidence: 1,
+    });
+
+    if (!canRewriteAuthors) {
+      return false;
+    }
 
     const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
       creatorType: creator.creatorType ?? "author",
@@ -926,10 +951,7 @@ export class MetadataFetcher {
       }
 
       if (searchResult.authors && searchResult.authors.length > 0) {
-        const shouldUpdateAuthors =
-          strongMatch ||
-          this.metadataUpdate.shouldUpdateAuthors(item, searchResult.authors);
-        if (shouldUpdateAuthors) {
+        if (shouldRewriteAuthorsForMetadata(item, searchResult)) {
           const creators = item.getCreators();
           const nonAuthors = creators.filter(
             (creator) => creator.creatorType !== "author",

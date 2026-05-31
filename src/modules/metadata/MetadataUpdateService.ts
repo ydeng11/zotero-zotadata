@@ -1,7 +1,7 @@
 import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
-import { isExactTitleMatch } from "@/utils/similarity";
-import { applyAuthorsToItem, extractAuthorsFromItem } from "@/utils/itemFields";
+import { applyAuthorsToItem } from "@/utils/itemFields";
+import { shouldRewriteAuthorsForMetadata } from "@/utils/authorValidation";
 import type { CrossRefWork } from "@/shared/core/types";
 
 export class MetadataUpdateService {
@@ -29,7 +29,14 @@ export class MetadataUpdateService {
 
     if (
       metadata.author?.length &&
-      this.shouldUpdateCrossRefAuthors(item, currentTitle, metadataTitle)
+      shouldRewriteAuthorsForMetadata(item, {
+        title: metadataTitle,
+        authors: this.formatCrossRefAuthors(metadata.author),
+        year: metadata.published?.["date-parts"]?.[0]?.[0],
+        doi: metadata.DOI,
+        source: "CrossRef",
+        confidence: 1,
+      })
     ) {
       this.applyCrossRefAuthors(item, metadata.author);
       changes.push(`Updated authors: ${metadata.author.length}`);
@@ -80,7 +87,14 @@ export class MetadataUpdateService {
 
     if (
       openAlexResult.authors?.length &&
-      this.shouldUpdateAuthors(item, openAlexResult.authors)
+      shouldRewriteAuthorsForMetadata(item, {
+        title: openAlexResult.title,
+        authors: openAlexResult.authors,
+        year: openAlexResult.year,
+        doi,
+        source: "OpenAlex",
+        confidence: 1,
+      })
     ) {
       applyAuthorsToItem(item, openAlexResult.authors);
       changes.push(`Updated authors: ${openAlexResult.authors.join(", ")}`);
@@ -114,30 +128,6 @@ export class MetadataUpdateService {
     return false;
   }
 
-  shouldUpdateAuthors(item: Zotero.Item, newAuthors: string[]): boolean {
-    const currentAuthors = extractAuthorsFromItem(item);
-
-    if (currentAuthors.length === 0) return true;
-    if (newAuthors.length === 0) return false;
-
-    if (currentAuthors.length > newAuthors.length * 1.5) return false;
-
-    return newAuthors.length > currentAuthors.length;
-  }
-
-  private shouldUpdateCrossRefAuthors(
-    item: Zotero.Item,
-    currentTitle: string,
-    metadataTitle?: string,
-  ): boolean {
-    const currentAuthors = extractAuthorsFromItem(item);
-    if (currentAuthors.length === 0) return true;
-    if (!currentTitle.trim()) return true;
-    if (!metadataTitle) return false;
-
-    return isExactTitleMatch(currentTitle, metadataTitle);
-  }
-
   private applyCrossRefAuthors(
     item: Zotero.Item,
     authors: Array<{ given?: string; family: string }>,
@@ -154,5 +144,13 @@ export class MetadataUpdateService {
     }));
 
     item.setCreators([...newAuthors, ...nonAuthors]);
+  }
+
+  private formatCrossRefAuthors(
+    authors: Array<{ given?: string; family: string }>,
+  ): string[] {
+    return authors.map((author) =>
+      [author.given, author.family].filter(Boolean).join(" ").trim(),
+    );
   }
 }

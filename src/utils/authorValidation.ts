@@ -1,4 +1,5 @@
 import { isExactTitleMatch } from "@/utils/similarity";
+import { normalizeDoi } from "@/utils/itemSearchQuery";
 import type { SearchResult } from "@/shared/core/types";
 
 interface ZoteroCreator {
@@ -55,6 +56,15 @@ export interface MatchValidationResult {
   reason: string;
   matchedAuthors: number;
   authorOverlap: number;
+}
+
+export interface MetadataAuthorCandidate {
+  title?: string;
+  authors: string[];
+  year?: number;
+  doi?: string;
+  source?: string;
+  confidence?: number;
 }
 
 export function calculateAuthorOverlap(
@@ -179,4 +189,84 @@ export function validateMetadataMatch(
     matchedAuthors: overlap.matchCount,
     authorOverlap: overlap.overlapRatio,
   };
+}
+
+export function shouldRewriteAuthorsForMetadata(
+  item: {
+    getCreators: () => ZoteroCreator[];
+    getField: (field: string) => string;
+  },
+  candidate: MetadataAuthorCandidate,
+): boolean {
+  const candidateAuthors = candidate.authors.filter(
+    (author) => author.trim().length > 0,
+  );
+  if (candidateAuthors.length === 0) {
+    return false;
+  }
+
+  const itemAuthors = item
+    .getCreators()
+    .filter((creator) => creator.creatorType === "author")
+    .map((creator) => creator.lastName || creator.name || "")
+    .filter(Boolean);
+
+  const itemDoi = String(item.getField("DOI") ?? "").trim();
+  const candidateDoi = candidate.doi?.trim() ?? "";
+  const doiMatches =
+    itemDoi.length > 0 &&
+    candidateDoi.length > 0 &&
+    normalizeDoi(itemDoi).toLowerCase() ===
+      normalizeDoi(candidateDoi).toLowerCase();
+
+  const candidateTitle = candidate.title?.trim() ?? "";
+  const currentTitle = String(item.getField("title") ?? "").trim();
+  const titleMatches =
+    currentTitle.length > 0 &&
+    candidateTitle.length > 0 &&
+    isExactTitleMatch(currentTitle, candidateTitle);
+
+  if (itemAuthors.length === 0) {
+    if (doiMatches && candidateTitle.length > 0) {
+      return true;
+    }
+
+    const validation = validateMetadataMatch(item, {
+      title: candidateTitle,
+      authors: candidateAuthors,
+      year: candidate.year,
+      doi: candidate.doi,
+      confidence: candidate.confidence ?? 0,
+      source: candidate.source ?? "Metadata",
+    });
+    return validation.accept;
+  }
+
+  const overlap = calculateAuthorOverlap(itemAuthors, candidateAuthors);
+  if (overlap.matchCount === 0) {
+    return false;
+  }
+
+  if (Math.abs(itemAuthors.length - candidateAuthors.length) > 5) {
+    return false;
+  }
+
+  if (currentTitle.length > 0 && candidateTitle.length > 0 && !titleMatches) {
+    return false;
+  }
+
+  if (!titleMatches && !doiMatches) {
+    return false;
+  }
+
+  const validation = validateMetadataMatch(item, {
+    title: candidateTitle || currentTitle,
+    authors: candidateAuthors,
+    year: candidate.year,
+    doi: candidate.doi,
+    confidence: candidate.confidence ?? (doiMatches ? 0.95 : 0),
+    source: candidate.source ?? "Metadata",
+  });
+
+  return validation.accept;
 }

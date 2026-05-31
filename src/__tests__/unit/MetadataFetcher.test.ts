@@ -8,6 +8,47 @@ import { MetadataUpdateService } from "@/modules/metadata/MetadataUpdateService"
 import { BookMetadataService } from "@/modules/metadata/BookMetadataService";
 import { createMockItem } from "../../../tests/__mocks__/zotero-items";
 import { validateMetadataMatch } from "@/utils/authorValidation";
+import type { FetchOptions } from "@/modules/metadata";
+import type { SearchQuery, SearchResult } from "@/shared/core/types";
+
+type TestableMetadataFetcher = {
+  applyMetadataToItem(
+    item: Zotero.Item,
+    searchResult: SearchResult,
+    query: SearchQuery,
+    options: FetchOptions,
+  ): Promise<string[]>;
+};
+
+interface MockTranslatorCreator {
+  creatorType: string;
+  firstName: string;
+  lastName: string;
+}
+
+function setupDOITranslatorMock(creators: MockTranslatorCreator[]): void {
+  const MockTranslateSearch = vi.fn().mockImplementation(() => ({
+    setIdentifier: vi.fn(),
+    getTranslators: vi.fn().mockResolvedValue(["translator"]),
+    setTranslator: vi.fn(),
+    translate: vi.fn().mockResolvedValue([
+      {
+        getCreators: () => creators,
+        getField: (field: string) => {
+          if (field === "title") return "Translated Article";
+          if (field === "date") return "2020";
+          return "";
+        },
+        saveTx: vi.fn().mockResolvedValue(undefined),
+      },
+    ]),
+  }));
+
+  vi.stubGlobal("Zotero", {
+    ...globalThis.Zotero,
+    Translate: { Search: MockTranslateSearch },
+  });
+}
 
 function createMockCrossRefAPI() {
   return {
@@ -211,7 +252,9 @@ describe("MetadataFetcher legacy compatibility", () => {
       creators: [{ firstName: "Original", lastName: "Author" }],
     });
 
-    const changes = await (fetcher as any).applyMetadataToItem(
+    const changes = await (
+      fetcher as unknown as TestableMetadataFetcher
+    ).applyMetadataToItem(
       item,
       {
         title: "Completely Different Paper",
@@ -255,6 +298,141 @@ describe("MetadataFetcher legacy compatibility", () => {
     expect(item.getField("issue")).toBe("");
     expect(item.getField("pages")).toBe("");
     expect(item.getField("language")).toBe("");
+  });
+
+  it("does not rewrite authors for a high-confidence search result with no author overlap", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      DOI: "10.1234/original",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+
+    const changes = await (
+      fetcher as unknown as TestableMetadataFetcher
+    ).applyMetadataToItem(
+      item,
+      {
+        title: "Curated Local Title",
+        authors: ["Wrong Person", "Another Mismatch"],
+        year: 2020,
+        doi: "10.1234/original",
+        confidence: 1,
+        source: "OpenAlex",
+      },
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author"],
+        year: 2020,
+        doi: "10.1234/original",
+      },
+      {},
+    );
+
+    expect(item.setCreators).not.toHaveBeenCalled();
+    expect(changes).not.toContainEqual(
+      expect.stringContaining("Updated authors"),
+    );
+  });
+
+  it("rewrites authors for a validated search result and preserves non-authors", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      DOI: "10.1234/original",
+      date: "2020",
+      creators: [
+        { firstName: "O.", lastName: "Author", creatorType: "author" },
+        { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+      ],
+    });
+
+    const changes = await (
+      fetcher as unknown as TestableMetadataFetcher
+    ).applyMetadataToItem(
+      item,
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author", "Second Writer"],
+        year: 2020,
+        doi: "10.1234/original",
+        confidence: 1,
+        source: "OpenAlex",
+      },
+      {
+        title: "Curated Local Title",
+        authors: ["O. Author"],
+        year: 2020,
+        doi: "10.1234/original",
+      },
+      {},
+    );
+
+    expect(item.setCreators).toHaveBeenCalledWith([
+      { creatorType: "author", firstName: "Original", lastName: "Author" },
+      { creatorType: "author", firstName: "Second", lastName: "Writer" },
+      { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+    ]);
+    expect(changes).toContainEqual(
+      "Updated authors: Original Author, Second Writer",
+    );
+  });
+
+  it("does not rewrite authors from translator metadata without overlap", async () => {
+    const item = createMockItem({
+      title: "Translated Article",
+      DOI: "10.1000/test.doi",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+    setupDOITranslatorMock([
+      {
+        creatorType: "author",
+        firstName: "Wrong",
+        lastName: "Person",
+      },
+    ]);
+
+    await fetcher.fetchDOIMetadataViaTranslator("10.1000/test.doi", item);
+
+    expect(item.setCreators).not.toHaveBeenCalled();
+  });
+
+  it("rewrites authors from validated translator metadata", async () => {
+    const item = createMockItem({
+      title: "Translated Article",
+      DOI: "10.1000/test.doi",
+      date: "2020",
+      creators: [
+        { firstName: "J.", lastName: "Smith", creatorType: "author" },
+        { firstName: "Book", lastName: "Editor", creatorType: "editor" },
+      ],
+    });
+    setupDOITranslatorMock([
+      {
+        creatorType: "author",
+        firstName: "John",
+        lastName: "Smith",
+      },
+      {
+        creatorType: "author",
+        firstName: "Jane",
+        lastName: "Doe",
+      },
+    ]);
+
+    const result = await fetcher.fetchDOIMetadataViaTranslator(
+      "10.1000/test.doi",
+      item,
+    );
+
+    expect(result).toBe(true);
+    expect(item.setCreators).toHaveBeenCalledWith([
+      { creatorType: "author", firstName: "John", lastName: "Smith" },
+      { creatorType: "author", firstName: "Jane", lastName: "Doe" },
+      { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+    ]);
   });
 
   it("treats translator-applied book metadata as a successful update", async () => {

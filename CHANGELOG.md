@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-05-31
+
+### Changed
+
+#### Metadata Authorship Validation
+
+- **Validated author rewrites** - Paper metadata updates now rewrite authors only when the response validates as the same paper using title, DOI, year, author overlap, and author-count sanity checks
+- **Consistent author replacement** - CrossRef, OpenAlex supplement, search-result metadata, and DOI translator paths now share the same author rewrite policy
+- **Non-author preservation** - Editors and other non-author creators remain preserved during validated author rewrites
+
+### Fixed
+
+- **Destructive author overwrites** - Prevents stale DOI, weak search, or translator responses with mismatched authors from replacing existing authorship
+- **Duplicate author accumulation** - Repeated validated metadata updates remain idempotent and do not append duplicate authors
+
+### Tests
+
+- Added regression coverage for CrossRef, OpenAlex supplement, search-result metadata, and DOI translator authorship updates
+- Added idempotence coverage for repeated metadata updates
+
+---
+
 ## [1.5.2] - 2025-05-10
 
 ### Added
