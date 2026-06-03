@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.4] - 2026-06-03
+
+### Fixed
+
+- **Infinite author duplication** — `isAuthorCreator()` was calling
+  `Zotero.CreatorTypes.getPrimaryIDForType("author")` which takes an item type
+  ID (e.g. `"journalArticle"`), not a creator type name. Returned `false` for
+  ALL creators, so every duplicate was treated as a non-author and preserved.
+  Each run appended 4 more authors. Fixed to `Zotero.CreatorTypes.getID("author")`.
+- **Author count check rejecting valid matches** — `shouldRewriteAuthorsForMetadata`
+  and `validateMetadataMatch` compared raw item author counts (including
+  accumulated duplicates, e.g. 20) against candidate counts (e.g. 4), rejecting
+  the match. Deduplicated with `new Set()` before the comparison.
+- **Simplified trust model** — `shouldRewriteAuthorsForMetadata` now trusts DOI
+  matches and high-confidence sources (≥0.9) unconditionally, removing fragile
+  author-overlap rejection logic that caused false rejections.
+- **OpenAlex 400 on search** — removed unsupported `.search` suffix from
+  `authorships.author.display_name` filter. Added try-catch around DOI discovery
+  strategies so one API failure doesn't crash the entire metadata fetch.
+- **2-minute HTTP retry on 5xx** — Zotero's `HTTP.request()` has a built-in
+  retry delaying 2 minutes on 5xx responses. Added `errorDelayMax: 0` to all
+  calls to disable retry.
+- **DOI search fallback blocked** — removed guard that skipped the search
+  path when a DOI exists on the item. When all DOI-specific sources fail,
+  the search path now runs as a fallback.
+- **Pre-translator creator restore** — capture `item.getCreators()` before
+  `translate()` and restore after Zotero's auto-append side effect, ensuring
+  `setCreators` replaces instead of appending.
+
+### Removed
+
+- Dead exports: `calculateStringSimilarity`, `findBestMatch`,
+  `levenshteinSimilarity`, `updateItemFields`, `setFieldIfEmpty`,
+  `updateItemAuthors`, `clearCache`, `getCacheStats`.
+
+### Changed
+
+- Added `Zotero.debug` logging with source names throughout
+  `MetadataFetcher`, `MetadataUpdateService`, `BookMetadataService`.
+- Added `dev:launch` npm script with Zotero debug flags.
+- Updated typings to include `errorDelayMax`.
+
 ## [1.5.3] - 2026-05-31
 
 ### Changed
