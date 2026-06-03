@@ -65,20 +65,6 @@ export class StringUtils {
   }
 
   /**
-   * Calculate normalized Levenshtein similarity (0-1)
-   */
-  static levenshteinSimilarity(str1: string, str2: string): number {
-    if (!str1 || !str2) return 0;
-    if (str1 === str2) return 1;
-
-    const maxLength = Math.max(str1.length, str2.length);
-    if (maxLength === 0) return 1;
-
-    const distance = StringUtils.levenshteinDistance(str1, str2);
-    return 1 - distance / maxLength;
-  }
-
-  /**
    * Normalize text for comparison
    */
   static normalizeText(text: string): string {
@@ -162,20 +148,22 @@ export class StringUtils {
    * Check if string contains all words from another string
    */
   static containsAllWords(text: string, searchWords: string[]): boolean {
-    const normalizedText = StringUtils.normalizeText(text);
-    return searchWords.every((word) =>
-      normalizedText.includes(StringUtils.normalizeText(word)),
-    );
+    const textWords = StringUtils.toWordSet(text);
+    return searchWords.every((word) => {
+      const normalizedWord = StringUtils.normalizeText(word);
+      return normalizedWord !== "" && textWords.has(normalizedWord);
+    });
   }
 
   /**
    * Check if string contains any words from another string
    */
   static containsAnyWords(text: string, searchWords: string[]): boolean {
-    const normalizedText = StringUtils.normalizeText(text);
-    return searchWords.some((word) =>
-      normalizedText.includes(StringUtils.normalizeText(word)),
-    );
+    const textWords = StringUtils.toWordSet(text);
+    return searchWords.some((word) => {
+      const normalizedWord = StringUtils.normalizeText(word);
+      return normalizedWord !== "" && textWords.has(normalizedWord);
+    });
   }
 
   /**
@@ -183,6 +171,8 @@ export class StringUtils {
    */
   static truncate(text: string, maxLength: number, suffix = "..."): string {
     if (text.length <= maxLength) return text;
+    if (maxLength <= 0) return "";
+    if (suffix.length >= maxLength) return suffix.substring(0, maxLength);
     return text.substring(0, maxLength - suffix.length) + suffix;
   }
 
@@ -234,41 +224,26 @@ export class StringUtils {
   ): number {
     const normalizedTerm = StringUtils.normalizeText(term);
     const normalizedDoc = StringUtils.normalizeText(document);
+    if (!normalizedTerm || !normalizedDoc || corpus.length === 0) {
+      return 0;
+    }
 
     // Term frequency
-    const words = normalizedDoc.split(/\s+/);
+    const words = normalizedDoc.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      return 0;
+    }
+
     const termCount = words.filter((word) => word === normalizedTerm).length;
     const tf = termCount / words.length;
 
     // Inverse document frequency
     const documentsWithTerm = corpus.filter((doc) =>
-      StringUtils.normalizeText(doc).includes(normalizedTerm),
+      StringUtils.toWordSet(doc).has(normalizedTerm),
     ).length;
-    const idf = Math.log(corpus.length / (documentsWithTerm + 1));
+    const idf = Math.log((corpus.length + 1) / (documentsWithTerm + 1));
 
     return tf * idf;
-  }
-
-  /**
-   * Find best match from array of strings
-   */
-  static findBestMatch(
-    target: string,
-    candidates: string[],
-    minSimilarity = 0.5,
-  ): { match: string; similarity: number } | null {
-    let bestMatch = null;
-    let bestSimilarity = minSimilarity;
-
-    for (const candidate of candidates) {
-      const similarity = StringUtils.calculateSimilarity(target, candidate);
-      if (similarity > bestSimilarity) {
-        bestSimilarity = similarity;
-        bestMatch = candidate;
-      }
-    }
-
-    return bestMatch ? { match: bestMatch, similarity: bestSimilarity } : null;
   }
 
   /**
@@ -317,9 +292,9 @@ export class StringUtils {
    */
   static extractDOI(text: string): string | null {
     const doiPattern =
-      /(?:doi:|https?:\/\/(?:dx\.)?doi\.org\/|https?:\/\/doi\.org\/)?(10\.\d{4,}\/[^\s]+)/i;
+      /(?:doi:|https?:\/\/(?:dx\.)?doi\.org\/|https?:\/\/doi\.org\/)?(10\.\d{4,}\/[^\s?#]+)/i;
     const match = text.match(doiPattern);
-    return match ? match[1] : null;
+    return match ? match[1].replace(/[.,;'")\]]+$/, "") : null;
   }
 
   /**
@@ -412,5 +387,11 @@ export class StringUtils {
       result += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     return result;
+  }
+
+  private static toWordSet(text: string): Set<string> {
+    return new Set(
+      StringUtils.normalizeText(text).split(/\s+/).filter(Boolean),
+    );
   }
 }

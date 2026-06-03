@@ -15,6 +15,7 @@ import {
 } from "@/constants/Menus";
 import type {
   AddonData,
+  AttachmentStats,
   MetadataResult,
   PluginConfig,
 } from "@/shared/core/types";
@@ -82,6 +83,12 @@ export class ZotadataPlugin {
   }
 
   async startup(): Promise<void> {
+    try {
+      // eslint-disable-next-line no-console
+      console.log("Zotadata plugin v1.5.3 BUILD_WITH_DEBUG started");
+    } catch {
+      // Silently ignore — console may not be available
+    }
     this.log("Zotadata plugin started");
   }
 
@@ -433,7 +440,8 @@ export class ZotadataPlugin {
 
         const successfulResults = results
           .filter(
-            (r): r is PromiseFulfilledResult<any> => r.status === "fulfilled",
+            (r): r is PromiseFulfilledResult<AttachmentStats> =>
+              r.status === "fulfilled",
           )
           .map((r) => r.value);
 

@@ -64,7 +64,7 @@ describe("OpenAlexAPI", () => {
 
       const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
       expect(requestUrl).toContain(
-        "authorships.author.display_name.search%3ASmith",
+        "authorships.author.display_name%3ASmith",
       );
       expect(requestUrl).not.toContain("Johnson");
       expect(requestUrl).not.toContain("Williams");
@@ -89,6 +89,31 @@ describe("OpenAlexAPI", () => {
       expect(requestUrl).toContain(
         "doi%3Ahttps%3A%2F%2Fdoi.org%2F10.1234%2Ftest.doi",
       );
+    });
+
+    it("normalizes DOI URLs before building DOI filters", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [],
+          meta: { count: 0, db_response_time_ms: 25 },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await openAlexAPI.search({
+        doi: "HTTPS://DOI.ORG/10.1234/Test.DOI.",
+      });
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain(
+        "doi%3Ahttps%3A%2F%2Fdoi.org%2F10.1234%2Ftest.doi",
+      );
+      expect(requestUrl).not.toContain("HTTPS");
+      expect(requestUrl).not.toContain("Test.DOI.");
     });
   });
 
@@ -142,6 +167,37 @@ describe("OpenAlexAPI", () => {
         pdfUrl: "https://example.com/pdf",
       });
       expect(results[0].confidence).toBeGreaterThan(0.5);
+    });
+
+    it("normalizes DOI URLs returned by OpenAlex search results", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          results: [
+            {
+              id: "https://openalex.org/W123456789",
+              display_name: "Machine Learning Applications in Healthcare",
+              authorships: [],
+              publication_year: 2023,
+              doi: "HTTPS://DOI.ORG/10.1000/Test.DOI.",
+            } as OpenAlexWork,
+          ],
+          meta: {
+            count: 1,
+            db_response_time_ms: 50,
+          },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      const results = await openAlexAPI.search({
+        title: "Machine Learning Applications in Healthcare",
+      });
+
+      expect(results[0].doi).toBe("10.1000/test.doi");
     });
 
     it("should handle empty search results", async () => {
@@ -205,7 +261,7 @@ describe("OpenAlexAPI", () => {
         "search=Semi+Supervised+Learning+with+Deep+Generative+Models",
       );
       expect(requestUrl).toContain(
-        "filter=authorships.author.display_name.search%3ADiederik+P.+Kingma%2Cpublication_year%3A2014",
+        "filter=authorships.author.display_name%3ADiederik+P.+Kingma%2Cpublication_year%3A2014",
       );
     });
   });
@@ -232,10 +288,11 @@ describe("OpenAlexAPI", () => {
 
       const result = await openAlexAPI.getWorkByDOI("10.1000/test.doi");
 
-      expect(result).toBeDefined();
-      expect(result!.title).toBe("Test Paper");
-      expect(result!.doi).toBe("10.1000/test.doi");
-      expect(result!.confidence).toBe(1.0); // Exact DOI match
+      expect(result).toMatchObject({
+        title: "Test Paper",
+        doi: "10.1000/test.doi",
+        confidence: 1.0, // Exact DOI match
+      });
     });
 
     it("should return null for non-existent DOI", async () => {

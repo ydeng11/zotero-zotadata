@@ -1,4 +1,5 @@
 import type { SearchQuery } from "@/shared/core/types";
+import { extractYearFromDate } from "@/utils/itemFields";
 
 export abstract class IdentifierResolver {
   abstract extract(item: Zotero.Item): string | null;
@@ -6,8 +7,9 @@ export abstract class IdentifierResolver {
 
   protected cleanDOI(doi: string): string {
     return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
-      .replace(/^doi:/, "")
+      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, "")
+      .replace(/^doi:\s*/i, "")
+      .replace(/[.,;'")\]]+$/, "")
       .trim()
       .toLowerCase();
   }
@@ -19,7 +21,7 @@ export abstract class IdentifierResolver {
   protected buildSearchQuery(item: Zotero.Item): SearchQuery {
     const title = item.getField("title") || undefined;
     const date = item.getField("date");
-    const year = date ? this.extractYear(date) : undefined;
+    const year = date ? extractYearFromDate(date) : undefined;
     const creators = item.getCreators();
     const authors = creators
       .filter((c) => c.creatorType === "author")
@@ -27,10 +29,5 @@ export abstract class IdentifierResolver {
       .filter(Boolean);
 
     return { title, year, authors: authors.length > 0 ? authors : undefined };
-  }
-
-  protected extractYear(dateStr: string): number | undefined {
-    const match = dateStr.match(/\d{4}/);
-    return match ? parseInt(match[0], 10) : undefined;
   }
 }

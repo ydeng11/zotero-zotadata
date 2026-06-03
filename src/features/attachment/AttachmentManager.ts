@@ -3,7 +3,7 @@ import { AppError, ErrorType } from "@/shared/core";
 export class AttachmentManager {
   async removeInvalid(attachment: Zotero.Item): Promise<void> {
     try {
-      await (attachment as any).eraseTx();
+      await attachment.eraseTx();
     } catch (error) {
       throw AppError.fromUnknown(error, ErrorType.FILE_ERROR, {
         operation: "removeInvalid",

@@ -6,6 +6,10 @@ const mockZoteroHTTP = {
   request: vi.fn(),
 };
 
+interface CrossRefSearchParamBuilder {
+  buildSearchParams(query: SearchQuery): string;
+}
+
 describe("CrossRefAPI", () => {
   let crossRefAPI: CrossRefAPI;
 
@@ -27,7 +31,9 @@ describe("CrossRefAPI", () => {
         title: "Test Paper",
       };
 
-      const searchParams = (crossRefAPI as any).buildSearchParams(query);
+      const searchParams = (
+        crossRefAPI as unknown as CrossRefSearchParamBuilder
+      ).buildSearchParams(query);
 
       expect(searchParams).toContain("query.title=Test+Paper");
     });
@@ -38,7 +44,9 @@ describe("CrossRefAPI", () => {
         authors: ["Smith", "Johnson", "Williams"],
       };
 
-      const searchParams = (crossRefAPI as any).buildSearchParams(query);
+      const searchParams = (
+        crossRefAPI as unknown as CrossRefSearchParamBuilder
+      ).buildSearchParams(query);
 
       expect(searchParams).toContain("query.author=Smith");
       expect(searchParams).not.toContain("Johnson");
@@ -52,13 +60,17 @@ describe("CrossRefAPI", () => {
         year: 2020,
       };
 
-      const searchParams = (crossRefAPI as any).buildSearchParams(query);
+      const searchParams = (
+        crossRefAPI as unknown as CrossRefSearchParamBuilder
+      ).buildSearchParams(query);
 
       expect(searchParams).toContain("query.bibliographic=2020");
     });
 
     it("selects pagination fields needed for result enrichment", () => {
-      const searchParams = (crossRefAPI as any).buildSearchParams({
+      const searchParams = (
+        crossRefAPI as unknown as CrossRefSearchParamBuilder
+      ).buildSearchParams({
         title: "Test Paper",
       });
       const selectedFields = new URLSearchParams(searchParams).get("select");
@@ -118,6 +130,36 @@ describe("CrossRefAPI", () => {
         source: "CrossRef",
       });
       expect(results[0].confidence).toBeGreaterThan(0.5);
+    });
+
+    it("normalizes DOI values returned by CrossRef search results", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          status: "ok",
+          "message-type": "work-list",
+          "message-version": "1.0.0",
+          message: {
+            "total-results": 1,
+            items: [
+              {
+                DOI: "HTTPS://DOI.ORG/10.1000/Test.DOI.",
+                title: ["Machine Learning Applications in Healthcare"],
+              } as CrossRefWork,
+            ],
+          },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      const results = await crossRefAPI.search({
+        title: "Machine Learning Applications in Healthcare",
+      });
+
+      expect(results[0].doi).toBe("10.1000/test.doi");
     });
 
     it("should handle empty search results", async () => {
@@ -184,10 +226,37 @@ describe("CrossRefAPI", () => {
 
       const result = await crossRefAPI.getWorkByDOI("10.1000/test.doi");
 
-      expect(result).toBeDefined();
-      expect(result!.title).toBe("Test Paper");
-      expect(result!.doi).toBe("10.1000/test.doi");
-      expect(result!.confidence).toBe(1.0);
+      expect(result).toMatchObject({
+        title: "Test Paper",
+        doi: "10.1000/test.doi",
+        confidence: 1.0,
+      });
+    });
+
+    it("normalizes DOI URLs before building the request path", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          status: "ok",
+          "message-type": "work",
+          "message-version": "1.0.0",
+          message: {
+            DOI: "10.1000/test.doi",
+            title: ["Test Paper"],
+          } as CrossRefWork,
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await crossRefAPI.getWorkByDOI("HTTPS://DOI.ORG/10.1000/Test.DOI.");
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("/works/10.1000%2Ftest.doi");
+      expect(requestUrl).not.toContain("HTTPS");
+      expect(requestUrl).not.toContain("Test.DOI.");
     });
 
     it("should return null for non-existent DOI", async () => {

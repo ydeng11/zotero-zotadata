@@ -43,29 +43,50 @@ const ITEM_TYPE_IDS = Object.fromEntries(
   Object.entries(ITEM_TYPE_NAMES).map(([id, name]) => [name, Number(id)]),
 ) as Record<string, number>;
 
+type TestZotero = Omit<typeof Zotero, "HTTP" | "Prefs"> & {
+  HTTP: unknown;
+  Prefs: ReturnType<typeof createMockPrefs>;
+  locale: string;
+};
+
+type TestGlobal = {
+  Zotero: TestZotero;
+  Services: typeof Services & {
+    locale: { appLocaleAsBCP47: string };
+  };
+  ChromeUtils: typeof ChromeUtils;
+  __menuManagerRegisterCalls: typeof menuManagerRegisterCalls;
+  __menuManagerUnregisterCalls: typeof menuManagerUnregisterCalls;
+  __resetMenuManagerMocks: () => void;
+  __resetHTTPMock: () => void;
+  __setHTTPMock: (mock: unknown) => void;
+};
+
+const testGlobal = globalThis as unknown as TestGlobal;
+
 function isLiveAPIMode(): boolean {
   return process.env.LIVE_API_TESTS === "1";
 }
 
 function resetItemAccessors(): void {
-  (globalThis as any).Zotero.Items.get = (id: number) => getMockItemById(id);
-  (globalThis as any).Zotero.Items.getAll = () => getAllMockItems();
-  (globalThis as any).Zotero.Items.trash = async (ids: number | number[]) =>
+  testGlobal.Zotero.Items.get = (id: number) => getMockItemById(id);
+  testGlobal.Zotero.Items.getAll = () => getAllMockItems();
+  testGlobal.Zotero.Items.trash = async (ids: number | number[]) =>
     trashMockItems(ids);
 }
 
 function installDefaultAttachmentAdapters(): void {
-  (globalThis as any).Zotero.Attachments.importFromURL = async () => null;
-  (globalThis as any).Zotero.Attachments.importFromFile = async () => null;
-  (globalThis as any).Zotero.Attachments.importFromBuffer = async () => null;
+  testGlobal.Zotero.Attachments.importFromURL = async () => null;
+  testGlobal.Zotero.Attachments.importFromFile = async () => null;
+  testGlobal.Zotero.Attachments.importFromBuffer = async () => null;
 }
 
-(globalThis as any).__menuManagerRegisterCalls = menuManagerRegisterCalls;
-(globalThis as any).__menuManagerUnregisterCalls = menuManagerUnregisterCalls;
-(globalThis as any).__resetMenuManagerMocks = resetMenuManagerMocks;
+testGlobal.__menuManagerRegisterCalls = menuManagerRegisterCalls;
+testGlobal.__menuManagerUnregisterCalls = menuManagerUnregisterCalls;
+testGlobal.__resetMenuManagerMocks = resetMenuManagerMocks;
 
 // Mock Zotero object
-(globalThis as any).Zotero = {
+testGlobal.Zotero = {
   log: console.log,
   initializationPromise: Promise.resolve(),
   unlockPromise: Promise.resolve(),
@@ -137,10 +158,10 @@ function installDefaultAttachmentAdapters(): void {
         .trim(),
     cleanISBN: (isbn: string) => isbn,
   },
-};
+} as unknown as TestZotero;
 
 // Mock Services global (auto-imported in Firefox 128+)
-(globalThis as any).Services = {
+testGlobal.Services = {
   locale: {
     appLocaleAsBCP47: "en-US",
   },
@@ -158,11 +179,11 @@ function installDefaultAttachmentAdapters(): void {
   io: {
     newURI: (uri: string) => ({ spec: uri }),
   },
-};
+} as unknown as TestGlobal["Services"];
 
 // Mock ChromeUtils
-(globalThis as any).ChromeUtils = {
-  defineLazyGetter: (obj: any, name: string, getter: () => any) => {
+testGlobal.ChromeUtils = {
+  defineLazyGetter: (obj: object, name: string, getter: () => unknown) => {
     Object.defineProperty(obj, name, { get: getter });
   },
   defineESModuleGetters: () => {},
@@ -170,33 +191,33 @@ function installDefaultAttachmentAdapters(): void {
 
 // Mock document.createXULElement for DOM tests
 if (typeof document !== "undefined") {
-  (document as any).createXULElement = document.createElement.bind(document);
+  document.createXULElement = document.createElement.bind(document);
 }
 
 // Extend Zotero mock with test utilities
-(globalThis as any).Zotero.Prefs = createMockPrefs();
+testGlobal.Zotero.Prefs = createMockPrefs();
 
 // Helper to reset HTTP mock with fixtures
-(globalThis as any).__resetHTTPMock = () => {
-  (globalThis as any).Zotero.HTTP = isLiveAPIMode()
+testGlobal.__resetHTTPMock = () => {
+  testGlobal.Zotero.HTTP = isLiveAPIMode()
     ? createLiveHTTP()
     : createMockHTTP();
 };
 
 // Helper to set custom HTTP mock
-(globalThis as any).__setHTTPMock = (mock: any) => {
-  (globalThis as any).Zotero.HTTP = mock;
+testGlobal.__setHTTPMock = (mock: unknown) => {
+  testGlobal.Zotero.HTTP = mock;
 };
 
 // Reset mocks between tests
 beforeEach(() => {
-  (globalThis as any).__resetHTTPMock?.();
-  (globalThis as any).__resetMenuManagerMocks?.();
+  testGlobal.__resetHTTPMock?.();
+  testGlobal.__resetMenuManagerMocks?.();
   clearPrefs();
   resetMockCounters();
   resetItemAccessors();
-  (globalThis as any).Zotero.locale = "en-US";
-  (globalThis as any).Services.locale.appLocaleAsBCP47 = "en-US";
+  testGlobal.Zotero.locale = "en-US";
+  testGlobal.Services.locale.appLocaleAsBCP47 = "en-US";
   if (isLiveAPIMode()) {
     installLiveAttachmentAdapters();
   } else {

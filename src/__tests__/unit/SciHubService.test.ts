@@ -10,7 +10,7 @@ function makeMockPrefs(): PreferencesManager {
 
 function stubZoteroHTTP(request: ReturnType<typeof vi.fn>): void {
   vi.stubGlobal("Zotero", {
-    ...(globalThis as any).Zotero,
+    ...(globalThis as typeof globalThis & { Zotero: typeof Zotero }).Zotero,
     HTTP: { request },
     debug: vi.fn(),
   });

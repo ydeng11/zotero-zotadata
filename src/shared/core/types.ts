@@ -343,7 +343,7 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   timestamp: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // Resource management
@@ -386,12 +386,12 @@ export type EventType =
 
 export interface EventData {
   type: EventType;
-  payload: any;
+  payload: unknown;
   timestamp: string;
   source: string;
 }
 
-export interface EventListener<T = any> {
+export interface EventListener<T = unknown> {
   (data: EventData & { payload: T }): void | Promise<void>;
 }
 

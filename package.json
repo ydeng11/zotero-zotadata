@@ -29,7 +29,8 @@
     "test:coverage": "vitest --coverage",
     "type-check": "tsc --noEmit",
     "release": "zotero-plugin release",
-    "update-deps": "npm update --save"
+    "update-deps": "npm update --save",
+    "dev:launch": "npm run build && cp .scaffold/dist/zotadata.xpi \"$HOME/Library/Application Support/Zotero/Profiles/1fgc3u0t.default/extensions/zotadata@zotero.org.xpi\" && /Applications/Zotero.app/Contents/MacOS/zotero -purgecaches -ZoteroDebugText -ZoteroDebugLog -jsconsole > $HOME/Desktop/zotero-debug.txt 2>&1"
   },
   "dependencies": {
     "zotero-plugin-toolkit": "^5.0.0"

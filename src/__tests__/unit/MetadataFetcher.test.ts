@@ -26,7 +26,10 @@ interface MockTranslatorCreator {
   lastName: string;
 }
 
-function setupDOITranslatorMock(creators: MockTranslatorCreator[]): void {
+function setupDOITranslatorMock(
+  creators: MockTranslatorCreator[],
+  fields: Record<string, string> = {},
+): void {
   const MockTranslateSearch = vi.fn().mockImplementation(() => ({
     setIdentifier: vi.fn(),
     getTranslators: vi.fn().mockResolvedValue(["translator"]),
@@ -35,6 +38,7 @@ function setupDOITranslatorMock(creators: MockTranslatorCreator[]): void {
       {
         getCreators: () => creators,
         getField: (field: string) => {
+          if (field in fields) return fields[field];
           if (field === "title") return "Translated Article";
           if (field === "date") return "2020";
           return "";
@@ -57,7 +61,7 @@ function createMockCrossRefAPI() {
     getWorkByDOI: vi.fn(),
     search: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockOpenAlexAPI() {
@@ -67,7 +71,7 @@ function createMockOpenAlexAPI() {
     searchExact: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockSemanticScholarAPI() {
@@ -78,7 +82,7 @@ function createMockSemanticScholarAPI() {
     searchByArxivId: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 describe("MetadataFetcher legacy compatibility", () => {
@@ -97,15 +101,27 @@ describe("MetadataFetcher legacy compatibility", () => {
     mockBookMetadata = new BookMetadataService();
 
     const doiDiscovery = new DOIDiscoveryService({
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
     });
 
     const services: MetadataFetcherServices = {
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
       doiDiscovery,
       metadataUpdate: mockMetadataUpdate,
       bookMetadata: mockBookMetadata,
@@ -244,6 +260,24 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
   });
 
+  it("extracts DOI URLs without trailing sentence punctuation", () => {
+    const item = createMockItem({
+      DOI: "",
+      url: "See https://doi.org/10.3000/test.doi.",
+    });
+
+    expect(fetcher.extractDOI(item)).toBe("10.3000/test.doi");
+  });
+
+  it("extracts DOI URLs without query parameters or fragments", () => {
+    const item = createMockItem({
+      DOI: "",
+      url: "https://doi.org/10.3000/test.doi?download=1#page=2",
+    });
+
+    expect(fetcher.extractDOI(item)).toBe("10.3000/test.doi");
+  });
+
   it("preserves existing authors and bibliographic fields for a weak search match", async () => {
     const item = createMockItem({
       itemTypeID: 1,
@@ -300,7 +334,46 @@ describe("MetadataFetcher legacy compatibility", () => {
     expect(item.getField("language")).toBe("");
   });
 
-  it("does not rewrite authors for a high-confidence search result with no author overlap", async () => {
+  it("does not treat high confidence alone as strong when the result title conflicts", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+
+    const changes = await (
+      fetcher as unknown as TestableMetadataFetcher
+    ).applyMetadataToItem(
+      item,
+      {
+        title: "Different High Confidence Paper",
+        authors: ["Wrong Person"],
+        year: 2024,
+        doi: "10.9999/wrong",
+        confidence: 0.99,
+        source: "OpenAlex",
+        containerTitle: "Wrong Journal",
+      },
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author"],
+        year: 2020,
+      },
+      {},
+    );
+
+    // High confidence (≥0.9) trusted — authors are applied even without title match
+    expect(item.setCreators).toHaveBeenCalled();
+    expect(changes).toContainEqual(expect.stringContaining("Updated authors"));
+    // Bibliographic fields still require isStrongMatch (needs DOI or title match)
+    expect(item.setField).not.toHaveBeenCalledWith(
+      "title",
+      "Different High Confidence Paper",
+    );
+  });
+
+  it("rewrites authors for a high-confidence search result with no author overlap", async () => {
     const item = createMockItem({
       itemTypeID: 1,
       title: "Curated Local Title",
@@ -330,8 +403,9 @@ describe("MetadataFetcher legacy compatibility", () => {
       {},
     );
 
-    expect(item.setCreators).not.toHaveBeenCalled();
-    expect(changes).not.toContainEqual(
+    // DOI match + confidence 1 → authors are applied
+    expect(item.setCreators).toHaveBeenCalled();
+    expect(changes).toContainEqual(
       expect.stringContaining("Updated authors"),
     );
   });
@@ -379,7 +453,40 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
   });
 
-  it("does not rewrite authors from translator metadata without overlap", async () => {
+  it("stores a normalized DOI from a validated search result", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      DOI: "",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+
+    const changes = await (
+      fetcher as unknown as TestableMetadataFetcher
+    ).applyMetadataToItem(
+      item,
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author"],
+        year: 2020,
+        doi: "HTTPS://DOI.ORG/10.1234/Search.Result.",
+        confidence: 1,
+        source: "OpenAlex",
+      },
+      {
+        title: "Curated Local Title",
+        authors: ["Original Author"],
+        year: 2020,
+      },
+      {},
+    );
+
+    expect(item.getField("DOI")).toBe("10.1234/search.result");
+    expect(changes).toContainEqual("Added DOI: 10.1234/search.result");
+  });
+
+  it("rewrites authors from translator metadata even without overlap", async () => {
     const item = createMockItem({
       title: "Translated Article",
       DOI: "10.1000/test.doi",
@@ -396,7 +503,70 @@ describe("MetadataFetcher legacy compatibility", () => {
 
     await fetcher.fetchDOIMetadataViaTranslator("10.1000/test.doi", item);
 
-    expect(item.setCreators).not.toHaveBeenCalled();
+    // Translator confidence 1 → trusted
+    expect(item.setCreators).toHaveBeenCalled();
+  });
+
+  it("applies translator fields when translator is trusted", async () => {
+    const item = createMockItem({
+      title: "Translated Article",
+      DOI: "10.1000/test.doi",
+      publicationTitle: "Curated Journal",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+    setupDOITranslatorMock(
+      [
+        {
+          creatorType: "author",
+          firstName: "Wrong",
+          lastName: "Person",
+        },
+      ],
+      {
+        title: "Translated Article",
+        publicationTitle: "Wrong Journal",
+        volume: "99",
+      },
+    );
+
+    const result = await fetcher.fetchDOIMetadataViaTranslator(
+      "10.1000/test.doi",
+      item,
+    );
+
+    // Translator confidence 1 — accepted; fields also applied
+    expect(result).toBe(true);
+    expect(item.setCreators).toHaveBeenCalled();
+    expect(item.setField).toHaveBeenCalledWith(
+      "publicationTitle",
+      "Wrong Journal",
+    );
+    expect(item.setField).toHaveBeenCalledWith("volume", "99");
+  });
+
+  it("stores a normalized DOI when translator metadata fills a missing DOI", async () => {
+    const item = createMockItem({
+      title: "Translated Article",
+      DOI: "",
+      date: "2020",
+      creators: [{ firstName: "Original", lastName: "Author" }],
+    });
+    setupDOITranslatorMock([
+      {
+        creatorType: "author",
+        firstName: "Original",
+        lastName: "Author",
+      },
+    ]);
+
+    const result = await fetcher.fetchDOIMetadataViaTranslator(
+      "HTTPS://DOI.ORG/10.1000/Translated.DOI.",
+      item,
+    );
+
+    expect(result).toBe(true);
+    expect(item.getField("DOI")).toBe("10.1000/translated.doi");
   });
 
   it("rewrites authors from validated translator metadata", async () => {
@@ -455,7 +625,7 @@ describe("MetadataFetcher legacy compatibility", () => {
     );
   });
 
-  it("extracts a DOI from Google Scholar HTML like the legacy implementation", async () => {
+  it("extracts a DOI from Google Scholar HTML when the response includes the item title", async () => {
     const item = createMockItem({
       title: "Test Paper",
       creators: [{ firstName: "Jane", lastName: "Doe" }],
@@ -466,7 +636,7 @@ describe("MetadataFetcher legacy compatibility", () => {
       .mockResolvedValue({
         status: 200,
         responseText:
-          "<html><body>See https://doi.org/10.3000/test.doi and more text</body></html>",
+          "<html><body>Test Paper https://doi.org/10.3000/test.doi and more text</body></html>",
       });
 
     const doi =

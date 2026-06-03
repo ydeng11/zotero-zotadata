@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it } from "vitest";
 
 describe("Author Disambiguation Analysis", () => {
   describe("Why firstAuthorLastNameMatch alone is insufficient", () => {

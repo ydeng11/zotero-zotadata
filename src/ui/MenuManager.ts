@@ -27,10 +27,15 @@ interface MenuSection {
   insertBefore?: string;
 }
 
-/**
- * Menu context types
- */
-type MenuContext = "item" | "collection" | "toolbar" | "tools";
+interface ZoteroAttachmentFinder {
+  findSelectedFiles(): Promise<void>;
+  checkSelectedItems(): Promise<void>;
+  fetchMetadataForSelectedItems(): Promise<void>;
+  processArxivItems(): Promise<void>;
+  preferencesManager?: {
+    openPreferences(): Promise<void>;
+  };
+}
 
 /**
  * Menu Manager for creating and managing UI elements
@@ -222,7 +227,9 @@ export class MenuManager {
       if (this.notifierObserverID) {
         try {
           Zotero.Notifier.unregisterObserver(this.notifierObserverID);
-        } catch {}
+        } catch {
+          // Zotero may already have cleared the observer during shutdown.
+        }
         this.notifierObserverID = null;
       }
 
@@ -233,13 +240,13 @@ export class MenuManager {
       // registrations on addon shutdown; duplicate unregister warns.
 
       // Remove all registered menus
-      for (const [id, element] of this.registeredMenus) {
+      for (const [_id, element] of this.registeredMenus) {
         element.remove?.();
       }
       this.registeredMenus.clear();
 
       // Remove all event listeners
-      for (const [id, cleanup] of this.eventListeners) {
+      for (const [_id, cleanup] of this.eventListeners) {
         cleanup();
       }
       this.eventListeners.clear();
@@ -254,7 +261,7 @@ export class MenuManager {
   private setupSelectionNotifier(): void {
     // Use Zotero's Notifier API for efficient selection change detection
     this.notifierObserverID = Zotero.Notifier.registerObserver(
-      (event, type, ids, extraData) => {
+      (event, type, _ids, _extraData) => {
         // Only react to select events in the items tree
         if (type === "select" && event === "select") {
           this.updateAllMenuVisibility();
@@ -476,7 +483,7 @@ export class MenuManager {
         }) as HTMLElement;
       }
 
-      const attributes: Record<string, any> = {
+      const attributes: Record<string, string> = {
         id: config.id,
         label: config.label,
       };
@@ -491,7 +498,7 @@ export class MenuManager {
 
       // Add condition check
       if (config.condition) {
-        attributes.hidden = !config.condition();
+        attributes.hidden = String(!config.condition());
         // Store condition for later evaluation by Notifier
         this.menuConditions.set(config.id, config.condition);
       }
@@ -534,28 +541,28 @@ export class MenuManager {
    */
   private async handleFindAttachments(): Promise<void> {
     // This would call the main zotadata functionality
-    const attachmentFinder = (globalThis as any).Zotero.AttachmentFinder;
+    const attachmentFinder = this.getAttachmentFinder();
     if (attachmentFinder) {
       await attachmentFinder.findSelectedFiles();
     }
   }
 
   private async handleCheckAttachments(): Promise<void> {
-    const attachmentFinder = (globalThis as any).Zotero.AttachmentFinder;
+    const attachmentFinder = this.getAttachmentFinder();
     if (attachmentFinder) {
       await attachmentFinder.checkSelectedItems();
     }
   }
 
   private async handleFetchMetadata(): Promise<void> {
-    const attachmentFinder = (globalThis as any).Zotero.AttachmentFinder;
+    const attachmentFinder = this.getAttachmentFinder();
     if (attachmentFinder) {
       await attachmentFinder.fetchMetadataForSelectedItems();
     }
   }
 
   private async handleProcessArxiv(): Promise<void> {
-    const attachmentFinder = (globalThis as any).Zotero.AttachmentFinder;
+    const attachmentFinder = this.getAttachmentFinder();
     if (attachmentFinder) {
       await attachmentFinder.processArxivItems();
     }
@@ -577,8 +584,7 @@ export class MenuManager {
 
   private async handlePreferences(): Promise<void> {
     // Open preferences dialog
-    const preferencesManager = (globalThis as any).Zotero.AttachmentFinder
-      ?.preferencesManager;
+    const preferencesManager = this.getAttachmentFinder()?.preferencesManager;
     if (preferencesManager) {
       await preferencesManager.openPreferences();
     }
@@ -623,6 +629,14 @@ export class MenuManager {
     }
   }
 
+  private getAttachmentFinder(): ZoteroAttachmentFinder | undefined {
+    return (
+      Zotero as typeof Zotero & {
+        AttachmentFinder?: ZoteroAttachmentFinder;
+      }
+    ).AttachmentFinder;
+  }
+
   private hasSelectedCollection(): boolean {
     try {
       const zoteroPane = Zotero.getActiveZoteroPane();
@@ -646,7 +660,7 @@ export class MenuManager {
    * Enable/disable menu items based on plugin state
    */
   setMenusEnabled(enabled: boolean): void {
-    for (const [id, element] of this.registeredMenus) {
+    for (const [_id, element] of this.registeredMenus) {
       if (element.hasAttribute("label")) {
         // Skip separators
         element.setAttribute("disabled", enabled ? "false" : "true");

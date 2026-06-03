@@ -1,27 +1,33 @@
-export function setFieldIfEmpty(
-  item: Zotero.Item,
-  field: string,
-  value: string | number,
-): boolean {
-  const currentValue = String(item.getField(field) ?? "").trim();
-  if (!currentValue) {
-    item.setField(field, String(value));
-    return true;
-  }
-  return false;
+export interface ZoteroCreatorLike {
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  creatorType?: string;
+  creatorTypeID?: number;
 }
 
-export function updateItemFields(
-  item: Zotero.Item,
-  updates: Record<string, string | number>,
-): string[] {
-  const changes: string[] = [];
-  for (const [field, value] of Object.entries(updates)) {
-    if (setFieldIfEmpty(item, field, value)) {
-      changes.push(`Updated ${field}: ${value}`);
-    }
+export function isAuthorCreator(creator: ZoteroCreatorLike): boolean {
+  if (creator.creatorType) {
+    return creator.creatorType === "author";
   }
-  return changes;
+
+  if (typeof creator.creatorTypeID !== "number") {
+    return false;
+  }
+
+  const zoteroWithCreatorTypes = Zotero as typeof Zotero & {
+    CreatorTypes?: {
+      getID?: (name: string) => number;
+    };
+  };
+  const authorTypeID =
+    zoteroWithCreatorTypes.CreatorTypes?.getID?.("author") ??
+    // Zotero 6 fallback: creatorTypeID 1 is always author
+    1;
+
+  return (
+    typeof authorTypeID === "number" && creator.creatorTypeID === authorTypeID
+  );
 }
 
 export function extractYearFromDate(dateStr: string): number | undefined {
@@ -30,9 +36,9 @@ export function extractYearFromDate(dateStr: string): number | undefined {
     return undefined;
   }
 
-  const parsed = Number.parseInt(rawDate, 10);
-  if (!Number.isNaN(parsed)) {
-    return parsed;
+  const leadingYear = rawDate.match(/^\d{4}/)?.[0];
+  if (leadingYear) {
+    return Number.parseInt(leadingYear, 10);
   }
 
   const zoteroWithDate = Zotero as typeof Zotero & {
@@ -57,7 +63,7 @@ export function extractAuthorsFromItem(item: Zotero.Item): string[] {
     return [];
   }
   return creators
-    .filter((creator) => creator.creatorType === "author")
+    .filter(isAuthorCreator)
     .map((creator) =>
       `${creator.firstName || ""} ${creator.lastName || ""}`.trim(),
     )
@@ -66,9 +72,7 @@ export function extractAuthorsFromItem(item: Zotero.Item): string[] {
 
 export function applyAuthorsToItem(item: Zotero.Item, authors: string[]): void {
   const creators = item.getCreators();
-  const nonAuthors = creators.filter(
-    (creator) => creator.creatorType !== "author",
-  );
+  const nonAuthors = creators.filter((creator) => !isAuthorCreator(creator));
 
   const newCreators = authors.map((authorName) => {
     const parts = authorName.split(" ");

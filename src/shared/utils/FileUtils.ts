@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
 
 /**
  * File type detection result
@@ -131,7 +131,7 @@ export class FileUtils {
     const view = new Uint8Array(data);
 
     // Check against known signatures
-    for (const [name, { signature, mimeType }] of this.FILE_SIGNATURES) {
+    for (const [, { signature, mimeType }] of this.FILE_SIGNATURES) {
       if (this.matchesSignature(view, signature)) {
         const typeInfo = this.SUPPORTED_TYPES.get(mimeType);
         return {
@@ -220,6 +220,12 @@ export class FileUtils {
     extension?: string,
     maxLength = 255,
   ): string {
+    const normalizedExtension = extension
+      ? extension.startsWith(".")
+        ? extension
+        : `.${extension}`
+      : "";
+
     // Remove or replace invalid characters
     let filename = title
       .replace(/[<>:"/\\|?*]/g, "_") // Replace invalid characters
@@ -235,17 +241,19 @@ export class FileUtils {
     }
 
     // Add extension if provided
-    if (extension) {
-      const ext = extension.startsWith(".") ? extension : `.${extension}`;
-      filename += ext;
+    if (normalizedExtension) {
+      filename += normalizedExtension;
     }
 
     // Truncate if too long (leave room for extension)
     if (filename.length > maxLength) {
-      const extLength = extension ? extension.length + 1 : 0;
+      const extLength = normalizedExtension.length;
       const maxBase = maxLength - extLength;
+      if (maxBase <= 3) {
+        return filename.substring(0, Math.max(0, maxLength));
+      }
       const base = filename.substring(0, maxBase - 3) + "...";
-      filename = extension ? base + extension : base;
+      filename = normalizedExtension ? base + normalizedExtension : base;
     }
 
     return filename;
@@ -381,6 +389,14 @@ export class FileUtils {
       return {
         identical: false,
         similarity: 0,
+        sizeDifference,
+      };
+    }
+
+    if (view1.length === 0) {
+      return {
+        identical: true,
+        similarity: 1,
         sizeDifference,
       };
     }

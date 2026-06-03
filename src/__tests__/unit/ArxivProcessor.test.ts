@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArxivProcessor } from "@/modules/ArxivProcessor";
 import { createMockItem } from "../../../tests/__mocks__/zotero-items";
 
+interface ArxivProcessorPrivateMethods {
+  itemHasPDF(item: Zotero.Item): Promise<boolean>;
+  downloadPublishedVersion(item: Zotero.Item, doi: string): Promise<void>;
+}
+
 describe("ArxivProcessor legacy compatibility", () => {
   let processor: ArxivProcessor;
   let mockCrossRefAPI: {
@@ -65,9 +70,11 @@ describe("ArxivProcessor legacy compatibility", () => {
       "10.1000/published.doi",
     );
     vi.spyOn(processor, "updateItemAsPublishedVersion").mockResolvedValue(true);
-    vi.spyOn(processor as any, "itemHasPDF").mockResolvedValue(false);
+    const processorInternals =
+      processor as unknown as ArxivProcessorPrivateMethods;
+    vi.spyOn(processorInternals, "itemHasPDF").mockResolvedValue(false);
     const downloadSpy = vi
-      .spyOn(processor as any, "downloadPublishedVersion")
+      .spyOn(processorInternals, "downloadPublishedVersion")
       .mockResolvedValue(undefined);
 
     const result = await processor.processArxivItem(item);
@@ -135,6 +142,39 @@ describe("ArxivProcessor legacy compatibility", () => {
     );
   });
 
+  it("passes the publication year from human-readable dates to CrossRef search", async () => {
+    mockCrossRefAPI.fetchWorksByQuery.mockResolvedValue([]);
+
+    const item = createMockItem({
+      title: "Attention Is All You Need",
+      date: "12 June 2017",
+      publicationTitle: "arXiv",
+      itemTypeID: 1,
+      creators: [
+        {
+          firstName: "Ashish",
+          lastName: "Vaswani",
+          creatorType: "author",
+        },
+      ],
+    });
+
+    await processor.findPublishedVersion(item);
+
+    expect(mockCrossRefAPI.fetchWorksByQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ year: 2017 }),
+    );
+  });
+
+  it("normalizes arXiv IDs with version suffixes and trailing punctuation", () => {
+    const item = createMockItem({
+      extra: "arXiv: 1706.03762v2.",
+      itemTypeID: 4,
+    });
+
+    expect(ArxivProcessor.extractArxivId(item)).toBe("1706.03762");
+  });
+
   it("rejects locale-conflicting CrossRef metadata during update", async () => {
     mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue({
       DOI: "10.4414/saez.2003.09782",
@@ -193,5 +233,26 @@ describe("ArxivProcessor legacy compatibility", () => {
       "title",
       "Attention Is All You Need",
     );
+  });
+
+  it("normalizes DOI values before writing published CrossRef metadata", async () => {
+    mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue({
+      DOI: "HTTPS://DOI.ORG/10.1000/Published.DOI.",
+      title: ["Published Paper"],
+      type: "journal-article",
+      language: "en",
+    });
+
+    const item = createMockItem({
+      title: "Published Paper",
+      publicationTitle: "arXiv",
+      itemTypeID: 4,
+    });
+
+    await expect(
+      processor.updateItemAsPublishedVersion(item, "10.1000/published.doi"),
+    ).resolves.toBe(true);
+
+    expect(item.setField).toHaveBeenCalledWith("DOI", "10.1000/published.doi");
   });
 });

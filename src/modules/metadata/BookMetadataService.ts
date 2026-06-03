@@ -1,7 +1,12 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
-import { cleanISBN, buildAlternativeISBNCandidates } from "@/utils/isbn";
+import {
+  cleanISBN,
+  buildAlternativeISBNCandidates,
+  isValidCleanISBN,
+} from "@/utils/isbn";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { calculateAuthorOverlap } from "@/utils/authorValidation";
+import { isAuthorCreator } from "@/utils/itemFields";
 import type {
   BookMetadataSource,
   LegacyFetchResult,
@@ -23,7 +28,15 @@ export class BookMetadataService {
   private readonly googleBooksApiKey: string;
   private readonly googleBooksEnabled: boolean;
 
-  constructor(options: { googleBooksApiKey?: string; googleBooksEnabled?: boolean } = {}) {
+  private debug(message: string): void {
+    if (typeof Zotero !== "undefined" && Zotero.log) {
+      Zotero.log(`Zotadata BookMetadataService: ${message}`);
+    }
+  }
+
+  constructor(
+    options: { googleBooksApiKey?: string; googleBooksEnabled?: boolean } = {},
+  ) {
     this.errorManager = new ErrorManager();
     this.googleBooksApiKey = options.googleBooksApiKey ?? "";
     this.googleBooksEnabled = options.googleBooksEnabled ?? true;
@@ -31,19 +44,25 @@ export class BookMetadataService {
 
   async fetchISBNBasedMetadata(item: Zotero.Item): Promise<LegacyFetchResult> {
     const changes: string[] = [];
+    this.debug(`fetchISBNBasedMetadata: item ${item.id}`);
     let isbn = this.extractISBN(item);
 
     if (!isbn) {
+      this.debug(`No ISBN found in item fields — trying discovery`);
       isbn = await this.discoverISBN(item);
       if (isbn) {
+        this.debug(`Discovered ISBN: ${isbn} — writing to item`);
         item.setField("ISBN", isbn);
         item.addTag("ISBN Added", 1);
         await item.saveTx();
         changes.push(`Added ISBN: ${isbn}`);
       }
+    } else {
+      this.debug(`Found ISBN in item: ${isbn}`);
     }
 
     if (!isbn) {
+      this.debug(`No ISBN found for item ${item.id}`);
       item.addTag("No ISBN Found", 1);
       await item.saveTx();
       return {
@@ -55,8 +74,10 @@ export class BookMetadataService {
       };
     }
 
+    this.debug(`Fetching book metadata for ISBN ${isbn}`);
     const metadata = await this.fetchBookMetadata(isbn, item);
     if (!metadata) {
+      this.debug(`All book APIs failed for ISBN ${isbn}`);
       item.addTag("Book API Failed", 1);
       await item.saveTx();
       return {
@@ -69,6 +90,7 @@ export class BookMetadataService {
     }
 
     if (this.isTranslatorBookMetadata(metadata)) {
+      this.debug(`Zotero Translator succeeded for ISBN ${isbn}`);
       item.addTag("Metadata Updated", 1);
       item.addTag("Via Zotero Translator", 1);
       await item.saveTx();
@@ -84,9 +106,11 @@ export class BookMetadataService {
       };
     }
 
+    this.debug(`Source: Book APIs — applying metadata from ISBN ${isbn}`);
     const updateResult = await this.updateItemWithBookMetadata(item, metadata);
 
     if (updateResult.rejectionReason) {
+      this.debug(`Book metadata rejected: ${updateResult.rejectionReason}`);
       await item.saveTx();
       return {
         success: false,
@@ -98,6 +122,9 @@ export class BookMetadataService {
     }
 
     changes.push(...updateResult.changes);
+    this.debug(
+      `Book metadata update done — ${changes.length} change(s) for item ${item.id}`,
+    );
     item.addTag("Metadata Updated", 1);
     await item.saveTx();
     return {
@@ -112,12 +139,18 @@ export class BookMetadataService {
   extractISBN(item: Zotero.Item): string | null {
     const isbnField = String(item.getField("ISBN") ?? "").trim();
     if (isbnField) {
-      return cleanISBN(isbnField);
+      const cleaned = cleanISBN(isbnField);
+      return isValidCleanISBN(cleaned) ? cleaned : null;
     }
 
     const extra = String(item.getField("extra") ?? "");
-    const match = extra.match(/ISBN[:\-\s]*([0-9\-xX]{10,17})/i);
-    return match ? cleanISBN(match[1]) : null;
+    const match = extra.match(/ISBN[:\-\s]*([0-9xX][0-9xX\-\s]{8,30})/i);
+    if (!match) {
+      return null;
+    }
+
+    const cleaned = cleanISBN(match[1]);
+    return isValidCleanISBN(cleaned) ? cleaned : null;
   }
 
   async discoverISBN(item: Zotero.Item): Promise<string | null> {
@@ -171,9 +204,12 @@ export class BookMetadataService {
         if (!doc.isbn || doc.isbn.length === 0) continue;
         if (!doc.title || !isExactTitleMatch(doc.title, title)) continue;
 
-        const isbn13 = doc.isbn.find((isbn) => cleanISBN(isbn).length === 13);
-        const isbn10 = doc.isbn.find((isbn) => cleanISBN(isbn).length === 10);
-        return cleanISBN(isbn13 || isbn10 || doc.isbn[0]);
+        const validISBN = doc.isbn
+          .map((isbn) => cleanISBN(isbn))
+          .find((isbn) => isValidCleanISBN(isbn));
+        if (validISBN) {
+          return validISBN;
+        }
       }
     } catch (error) {
       await this.errorManager.handleError(
@@ -214,14 +250,10 @@ export class BookMetadataService {
         `q=${encodeURIComponent(`intitle:"${title}"`)}&maxResults=5`,
       );
 
-      const response = await Zotero.HTTP.request(
-        "GET",
-        url,
-        {
-          headers: GOOGLE_BOOKS_HEADERS,
-          successCodes: false,
-        },
-      );
+      const response = await Zotero.HTTP.request("GET", url, {
+        headers: GOOGLE_BOOKS_HEADERS,
+        successCodes: false,
+      });
       if (response.status !== 200) {
         const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
@@ -250,7 +282,10 @@ export class BookMetadataService {
             (entry) => entry.type === "ISBN_13" || entry.type === "ISBN_10",
           );
           if (identifier?.identifier) {
-            return cleanISBN(identifier.identifier);
+            const cleaned = cleanISBN(identifier.identifier);
+            if (isValidCleanISBN(cleaned)) {
+              return cleaned;
+            }
           }
         }
       }
@@ -382,15 +417,11 @@ export class BookMetadataService {
         `q=isbn:${encodeURIComponent(isbn)}`,
       );
 
-      const response = await Zotero.HTTP.request(
-        "GET",
-        url,
-        {
-          headers: GOOGLE_BOOKS_HEADERS,
-          timeout: 15000,
-          successCodes: false,
-        },
-      );
+      const response = await Zotero.HTTP.request("GET", url, {
+        headers: GOOGLE_BOOKS_HEADERS,
+        timeout: 15000,
+        successCodes: false,
+      });
       if (response.status !== 200) {
         const errorType = this.getHTTPStatusErrorType(response.status);
         await this.errorManager.handleError(
@@ -442,9 +473,13 @@ export class BookMetadataService {
   ): Promise<MetadataUpdateResult> {
     const changes: string[] = [];
 
+    const sourceName =
+      "publishers" in metadata ? "OpenLibrary" : "Google Books";
+    this.debug(`Source: ${sourceName} — updating item ${item.id}`);
+
     const itemAuthors = item
       .getCreators()
-      .filter((c) => c.creatorType === "author")
+      .filter(isAuthorCreator)
       .map((c) => c.lastName || c.name || "")
       .filter(Boolean);
 
@@ -459,6 +494,9 @@ export class BookMetadataService {
       const overlap = calculateAuthorOverlap(itemAuthors, metadataAuthors);
 
       if (overlap.overlapRatio < 0.4) {
+        this.debug(
+          `Author mismatch — overlap ${overlap.overlapRatio.toFixed(2)} < 0.4, rejecting metadata from ${sourceName}`,
+        );
         await this.errorManager.handleError(
           this.errorManager.createError(
             ErrorType.VALIDATION_ERROR,
@@ -480,42 +518,46 @@ export class BookMetadataService {
       }
     }
 
-    const currentTitle = String(item.getField("title") ?? "");
-    if (metadata.title && (!currentTitle || currentTitle.length < 10)) {
-      item.setField("title", metadata.title);
-      changes.push(`Updated title: ${metadata.title}`);
+    const currentTitle = String(item.getField("title") ?? "").trim();
+    const metadataTitle = this.getNonEmptyMetadataString(metadata.title);
+    if (metadataTitle && (!currentTitle || currentTitle.length < 10)) {
+      this.debug(`Writing title "${metadataTitle}" (was: "${currentTitle}")`);
+      item.setField("title", metadataTitle);
+      changes.push(`Updated title: ${metadataTitle}`);
     }
 
     const authors = "authors" in metadata ? metadata.authors : undefined;
-    if (authors?.length) {
-      this.applyBookAuthors(item, authors);
-      changes.push(`Updated authors: ${authors.length}`);
+    const usableAuthors = authors?.filter((author) =>
+      this.getBookAuthorName(author),
+    );
+    if (usableAuthors?.length) {
+      this.debug(`Writing ${usableAuthors.length} authors from ${sourceName}`);
+      this.applyBookAuthors(item, usableAuthors);
+      changes.push(`Updated authors: ${usableAuthors.length}`);
     }
 
-    if ("publishers" in metadata && metadata.publishers?.[0]) {
-      item.setField("publisher", metadata.publishers[0]);
-      changes.push(`Updated publisher: ${metadata.publishers[0]}`);
-    } else if ("publisher" in metadata && metadata.publisher) {
-      item.setField("publisher", metadata.publisher);
-      changes.push(`Updated publisher: ${metadata.publisher}`);
+    const publisher = this.getBookPublisher(metadata);
+    if (publisher) {
+      this.debug(`Writing publisher "${publisher}"`);
+      item.setField("publisher", publisher);
+      changes.push(`Updated publisher: ${publisher}`);
     }
 
-    if ("publish_date" in metadata && metadata.publish_date) {
-      item.setField("date", metadata.publish_date);
-      changes.push(`Updated date: ${metadata.publish_date}`);
-    } else if ("publishedDate" in metadata && metadata.publishedDate) {
-      item.setField("date", metadata.publishedDate);
-      changes.push(`Updated date: ${metadata.publishedDate}`);
+    const publishedDate = this.getBookPublishedDate(metadata);
+    if (publishedDate) {
+      this.debug(`Writing date "${publishedDate}"`);
+      item.setField("date", publishedDate);
+      changes.push(`Updated date: ${publishedDate}`);
     }
 
-    if ("number_of_pages" in metadata && metadata.number_of_pages) {
-      item.setField("numPages", String(metadata.number_of_pages));
-      changes.push(`Updated pages: ${metadata.number_of_pages}`);
-    } else if ("pageCount" in metadata && metadata.pageCount) {
-      item.setField("numPages", String(metadata.pageCount));
-      changes.push(`Updated pages: ${metadata.pageCount}`);
+    const pageCount = this.getValidPageCount(metadata);
+    if (pageCount !== null) {
+      this.debug(`Writing pages ${pageCount}`);
+      item.setField("numPages", String(pageCount));
+      changes.push(`Updated pages: ${pageCount}`);
     }
 
+    this.debug(`${sourceName} update done — ${changes.length} change(s)`);
     await item.saveTx();
     return { changes };
   }
@@ -526,17 +568,63 @@ export class BookMetadataService {
     return "source" in metadata && metadata.source === "Zotero Translator";
   }
 
+  private getValidPageCount(
+    metadata: OpenLibraryBookMetadata | GoogleBooksVolumeInfo,
+  ): number | null {
+    const pageCount =
+      "number_of_pages" in metadata
+        ? metadata.number_of_pages
+        : "pageCount" in metadata
+          ? metadata.pageCount
+          : undefined;
+
+    return Number.isInteger(pageCount) && pageCount > 0 ? pageCount : null;
+  }
+
+  private getBookPublisher(
+    metadata: OpenLibraryBookMetadata | GoogleBooksVolumeInfo,
+  ): string | null {
+    if ("publishers" in metadata) {
+      return this.getNonEmptyMetadataString(metadata.publishers?.[0]);
+    }
+
+    if ("publisher" in metadata) {
+      return this.getNonEmptyMetadataString(metadata.publisher);
+    }
+
+    return null;
+  }
+
+  private getBookPublishedDate(
+    metadata: OpenLibraryBookMetadata | GoogleBooksVolumeInfo,
+  ): string | null {
+    if ("publish_date" in metadata) {
+      return this.getNonEmptyMetadataString(metadata.publish_date);
+    }
+
+    if ("publishedDate" in metadata) {
+      return this.getNonEmptyMetadataString(metadata.publishedDate);
+    }
+
+    return null;
+  }
+
+  private getNonEmptyMetadataString(value: string | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  }
+
   private applyBookAuthors(
     item: Zotero.Item,
     authors: Array<{ name?: string } | string>,
   ): void {
     const existingCreators = item.getCreators();
     const nonAuthors = existingCreators.filter(
-      (creator) => creator.creatorType !== "author",
+      (creator) => !isAuthorCreator(creator),
     );
 
     const newAuthors = authors.map((author) => {
-      const name = typeof author === "string" ? author : (author.name ?? "");
+      const name = this.getBookAuthorName(author);
       const parts = name.split(" ").filter(Boolean);
       const lastName = parts.pop() ?? name;
       const firstName = parts.join(" ");
@@ -548,6 +636,10 @@ export class BookMetadataService {
     });
 
     item.setCreators([...newAuthors, ...nonAuthors]);
+  }
+
+  private getBookAuthorName(author: { name?: string } | string): string {
+    return (typeof author === "string" ? author : (author.name ?? "")).trim();
   }
 
   private async applyTranslatorMetadata(
@@ -639,7 +731,7 @@ export class BookMetadataService {
       (c) => c.creatorType && c.creatorType !== "author",
     );
     const existingNonAuthors = currentCreators.filter(
-      (c) => c.creatorType !== "author",
+      (c) => !isAuthorCreator(c),
     );
 
     const newAuthors = authorsFromTranslation.map((creator) => ({

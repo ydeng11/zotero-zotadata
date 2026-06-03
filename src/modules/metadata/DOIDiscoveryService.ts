@@ -67,9 +67,20 @@ export class DOIDiscoveryService {
     ];
 
     for (const strategy of strategies) {
-      const doi = await strategy();
-      if (doi) {
-        return doi;
+      try {
+        const doi = await strategy();
+        if (doi) {
+          return doi;
+        }
+      } catch (err) {
+        const zoteroDebug = (
+          Zotero as typeof Zotero & {
+            debug?: (msg: string, level: number) => void;
+          }
+        ).debug;
+        if (zoteroDebug) {
+          zoteroDebug(`DOI discovery strategy threw — skipping: ${err}`, 2);
+        }
       }
       await this.delay(200);
     }
@@ -210,7 +221,12 @@ export class DOIDiscoveryService {
     const exactQuery = this.buildSemanticScholarExactQuery(item, title);
     const exactPapers =
       await this.semanticScholarAPI.searchPapersWithExternalIds(exactQuery, 3);
-    const exactDoi = this.pickSemanticScholarDoi(exactPapers, title, options);
+    const exactDoi = this.pickSemanticScholarDoi(
+      exactPapers,
+      title,
+      options,
+      item,
+    );
     if (exactDoi) {
       return exactDoi;
     }
@@ -222,7 +238,7 @@ export class DOIDiscoveryService {
       .trim();
     const relaxedPapers =
       await this.semanticScholarAPI.searchPapersWithExternalIds(cleaned, 10);
-    return this.pickSemanticScholarDoi(relaxedPapers, title, options);
+    return this.pickSemanticScholarDoi(relaxedPapers, title, options, item);
   }
 
   async searchDBLPForDOI(item: Zotero.Item): Promise<string | null> {
@@ -240,6 +256,7 @@ export class DOIDiscoveryService {
         `https://dblp.org/search/publ/api?q=${cleanTitle}&format=json&h=10`,
         {
           headers: { Accept: "application/json" },
+          errorDelayMax: 0, // Skip Zotero's 2-minute retry on 5xx
         },
       );
       if (response.status !== 200) {
@@ -299,6 +316,7 @@ export class DOIDiscoveryService {
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
           },
+          errorDelayMax: 0, // Skip Zotero's 2-minute retry on 5xx
         },
       );
       if (response.status !== 200) {
@@ -306,6 +324,10 @@ export class DOIDiscoveryService {
       }
 
       const html = String(response.responseText ?? "");
+      if (!this.responseMentionsTitle(html, title)) {
+        return null;
+      }
+
       const directMatch = html.match(/10\.\d{4,}\/[^\s\],"';<)]+/i);
       if (directMatch?.[0]) {
         return normalizeDoi(directMatch[0].replace(/[.,;'")\]]+$/, ""));
@@ -322,6 +344,18 @@ export class DOIDiscoveryService {
     }
 
     return null;
+  }
+
+  private responseMentionsTitle(responseText: string, title: string): boolean {
+    const normalize = (value: string): string =>
+      value
+        .replace(/<[^>]*>/g, " ")
+        .toLowerCase()
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, "")
+        .trim();
+
+    return normalize(responseText).includes(normalize(title));
   }
 
   private buildSearchQuery(
@@ -424,6 +458,7 @@ export class DOIDiscoveryService {
     papers: SemanticScholarPaper[],
     title: string,
     options: DOIDiscoveryOptions = {},
+    item?: Zotero.Item,
   ): string | null {
     for (const paper of papers) {
       const candidate = String(paper.title ?? "").trim();
@@ -433,7 +468,23 @@ export class DOIDiscoveryService {
 
       const doi = paper.doi ?? paper.externalIds?.DOI;
       if (doi && (!options.publishedOnly || !isArxivDoi(doi))) {
-        return normalizeDoi(doi);
+        const normalizedDoi = normalizeDoi(doi);
+        if (item) {
+          const validation = validateMetadataMatch(item, {
+            title: candidate,
+            authors: paper.authors?.map((author) => author.name) ?? [],
+            year: paper.year,
+            doi: normalizedDoi,
+            confidence: 1,
+            source: "Semantic Scholar",
+          });
+          if (!validation.accept) {
+            Zotero.log(`Rejected DOI ${normalizedDoi}: ${validation.reason}`);
+            continue;
+          }
+        }
+
+        return normalizedDoi;
       }
     }
     return null;

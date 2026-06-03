@@ -51,6 +51,9 @@ export function getPreferredLocale(): string {
   const runtime = globalThis as typeof globalThis & {
     Services?: LocaleServices;
     Zotero?: typeof Zotero & {
+      // Zotero.locale is sometimes an object ({ locale: "en-US" }) rather than
+      // a plain string across different Zotero versions. getTrimmedLocale
+      // handles this by returning null for non-string values.
       locale?: string;
     };
   };

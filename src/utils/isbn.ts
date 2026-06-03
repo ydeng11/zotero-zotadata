@@ -1,5 +1,5 @@
 export function convertISBN10to13(isbn10: string): string | null {
-  if (isbn10.length !== 10) {
+  if (!isValidCleanISBN(isbn10)) {
     return null;
   }
 
@@ -13,7 +13,7 @@ export function convertISBN10to13(isbn10: string): string | null {
 }
 
 export function convertISBN13to10(isbn13: string): string | null {
-  if (isbn13.length !== 13 || !isbn13.startsWith("978")) {
+  if (!isbn13.startsWith("978") || !isValidCleanISBN(isbn13)) {
     return null;
   }
 
@@ -51,8 +51,44 @@ export function cleanISBN(isbn: string): string {
   return isbn.replace(/[-\s]/g, "");
 }
 
+export function isValidCleanISBN(isbn: string): boolean {
+  if (/^\d{9}[\dX]$/i.test(isbn)) {
+    return hasValidISBN10CheckDigit(isbn);
+  }
+
+  if (/^\d{13}$/.test(isbn)) {
+    return hasValidISBN13CheckDigit(isbn);
+  }
+
+  return false;
+}
+
+function hasValidISBN10CheckDigit(isbn: string): boolean {
+  const normalized = isbn.toUpperCase();
+  let sum = 0;
+  for (let index = 0; index < 9; index += 1) {
+    sum += Number.parseInt(normalized[index], 10) * (10 - index);
+  }
+  const checkDigit =
+    normalized[9] === "X" ? 10 : Number.parseInt(normalized[9], 10);
+  return (sum + checkDigit) % 11 === 0;
+}
+
+function hasValidISBN13CheckDigit(isbn: string): boolean {
+  let sum = 0;
+  for (let index = 0; index < 12; index += 1) {
+    sum += Number.parseInt(isbn[index], 10) * (index % 2 === 0 ? 1 : 3);
+  }
+  const expectedCheckDigit = (10 - (sum % 10)) % 10;
+  return expectedCheckDigit === Number.parseInt(isbn[12], 10);
+}
+
 export function buildAlternativeISBNCandidates(originalISBN: string): string[] {
   const cleanISBN = originalISBN.replace(/[-\s]/g, "");
+  if (!isValidCleanISBN(cleanISBN)) {
+    return [];
+  }
+
   const candidates = new Set<string>([
     cleanISBN,
     formatISBNWithHyphens(cleanISBN),
@@ -73,6 +109,9 @@ export function buildAlternativeISBNCandidates(originalISBN: string): string[] {
   }
 
   return [...candidates].filter(
-    (candidate) => Boolean(candidate) && candidate !== originalISBN,
+    (candidate) =>
+      Boolean(candidate) &&
+      candidate !== originalISBN &&
+      isValidCleanISBN(candidate.replace(/[-\s]/g, "")),
   );
 }

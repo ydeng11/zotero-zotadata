@@ -4,8 +4,15 @@ import type {
   APIResponse,
   RateLimitConfig,
   CacheConfig,
-  ContextualError,
+  SearchQuery,
+  SearchResult,
 } from "@/shared/core/types";
+
+interface CachedApiResponse {
+  data: APIResponse<unknown>;
+  timestamp: number;
+  ttl: number;
+}
 
 /**
  * Base API service with rate limiting, caching, and error handling
@@ -21,14 +28,7 @@ export abstract class BaseMetadataAPI {
   private requestTimes: number[] = [];
 
   // Caching
-  private cache = new Map<
-    string,
-    {
-      data: any;
-      timestamp: number;
-      ttl: number;
-    }
-  >();
+  private cache = new Map<string, CachedApiResponse>();
 
   constructor(
     baseUrl: string,
@@ -95,7 +95,7 @@ export abstract class BaseMetadataAPI {
         });
 
         const apiResponse: APIResponse<T> = {
-          data: response.data,
+          data: response.data as T,
           status: response.status,
           headers: response.headers,
           cached: false,
@@ -194,7 +194,7 @@ export abstract class BaseMetadataAPI {
       timeout: number;
     },
   ): Promise<{
-    data: any;
+    data: unknown;
     status: number;
     headers: Record<string, string>;
   }> {
@@ -204,10 +204,11 @@ export abstract class BaseMetadataAPI {
         body: options.body,
         timeout: options.timeout,
         responseType: "text",
+        errorDelayMax: 0, // Skip Zotero's 2-minute retry on 5xx
       });
 
       // Parse response data
-      let data: any;
+      let data: unknown;
       try {
         data = JSON.parse(response.responseText);
       } catch {
@@ -275,13 +276,13 @@ export abstract class BaseMetadataAPI {
     return {
       ...cached.data,
       cached: true,
-    };
+    } as APIResponse<T>;
   }
 
   /**
    * Set item in cache
    */
-  private setCache(key: string, data: APIResponse<any>, ttl: number): void {
+  private setCache(key: string, data: APIResponse<unknown>, ttl: number): void {
     // Implement LRU eviction if cache is full
     if (this.cache.size >= this.cacheConfig.maxSize) {
       const oldestKey = this.cache.keys().next().value;
@@ -298,29 +299,6 @@ export abstract class BaseMetadataAPI {
   }
 
   /**
-   * Clear cache
-   */
-  protected clearCache(): void {
-    this.cache.clear();
-  }
-
-  /**
-   * Get cache statistics
-   */
-  protected getCacheStats(): {
-    size: number;
-    maxSize: number;
-    hitRate: number;
-  } {
-    // This would need to track hits/misses for accurate hit rate
-    return {
-      size: this.cache.size,
-      maxSize: this.cacheConfig.maxSize,
-      hitRate: 0, // Placeholder
-    };
-  }
-
-  /**
    * Simple delay utility
    */
   private delay(ms: number): Promise<void> {
@@ -328,14 +306,15 @@ export abstract class BaseMetadataAPI {
   }
 
   /**
-   * Simple hash function for cache keys
+   * Hash a string for use in cache keys.
+   * Used when building keys for POST-request caching (method + url + body hash).
+   * 32-bit DJB2 hashing — collisions are possible for large or similar bodies.
    */
   private simpleHash(str: string): string {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = ((hash << 5) - hash + char) | 0; // Convert to 32-bit integer
     }
     return hash.toString(36);
   }
@@ -343,7 +322,7 @@ export abstract class BaseMetadataAPI {
   /**
    * Abstract method for API-specific search implementations
    */
-  abstract search(query: any): Promise<any[]>;
+  abstract search(query: SearchQuery): Promise<SearchResult[]>;
 
   /**
    * Get API-specific configuration

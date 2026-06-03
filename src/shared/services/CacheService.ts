@@ -1,4 +1,4 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
 import type { CacheConfig } from "@/shared/core/types";
 
 /**
@@ -39,8 +39,8 @@ interface CacheStats {
  * Enhanced Cache Service with multi-level caching and persistence
  */
 export class CacheService {
-  private memoryCache = new Map<string, CacheEntry<any>>();
-  private persistentCache = new Map<string, CacheEntry<any>>();
+  private memoryCache = new Map<string, CacheEntry<unknown>>();
+  private persistentCache = new Map<string, CacheEntry<unknown>>();
   private config: CacheConfig;
   private errorManager: ErrorManager;
 
@@ -74,7 +74,7 @@ export class CacheService {
     if (memoryEntry && this.isValid(memoryEntry)) {
       memoryEntry.hitCount++;
       this.stats.memoryHits++;
-      return memoryEntry.data;
+      return memoryEntry.data as T;
     }
 
     // Check persistent cache
@@ -91,7 +91,7 @@ export class CacheService {
         persistentEntry.tags,
       );
 
-      return persistentEntry.data;
+      return persistentEntry.data as T;
     }
 
     // Cache miss
@@ -148,7 +148,7 @@ export class CacheService {
     }
 
     // Clear by pattern or tags
-    const keysToDelete: string[] = [];
+    const keysToDelete = new Set<string>();
 
     for (const [key, entry] of [
       ...this.memoryCache.entries(),
@@ -170,13 +170,14 @@ export class CacheService {
       }
 
       if (shouldDelete) {
-        keysToDelete.push(key);
+        keysToDelete.add(key);
       }
     }
 
     for (const key of keysToDelete) {
-      await this.delete(key);
-      cleared++;
+      if (await this.delete(key)) {
+        cleared++;
+      }
     }
 
     return cleared;
@@ -250,9 +251,13 @@ export class CacheService {
   async optimize(): Promise<void> {
     // Optimize memory cache
     if (this.memoryCache.size > this.MEMORY_CACHE_SIZE) {
-      const entries = Array.from(this.memoryCache.entries()).sort(
-        (a, b) => a[1].hitCount - b[1].hitCount,
-      );
+      const entries = Array.from(this.memoryCache.entries()).sort((a, b) => {
+        if (a[1].hitCount !== b[1].hitCount) {
+          return a[1].hitCount - b[1].hitCount;
+        }
+        // Same hitCount: evict older entries first (preserve newly-added)
+        return a[1].timestamp - b[1].timestamp;
+      });
 
       const toRemove = entries.slice(
         0,
@@ -267,7 +272,13 @@ export class CacheService {
     // Optimize persistent cache
     if (this.persistentCache.size > this.PERSISTENT_CACHE_SIZE) {
       const entries = Array.from(this.persistentCache.entries()).sort(
-        (a, b) => a[1].hitCount - b[1].hitCount,
+        (a, b) => {
+          if (a[1].hitCount !== b[1].hitCount) {
+            return a[1].hitCount - b[1].hitCount;
+          }
+          // Same hitCount: evict older entries first (preserve newly-added)
+          return a[1].timestamp - b[1].timestamp;
+        },
       );
 
       const toRemove = entries.slice(
@@ -309,7 +320,10 @@ export class CacheService {
       if (typeof localStorage !== "undefined") {
         const jsonData = localStorage.getItem("attachment-finder-cache");
         if (jsonData) {
-          const cacheData = JSON.parse(jsonData);
+          const cacheData = JSON.parse(jsonData) as Record<
+            string,
+            CacheEntry<unknown>
+          >;
           this.persistentCache = new Map(Object.entries(cacheData));
 
           // Clean up expired entries
@@ -370,7 +384,10 @@ export class CacheService {
     }
   }
 
-  private isValid(entry: CacheEntry<any>, now: number = Date.now()): boolean {
+  private isValid(
+    entry: CacheEntry<unknown>,
+    now: number = Date.now(),
+  ): boolean {
     return now - entry.timestamp < entry.ttl;
   }
 
@@ -379,7 +396,7 @@ export class CacheService {
     return ttl > 10 * 60 * 1000 || this.calculateSize(data) > 1000;
   }
 
-  private calculateSize(data: any): number {
+  private calculateSize(data: unknown): number {
     try {
       return JSON.stringify(data).length;
     } catch {
@@ -439,7 +456,10 @@ export class CacheService {
   /**
    * Export cache for debugging
    */
-  exportCache(): { memory: any; persistent: any } {
+  exportCache(): {
+    memory: Record<string, unknown>;
+    persistent: Record<string, unknown>;
+  } {
     return {
       memory: Object.fromEntries(this.memoryCache.entries()),
       persistent: Object.fromEntries(this.persistentCache.entries()),

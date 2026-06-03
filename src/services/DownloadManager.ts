@@ -84,10 +84,10 @@ class ManagedDownload implements Resource {
     }
 
     // Clean up temporary files
-    for (const filePath of this.tempFiles) {
+    for (const _filePath of this.tempFiles) {
       try {
         // Note: This would need proper file system access in Zotero
-        // await fs.unlink(filePath);
+        // await fs.unlink(_filePath);
       } catch (error) {
         // Ignore cleanup errors
       }

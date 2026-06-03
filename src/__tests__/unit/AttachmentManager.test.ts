@@ -1,18 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
 import { AttachmentManager } from "@/features/attachment/AttachmentManager";
 
+function createAttachment(overrides: Partial<Zotero.Item>): Zotero.Item {
+  return {
+    id: 1,
+    eraseTx: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as Zotero.Item;
+}
+
 describe("AttachmentManager", () => {
   it("should remove invalid attachment", async () => {
     const manager = new AttachmentManager();
 
-    const mockAttachment = {
+    const mockAttachment = createAttachment({
       id: 1,
-      setField: vi.fn(),
-      save: vi.fn().mockResolvedValue(undefined),
       eraseTx: vi.fn().mockResolvedValue(undefined),
-    };
+    });
 
-    await manager.removeInvalid(mockAttachment as any);
+    await manager.removeInvalid(mockAttachment);
 
     expect(mockAttachment.eraseTx).toHaveBeenCalled();
   });
@@ -27,11 +33,11 @@ describe("AttachmentManager", () => {
 
     const manager = new AttachmentManager();
 
-    const mockAttachment = {
+    const mockAttachment = createAttachment({
       id: 2,
-    };
+    });
 
-    await manager.moveToTrash(mockAttachment as any);
+    await manager.moveToTrash(mockAttachment);
 
     expect(trash).toHaveBeenCalledWith(2);
 

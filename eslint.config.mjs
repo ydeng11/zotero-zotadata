@@ -9,6 +9,8 @@ export default tseslint.config(
       "node_modules/",
       "attachment-finder.js", // Legacy file
       "bootstrap.js",
+      "addon/bootstrap.js",
+      "addon/prefs.js",
       "build.sh",
       "run-tests.js",
       "tests/",
@@ -35,7 +37,11 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        {
+          argsIgnorePattern: "^_",
+          caughtErrors: "none",
+          varsIgnorePattern: "^_",
+        },
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/explicit-function-return-type": "off",
@@ -43,6 +49,12 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "warn",
       "prefer-const": "error",
       "no-var": "error",
+    },
+  },
+  {
+    files: ["**/*.d.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-declaration-merging": "off",
     },
   },
 );

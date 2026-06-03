@@ -94,6 +94,31 @@ describe("SemanticScholarAPI", () => {
   });
 
   describe("field handling", () => {
+    it("normalizes DOI URLs before building DOI lookup paths", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          paperId: "test123",
+          title: "Test Paper",
+          authors: [],
+          externalIds: { DOI: "10.1234/test.doi" },
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      await semanticScholarAPI.getPaperByDOI(
+        "HTTPS://DOI.ORG/10.1234/Test.DOI.",
+      );
+
+      const requestUrl = mockZoteroHTTP.request.mock.calls[0]?.[1];
+      expect(requestUrl).toContain("/paper/DOI%3A10.1234%2Ftest.doi");
+      expect(requestUrl).not.toContain("HTTPS");
+      expect(requestUrl).not.toContain("Test.DOI.");
+    });
+
     it("builds open access search URL without nesting query params", async () => {
       const mockResponse = {
         status: 200,
@@ -168,6 +193,36 @@ describe("SemanticScholarAPI", () => {
       });
 
       expect(results).toHaveLength(1);
+      expect(results[0].doi).toBe("10.1234/test.doi");
+    });
+
+    it("normalizes DOI values returned by Semantic Scholar results", async () => {
+      const mockResponse = {
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          total: 1,
+          data: [
+            {
+              paperId: "test123",
+              title: "Test Paper",
+              authors: [],
+              year: 2023,
+              externalIds: {
+                DOI: "HTTPS://DOI.ORG/10.1234/Test.DOI.",
+              },
+            },
+          ],
+        }),
+        getAllResponseHeaders: () => ({}),
+      };
+
+      mockZoteroHTTP.request.mockResolvedValue(mockResponse);
+
+      const results = await semanticScholarAPI.search({
+        title: "Test Paper",
+      });
+
       expect(results[0].doi).toBe("10.1234/test.doi");
     });
 

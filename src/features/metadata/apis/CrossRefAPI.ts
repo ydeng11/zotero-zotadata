@@ -1,4 +1,5 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { normalizeDoi } from "@/utils/itemSearchQuery";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import type {
@@ -197,7 +198,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
     params.append("sort", "relevance");
     params.append(
       "select",
-      "DOI,title,original-title,author,published,container-title,volume,issue,page,URL,type,is-referenced-by-count,language",
+      "DOI,title,original-title,author,published,container-title,volume,issue,page,URL,type,is-referenced-by-count",
     );
 
     return params.toString();
@@ -218,7 +219,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
             `${author.given || ""} ${author.family}`.trim(),
           ) || [],
         year: work.published?.["date-parts"]?.[0]?.[0],
-        doi: work.DOI,
+        doi: work.DOI ? this.cleanDOI(work.DOI) : undefined,
         url: work.URL,
         confidence: this.calculateConfidence(work, originalQuery),
         source: "CrossRef",
@@ -329,11 +330,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
    * Clean DOI for consistent formatting
    */
   private cleanDOI(doi: string): string {
-    return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
-      .replace(/^doi:/, "")
-      .trim()
-      .toLowerCase();
+    return normalizeDoi(doi).toLowerCase();
   }
 
   /**

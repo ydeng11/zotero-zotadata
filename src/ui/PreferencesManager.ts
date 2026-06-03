@@ -1,6 +1,8 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
 import type { AddonData } from "@/shared/core/types";
 
+type PreferenceValue = PluginPreferences[keyof PluginPreferences];
+
 /**
  * Preference configuration
  */
@@ -9,11 +11,11 @@ interface PreferenceConfig {
   type: "boolean" | "string" | "number" | "choice";
   label: string;
   description?: string;
-  defaultValue: any;
-  choices?: Array<{ value: any; label: string }>;
+  defaultValue: PreferenceValue;
+  choices?: Array<{ value: PreferenceValue; label: string }>;
   min?: number;
   max?: number;
-  validation?: (value: any) => boolean;
+  validation?: (value: unknown) => boolean;
 }
 
 /**
@@ -125,10 +127,10 @@ export class PreferencesManager {
   /**
    * Get preference value
    */
-  getPreference(key: string, defaultValue?: any): any {
+  getPreference<T extends PreferenceValue>(key: string, defaultValue: T): T {
     try {
       if (typeof Zotero !== "undefined" && Zotero.Prefs) {
-        return Zotero.Prefs.get(`${this.prefPrefix}.${key}`, defaultValue);
+        return Zotero.Prefs.get(`${this.prefPrefix}.${key}`, defaultValue) as T;
       }
     } catch (error) {
       console.warn(`Failed to get preference ${key}:`, error);
@@ -139,7 +141,7 @@ export class PreferencesManager {
   /**
    * Set preference value
    */
-  async setPreference(key: string, value: any): Promise<void> {
+  async setPreference(key: string, value: unknown): Promise<void> {
     try {
       if (typeof Zotero !== "undefined" && Zotero.Prefs) {
         await Zotero.Prefs.set(`${this.prefPrefix}.${key}`, value);
@@ -167,7 +169,10 @@ export class PreferencesManager {
       "api.arxiv.enabled": this.getPreference("api.arxiv.enabled", true),
       "api.libgen.enabled": this.getPreference("api.libgen.enabled", false),
       "api.pmc.enabled": this.getPreference("api.pmc.enabled", true),
-      "api.googlebooks.enabled": this.getPreference("api.googlebooks.enabled", true),
+      "api.googlebooks.enabled": this.getPreference(
+        "api.googlebooks.enabled",
+        true,
+      ),
       "api.googlebooks.key": this.getPreference("api.googlebooks.key", ""),
       "api.timeout": this.getPreference("api.timeout", 30),
       "api.retries": this.getPreference("api.retries", 3),
@@ -512,7 +517,7 @@ export class PreferencesManager {
 
   private validatePreference<K extends keyof PluginPreferences>(
     key: K,
-    value: any,
+    value: unknown,
   ): boolean {
     const config = this.getPreferenceConfig()
       .flatMap((section) => section.preferences)

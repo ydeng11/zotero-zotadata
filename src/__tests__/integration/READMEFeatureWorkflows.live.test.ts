@@ -33,6 +33,13 @@ function expectTag(item: Zotero.Item, tagName: string): void {
   expect(tags?.some((tag) => tag.tag === tagName)).toBe(true);
 }
 
+function requireDoi(publication: { doi?: string }): string {
+  if (!publication.doi) {
+    throw new Error("Live workflow fixture is missing a DOI");
+  }
+  return publication.doi;
+}
+
 describeLive("README live workflows", () => {
   it("removes broken attachments while preserving valid weblinks", async () => {
     const item = createMockZoteroItem({
@@ -69,7 +76,7 @@ describeLive("README live workflows", () => {
   it("updates metadata for the Gibbs article using live DOI services", async (context) => {
     await withTransientSkip(context, async () => {
       const preflight = await new CrossRefAPI().getCrossRefWorkMessage(
-        PUBLICATIONS.gibbsDensitySurface.doi!,
+        requireDoi(PUBLICATIONS.gibbsDensitySurface),
       );
       if (!preflight) {
         skipWithMessage(
@@ -112,7 +119,7 @@ describeLive("README live workflows", () => {
   it("does not corrupt an unrelated title when given the supplied mismatched DOI", async (context) => {
     await withTransientSkip(context, async () => {
       const preflight = await new CrossRefAPI().getCrossRefWorkMessage(
-        PUBLICATIONS.enrichingWordVectors.doi!,
+        requireDoi(PUBLICATIONS.enrichingWordVectors),
       );
       if (!preflight) {
         skipWithMessage(
@@ -146,7 +153,7 @@ describeLive("README live workflows", () => {
   it("corrects the Semi-Supervised arXiv DOI using live metadata fetch", async (context) => {
     await withTransientSkip(context, async () => {
       const preflight = await new OpenAlexAPI().getWorkByDOI(
-        PUBLICATIONS.semiSupervisedLearning.doi!,
+        requireDoi(PUBLICATIONS.semiSupervisedLearning),
       );
       if (!preflight) {
         skipWithMessage(

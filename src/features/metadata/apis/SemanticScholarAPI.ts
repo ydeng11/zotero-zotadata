@@ -1,4 +1,5 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { normalizeDoi } from "@/utils/itemSearchQuery";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { mapSemanticScholarTypeToZotero } from "@/utils/typeMapping";
 import type {
@@ -225,7 +226,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
         title: paper.title,
         authors: paper.authors?.map((author) => author.name) || [],
         year: paper.year,
-        doi: doi,
+        doi: doi ? this.cleanDOI(doi) : undefined,
         url: paper.url,
         pdfUrl: paper.openAccessPdf?.url,
         confidence: this.calculateConfidence(paper, originalQuery),
@@ -372,11 +373,7 @@ export class SemanticScholarAPI extends BaseMetadataAPI {
    * Clean DOI for consistent formatting
    */
   private cleanDOI(doi: string): string {
-    return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
-      .replace(/^doi:/, "")
-      .trim()
-      .toLowerCase();
+    return normalizeDoi(doi).toLowerCase();
   }
 
   /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SciHubService } from "@/services/SciHubService";
+import type { PreferencesManager } from "@/ui/PreferencesManager";
 
 const describeLive =
   process.env.LIVE_API_TESTS === "1" ? describe.sequential : describe.skip;
@@ -7,7 +8,7 @@ const describeLive =
 function createEnabledSciHubService(): SciHubService {
   return new SciHubService({
     isSciHubEnabled: () => true,
-  } as any);
+  } as unknown as PreferencesManager);
 }
 
 describeLive("Sci-Hub live test", () => {

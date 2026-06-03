@@ -60,7 +60,10 @@ describe("MetadataFetcher - CrossRef Incorrect Match Rejection", () => {
     expect(item.setCreators).toHaveBeenCalled();
 
     // Get the actual creators that were set
-    const callArgs = item.setCreators.mock.calls[0][0];
+    const setCreators = item.setCreators as ReturnType<typeof vi.fn>;
+    const callArgs = setCreators.mock.calls[0][0] as ReturnType<
+      Zotero.Item["getCreators"]
+    >;
     expect(callArgs).toHaveLength(3);
     expect(callArgs[0]).toMatchObject({
       creatorType: "author",
@@ -86,19 +89,22 @@ describe("MetadataFetcher - CrossRef Incorrect Match Rejection", () => {
   });
 });
 
-function createMockZoteroItem(fields: any): any {
-  const data = { ...fields };
+function createMockZoteroItem(fields: Record<string, unknown>): Zotero.Item {
+  const data: Record<string, unknown> = { ...fields };
   return {
     id: Math.floor(Math.random() * 10000),
-    itemTypeID: data.itemTypeID || 1,
-    getField: (field: string) => data[field],
-    setField: vi.fn((field: string, value: any) => {
+    itemTypeID: Number(data.itemTypeID ?? 1),
+    getField: (field: string) => String(data[field] ?? ""),
+    setField: vi.fn((field: string, value: string) => {
       data[field] = value;
     }),
-    getCreators: () => data.creators || [],
+    getCreators: () =>
+      Array.isArray(data.creators)
+        ? (data.creators as ReturnType<Zotero.Item["getCreators"]>)
+        : [],
     setCreators: vi.fn(),
     addTag: vi.fn(),
     saveTx: vi.fn(),
     isRegularItem: () => true,
-  };
+  } as unknown as Zotero.Item;
 }

@@ -1,4 +1,5 @@
-import { ErrorManager, ErrorType } from "@/shared/core";
+import { ErrorManager } from "@/shared/core";
+import { normalizeDoi } from "@/utils/itemSearchQuery";
 
 /**
  * URL validation result
@@ -60,7 +61,6 @@ export class URLUtils {
   // Suspicious URL patterns
   private static readonly SUSPICIOUS_PATTERNS = [
     /bit\.ly|tinyurl|short\.link/, // URL shorteners
-    /[^\w\-\.]/g, // Special characters that might indicate obfuscation
     /\.zip\.exe$/, // Potentially malicious file extensions
     /phishing|malware|virus/, // Known bad terms
   ];
@@ -138,10 +138,9 @@ export class URLUtils {
         result.warnings.push("URL contains suspicious patterns");
         result.security.trustLevel = "low";
       }
-    } catch (error: any) {
-      result.errors.push(
-        `Invalid URL format: ${error?.message || "Unknown error"}`,
-      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Invalid URL format: ${message}`);
     }
 
     return result;
@@ -196,7 +195,7 @@ export class URLUtils {
       const lastSegment = pathSegments[pathSegments.length - 1];
 
       if (lastSegment && lastSegment.includes(".")) {
-        info.filename = decodeURIComponent(lastSegment);
+        info.filename = this.decodePathSegment(lastSegment);
       }
 
       // Domain-specific handling
@@ -226,7 +225,10 @@ export class URLUtils {
         parsedUrl.searchParams.get("size") ||
         parsedUrl.searchParams.get("filesize");
       if (sizeParam) {
-        info.filesize = parseInt(sizeParam, 10);
+        const filesize = Number.parseInt(sizeParam, 10);
+        if (Number.isFinite(filesize) && filesize >= 0) {
+          info.filesize = filesize;
+        }
       }
 
       // Check for MIME type in URL
@@ -313,15 +315,18 @@ export class URLUtils {
       "mdpi.com",
       "wiley.com",
       "elsevier.com",
-      "taylor",
-      "sage",
-      "university",
-      ".edu",
-      ".ac.",
     ];
+    const trustedDomainFragments = ["taylor", "sage", "university"];
 
     const domain = this.extractDomain(url).toLowerCase();
-    return trustedDomains.some((trusted) => domain.includes(trusted));
+    return (
+      trustedDomains.some(
+        (trusted) => domain === trusted || domain.endsWith(`.${trusted}`),
+      ) ||
+      domain.endsWith(".edu") ||
+      domain.includes(".ac.") ||
+      trustedDomainFragments.some((trusted) => domain.includes(trusted))
+    );
   }
 
   /**
@@ -347,8 +352,10 @@ export class URLUtils {
       }
 
       // For DOI URLs, generate CrossRef URLs
-      if (originalUrl.includes("doi.org/")) {
-        const doi = originalUrl.split("doi.org/")[1];
+      if (domain === "doi.org" || domain === "dx.doi.org") {
+        const doi = normalizeDoi(parsedUrl.pathname.replace(/^\/+/, ""))
+          .toLowerCase()
+          .trim();
         if (doi) {
           alternatives.push(`https://api.crossref.org/works/${doi}`);
         }
@@ -498,6 +505,14 @@ export class URLUtils {
   private static removeTrackingParameters(parsedUrl: URL): void {
     for (const param of this.TRACKING_PARAMS) {
       parsedUrl.searchParams.delete(param);
+    }
+  }
+
+  private static decodePathSegment(segment: string): string {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
     }
   }
 

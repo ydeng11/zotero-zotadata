@@ -100,6 +100,12 @@ describe("authorValidation", () => {
       ).toBe(false);
       expect(isExactTitleMatch("Test Title!", "test title")).toBe(true);
     });
+
+    it("returns false instead of throwing when a title is missing", () => {
+      expect(
+        isExactTitleMatch("Known Title", undefined as unknown as string),
+      ).toBe(false);
+    });
   });
 
   describe("validateMetadataMatch", () => {
@@ -213,6 +219,32 @@ describe("authorValidation", () => {
       expect(result.accept).toBe(true);
     });
 
+    it("uses the publication year from human-readable Zotero dates", () => {
+      const item = {
+        ...createMockItem(
+          ["Goodfellow", "Bengio", "Courville", "Mirza"],
+          0,
+          "Generative Models",
+        ),
+        getField: (field: string) =>
+          field === "date" ? "20 May 2024" : "Generative Models",
+      };
+
+      const candidate: SearchResult = {
+        title: "Generative Models",
+        authors: ["Goodfellow", "Bengio"],
+        year: 2024,
+        doi: "10.1234/generative-models",
+        confidence: 0.9,
+        source: "CrossRef",
+      };
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(true);
+      expect(result.score).toBeCloseTo(0.825, 3);
+    });
+
     it("rejects match when title matches but year differs significantly", () => {
       const item = createMockItem(
         [
@@ -316,6 +348,20 @@ describe("authorValidation", () => {
 
       expect(result.accept).toBe(false);
       expect(result.reason).toContain("missing required metadata");
+    });
+
+    it("rejects incomplete candidates without throwing when title is missing", () => {
+      const item = createMockItem([], 0, "Known Title");
+      const candidate = {
+        authors: ["Jane Doe"],
+        year: 2024,
+        confidence: 0.5,
+        source: "External",
+      } as SearchResult;
+
+      const result = validateMetadataMatch(item, candidate);
+
+      expect(result.accept).toBe(false);
     });
   });
 });

@@ -23,9 +23,10 @@ declare global {
       attachmentLinkMode: number;
       attachmentContentType: string;
       getFilePath(): string | false;
-      getFile(): any;
+      getFile(): { exists(): boolean; fileSize?: number } | null;
       fileExists(): Promise<boolean>;
       isEditable?(op?: "edit" | "erase"): boolean;
+      eraseTx(): Promise<void>;
       setNote(note: string): void;
       getCreators(): Array<{
         firstName?: string;
@@ -61,6 +62,15 @@ declare global {
       name: string;
     }
 
+    interface FileLike {
+      append(name: string): void;
+      clone(): FileLike;
+      exists(): boolean;
+      fileSize?: number;
+      path: string;
+      remove(recursive: boolean): void;
+    }
+
     namespace Items {
       function get(id: number): Item | null;
       function getAll(): Item[];
@@ -91,11 +101,11 @@ declare global {
         fileBaseName?: string;
         contentType?: string;
         referrer?: string;
-        cookieSandbox?: any;
+        cookieSandbox?: unknown;
       }): Promise<Item>;
 
       function importFromFile(options: {
-        file: any;
+        file: FileLike;
         parentItemID?: number;
         title?: string;
       }): Promise<Item>;
@@ -125,10 +135,11 @@ declare global {
           responseType?: string;
           timeout?: number;
           successCodes?: number[] | false;
+          errorDelayMax?: number;
         },
       ): Promise<{
         status: number;
-        response: any;
+        response: unknown;
         responseText: string;
         getResponseHeader(header: string): string | null;
       }>;
@@ -146,7 +157,7 @@ declare global {
           event: string,
           type: string,
           ids: number[],
-          extraData: any,
+          extraData: unknown,
         ) => void,
         types?: string[],
       ): string;
@@ -180,17 +191,17 @@ declare global {
 
     // Prefs API
     namespace Prefs {
-      function get(key: string, defaultValue?: any): any;
-      function set(key: string, value: any): void;
+      function get<T = unknown>(key: string, defaultValue?: T): T;
+      function set(key: string, value: unknown): void;
       function registerObserver(key: string, callback: () => void): void;
       function unregisterObserver(key: string, callback: () => void): void;
     }
 
     // File API
     namespace File {
-      function getContents(file: any): string;
-      function writeToFile(file: any, contents: string): void;
-      function exists(file: any): boolean;
+      function getContents(file: unknown): string;
+      function writeToFile(file: unknown, contents: string): void;
+      function exists(file: unknown): boolean;
     }
 
     // ProgressWindow
@@ -227,7 +238,7 @@ declare global {
       getSelectedItems(): Item[];
       getSelectedCollection(): Collection | null;
     } | null;
-    function getTempDirectory(): any;
+    function getTempDirectory(): FileLike;
 
     const platformMajorVersion: number;
   }
@@ -240,15 +251,15 @@ declare global {
   // Services is auto-imported in Firefox 128+
   const Services: {
     wm: {
-      addListener(listener: any): void;
-      removeListener(listener: any): void;
-      getEnumerator(windowType: string): any;
+      addListener(listener: unknown): void;
+      removeListener(listener: unknown): void;
+      getEnumerator(windowType: string): unknown;
     };
     scriptloader: {
-      loadSubScript(url: string, target?: any): void;
+      loadSubScript(url: string, target?: unknown): void;
     };
     io: {
-      newURI(uri: string): any;
+      newURI(uri: string): unknown;
     };
     prompt: {
       confirmEx(
@@ -263,20 +274,20 @@ declare global {
         checkState?: Record<string, unknown>,
       ): number;
     };
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
   const ChromeUtils: {
-    defineLazyGetter(obj: any, name: string, getter: () => any): void;
-    defineESModuleGetters(obj: any, modules: Record<string, string>): void;
+    defineLazyGetter(obj: object, name: string, getter: () => unknown): void;
+    defineESModuleGetters(obj: object, modules: Record<string, string>): void;
   };
 
   // Legacy globals (kept for compatibility during migration)
-  const Components: any;
+  const Components: { utils: unknown };
   const APP_SHUTDOWN: number;
 
   interface Window {
-    ZoteroPane?: any;
+    ZoteroPane?: unknown;
     alert(message: string): void;
   }
 
@@ -288,13 +299,13 @@ declare global {
 }
 
 interface nsIXPCComponents_Classes {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface nsIXPCComponents_Interfaces {
-  nsIWindowMediator: any;
-  nsIDOMWindow: any;
-  nsIInterfaceRequestor: any;
+  nsIWindowMediator: unknown;
+  nsIDOMWindow: unknown;
+  nsIInterfaceRequestor: unknown;
 }
 
 export {};

@@ -175,7 +175,7 @@ describe("MetadataUpdateService", () => {
       );
     });
 
-    it("does not overwrite existing authors when CrossRef authors have no overlap", async () => {
+    it("overwrites authors from CrossRef even without overlap (DOI match trusted)", async () => {
       const item = createMockItem({
         title: "Test Paper",
         DOI: "10.1234/test",
@@ -197,17 +197,11 @@ describe("MetadataUpdateService", () => {
 
       const changes = await service.updateItemWithMetadata(item, metadata);
 
-      expect(item.setCreators).not.toHaveBeenCalled();
-      expect(changes).not.toContainEqual(
+      // Confidence 1 → CrossRef trusted
+      expect(item.setCreators).toHaveBeenCalled();
+      expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
       );
-      expect(item.getCreators()).toEqual([
-        {
-          firstName: "Original",
-          lastName: "Author",
-          creatorType: "author",
-        },
-      ]);
     });
 
     it("rewrites authors idempotently for validated CrossRef metadata", async () => {
@@ -243,7 +237,57 @@ describe("MetadataUpdateService", () => {
       ]);
     });
 
-    it("preserves existing authors when CrossRef title mismatches item title", async () => {
+    it("does not preserve Zotero creatorTypeID authors as non-authors", async () => {
+      const item = createMockItem({
+        title: "BPR: Bayesian Personalized Ranking from Implicit Feedback",
+        DOI: "10.48550/arxiv.1205.2618",
+        date: "2012",
+        creators: [],
+      });
+      item.getCreators = vi.fn(() => [
+        { firstName: "Steffen", lastName: "Rendle", creatorTypeID: 1 },
+        {
+          firstName: "Christoph",
+          lastName: "Freudenthaler",
+          creatorTypeID: 1,
+        },
+        { firstName: "Zeno", lastName: "Gantner", creatorTypeID: 1 },
+        { firstName: "Lars", lastName: "Schmidt-Thieme", creatorTypeID: 1 },
+        { firstName: "Program", lastName: "Chair", creatorType: "editor" },
+      ]) as Zotero.Item["getCreators"];
+
+      const metadata = {
+        DOI: "10.48550/arxiv.1205.2618",
+        title: ["BPR: Bayesian Personalized Ranking from Implicit Feedback"],
+        published: { "date-parts": [[2012]] },
+        author: [
+          { given: "Steffen", family: "Rendle" },
+          { given: "Christoph", family: "Freudenthaler" },
+          { given: "Zeno", family: "Gantner" },
+          { given: "Lars", family: "Schmidt-Thieme" },
+        ],
+      };
+
+      await service.updateItemWithMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        { creatorType: "author", firstName: "Steffen", lastName: "Rendle" },
+        {
+          creatorType: "author",
+          firstName: "Christoph",
+          lastName: "Freudenthaler",
+        },
+        { creatorType: "author", firstName: "Zeno", lastName: "Gantner" },
+        {
+          creatorType: "author",
+          firstName: "Lars",
+          lastName: "Schmidt-Thieme",
+        },
+        { creatorType: "editor", firstName: "Program", lastName: "Chair" },
+      ]);
+    });
+
+    it("overwrites authors from CrossRef when DOI matches despite title mismatch", async () => {
       const item = createMockItem({
         title: "Curated Local Paper",
         DOI: "10.1234/stale",
@@ -260,9 +304,62 @@ describe("MetadataUpdateService", () => {
 
       const changes = await service.updateItemWithMetadata(item, staleMetadata);
 
-      expect(item.setCreators).not.toHaveBeenCalled();
-      expect(changes).not.toContainEqual(
+      // DOI match → trusted regardless of title mismatch
+      expect(item.setCreators).toHaveBeenCalled();
+      expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
+      );
+    });
+
+    it("preserves existing publication fields when CrossRef metadata is for a different paper", async () => {
+      const item = createMockItem({
+        title: "Curated Local Paper",
+        DOI: "10.1234/stale",
+        publicationTitle: "Local Journal",
+        date: "2021",
+        volume: "7",
+        issue: "2",
+        pages: "10-20",
+        creators: [
+          { firstName: "Original", lastName: "Author", creatorType: "author" },
+        ],
+      });
+
+      const staleMetadata = {
+        DOI: "10.1234/stale",
+        title: ["Completely Different Paper"],
+        "container-title": ["Wrong Journal"],
+        published: { "date-parts": [[1999]] },
+        volume: "99",
+        issue: "9",
+        page: "900-999",
+        author: [{ given: "Wrong", family: "Author" }],
+      };
+
+      const changes = await service.updateItemWithMetadata(item, staleMetadata);
+
+      expect(item.setField).not.toHaveBeenCalledWith(
+        "publicationTitle",
+        "Wrong Journal",
+      );
+      expect(item.setField).not.toHaveBeenCalledWith("date", "1999");
+      expect(item.setField).not.toHaveBeenCalledWith("volume", "99");
+      expect(item.setField).not.toHaveBeenCalledWith("issue", "9");
+      expect(item.setField).not.toHaveBeenCalledWith("pages", "900-999");
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated publication title"),
+      );
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated date"),
+      );
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated volume"),
+      );
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated issue"),
+      );
+      expect(changes).not.toContainEqual(
+        expect.stringContaining("Updated pages"),
       );
     });
 
@@ -290,7 +387,7 @@ describe("MetadataUpdateService", () => {
       ]);
     });
 
-    it("does not let OpenAlex supplement overwrite authors without overlap", async () => {
+    it("overwrites authors from OpenAlex supplement even without overlap", async () => {
       const item = createMockItem({
         title: "Test Paper",
         DOI: "10.1234/test",
@@ -312,8 +409,9 @@ describe("MetadataUpdateService", () => {
 
       const changes = await service.supplementDOIMetadata(item, "10.1234/test");
 
-      expect(item.setCreators).not.toHaveBeenCalled();
-      expect(changes).not.toContainEqual(
+      // OpenAlex supplement uses confidence 1 — trusted
+      expect(item.setCreators).toHaveBeenCalled();
+      expect(changes).toContainEqual(
         expect.stringContaining("Updated authors"),
       );
     });

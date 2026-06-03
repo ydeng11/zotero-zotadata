@@ -234,11 +234,11 @@ export class ResourceManager {
         try {
           await this.cleanupResource(resourceId);
           stats.successful++;
-        } catch (error: any) {
+        } catch (error) {
           stats.failed++;
-          stats.errors.push(
-            `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
-          );
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          stats.errors.push(`Resource ${resourceId}: ${message}`);
         }
       },
     );
@@ -307,11 +307,11 @@ export class ResourceManager {
         try {
           await this.cleanupResource(resourceId);
           stats.successful++;
-        } catch (error: any) {
+        } catch (error) {
           stats.failed++;
-          stats.errors.push(
-            `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
-          );
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          stats.errors.push(`Resource ${resourceId}: ${message}`);
         }
       },
     );
@@ -344,11 +344,11 @@ export class ResourceManager {
       try {
         await this.cleanupResource(resourceId);
         stats.successful++;
-      } catch (error: any) {
+      } catch (error) {
         stats.failed++;
-        stats.errors.push(
-          `Resource ${resourceId}: ${error?.message || "Unknown error"}`,
-        );
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        stats.errors.push(`Resource ${resourceId}: ${message}`);
       }
     }
 

@@ -1,4 +1,5 @@
 import { BaseMetadataAPI } from "./BaseMetadataAPI";
+import { normalizeDoi } from "@/utils/itemSearchQuery";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
 import type {
@@ -107,7 +108,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
 
     if (query.authors && query.authors.length > 0) {
       filters.push(
-        `authorships.author.display_name.search:${query.authors[0]}`,
+        `authorships.author.display_name:${query.authors[0]}`, // Note: OpenAlex removed .search suffix for this field
       );
     }
 
@@ -158,7 +159,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
             (authorship) => authorship.author.display_name,
           ) || [],
         year: work.publication_year,
-        doi: work.doi?.replace("https://doi.org/", ""),
+        doi: work.doi ? this.cleanDOI(work.doi) : undefined,
         url: work.id,
         pdfUrl: work.open_access?.oa_url || undefined,
         confidence: this.calculateConfidence(work, originalQuery),
@@ -284,11 +285,7 @@ export class OpenAlexAPI extends BaseMetadataAPI {
    * Clean DOI for consistent formatting
    */
   private cleanDOI(doi: string): string {
-    return doi
-      .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "")
-      .replace(/^doi:/, "")
-      .trim()
-      .toLowerCase();
+    return normalizeDoi(doi).toLowerCase();
   }
 
   /**

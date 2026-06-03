@@ -8,14 +8,21 @@ export function normalizeDoi(raw: string): string {
   if (!s) return s;
   try {
     if (typeof Zotero !== "undefined" && Zotero.Utilities?.cleanDOI) {
-      return Zotero.Utilities.cleanDOI(s);
+      return trimDoiPunctuation(Zotero.Utilities.cleanDOI(s));
     }
   } catch {
     /* ignore */
   }
-  return s
+  return trimDoiPunctuation(
+    s.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "").replace(/^doi:\s*/i, ""),
+  );
+}
+
+function trimDoiPunctuation(doi: string): string {
+  return doi
     .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "")
     .replace(/^doi:\s*/i, "")
+    .replace(/[.,;'")\]]+$/, "")
     .trim();
 }
 
@@ -24,7 +31,7 @@ export function normalizeDoi(raw: string): string {
  */
 export function parseDoiFromExtra(extra: string): string | undefined {
   if (!extra?.trim()) return undefined;
-  const m = extra.match(/\b(10\.\d{4,}\/[^\s\]}]+)\b/i);
+  const m = extra.match(/\b(10\.\d{4,}\/[^\s?#\]}]+)\b/i);
   return m ? normalizeDoi(m[1]) : undefined;
 }
 
@@ -115,6 +122,7 @@ export function isSearchQueryActionable(query: SearchQuery): boolean {
 function cleanArxivId(value: string): string {
   return value
     .replace(/^arxiv:/i, "")
+    .replace(/[.,;'")\]]+$/, "")
     .replace(/\.pdf$/i, "")
     .replace(/v\d+$/i, "")
     .trim();

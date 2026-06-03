@@ -15,7 +15,7 @@ function createMockCrossRefAPI() {
     getWorkByDOI: vi.fn(),
     search: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockOpenAlexAPI() {
@@ -25,7 +25,7 @@ function createMockOpenAlexAPI() {
     searchExact: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockSemanticScholarAPI() {
@@ -36,7 +36,7 @@ function createMockSemanticScholarAPI() {
     searchByArxivId: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 describe("Semi-Supervised Learning Paper Metadata Update", () => {
@@ -52,15 +52,27 @@ describe("Semi-Supervised Learning Paper Metadata Update", () => {
     const mockBookMetadata = new BookMetadataService();
 
     const doiDiscovery = new DOIDiscoveryService({
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
     });
 
     const services: MetadataFetcherServices = {
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
       doiDiscovery,
       metadataUpdate: mockMetadataUpdate,
       bookMetadata: mockBookMetadata,

@@ -1,21 +1,17 @@
-import type { AttachmentType, AttachmentValidationResult } from "./types";
+import type { AttachmentValidationResult } from "./types";
 
 export class AttachmentValidator {
-  private readonly LINK_MODE_LINKED_URL = 2;
-  private readonly LINK_MODE_IMPORTED_FILE = 0;
-  private readonly LINK_MODE_LINKED_FILE = 1;
-
   validate(attachment: Zotero.Item): AttachmentValidationResult {
-    const linkMode = (attachment as any).attachmentLinkMode;
+    const linkMode = attachment.attachmentLinkMode;
     const attachmentId = attachment.id;
 
-    if (linkMode === this.LINK_MODE_LINKED_URL) {
+    if (linkMode === Zotero.Attachments.LINK_MODE_LINKED_URL) {
       return { type: "weblink", attachmentId };
     }
 
     if (
-      linkMode === this.LINK_MODE_IMPORTED_FILE ||
-      linkMode === this.LINK_MODE_LINKED_FILE
+      linkMode === Zotero.Attachments.LINK_MODE_IMPORTED_FILE ||
+      linkMode === Zotero.Attachments.LINK_MODE_LINKED_FILE
     ) {
       return this.validateFileAttachment(attachment);
     }
@@ -29,7 +25,7 @@ export class AttachmentValidator {
     const attachmentId = attachment.id;
 
     try {
-      const filePath = (attachment as any).getFilePath?.();
+      const filePath = attachment.getFilePath();
       if (!filePath) {
         return {
           type: "invalid",
@@ -38,7 +34,7 @@ export class AttachmentValidator {
         };
       }
 
-      const file = (attachment as any).getFile?.();
+      const file = attachment.getFile();
       if (file && file.exists()) {
         return { type: "valid", attachmentId };
       }

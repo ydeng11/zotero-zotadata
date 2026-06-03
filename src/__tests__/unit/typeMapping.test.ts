@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  mapCrossRefTypeToZotero,
-  mapSemanticScholarTypeToZotero,
-} from "@/utils/typeMapping";
+import { mapSemanticScholarTypeToZotero } from "@/utils/typeMapping";
 
 describe("mapSemanticScholarTypeToZotero", () => {
   it("maps JournalArticle to journalArticle", () => {

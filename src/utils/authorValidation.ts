@@ -1,12 +1,14 @@
 import { isExactTitleMatch } from "@/utils/similarity";
 import { normalizeDoi } from "@/utils/itemSearchQuery";
+import { extractYearFromDate, isAuthorCreator } from "@/utils/itemFields";
 import type { SearchResult } from "@/shared/core/types";
 
 interface ZoteroCreator {
   firstName?: string;
-  lastName: string;
+  lastName?: string;
   name?: string;
-  creatorType: string;
+  creatorType?: string;
+  creatorTypeID?: number;
 }
 
 export function normalizeLastName(name: string): string {
@@ -104,8 +106,8 @@ export function validateMetadataMatch(
 ): MatchValidationResult {
   const itemAuthors = item
     .getCreators()
-    .filter((c) => c.creatorType === "author")
-    .map((c) => c.lastName)
+    .filter(isAuthorCreator)
+    .map((c) => c.lastName || c.name || "")
     .filter(Boolean);
 
   const candidateAuthors = candidate.authors || [];
@@ -122,8 +124,11 @@ export function validateMetadataMatch(
     };
   }
 
+  // Deduplicate item authors — the item may have accumulated duplicate
+  // creators from Zotero's translator auto-append on prior runs.
+  const uniqueItemAuthors = [...new Set(itemAuthors)];
   const authorCountDiff = Math.abs(
-    itemAuthors.length - candidateAuthors.length,
+    uniqueItemAuthors.length - candidateAuthors.length,
   );
 
   if (authorCountDiff > 5) {
@@ -136,7 +141,7 @@ export function validateMetadataMatch(
     };
   }
 
-  const itemYear = parseInt(item.getField("date") || "0");
+  const itemYear = extractYearFromDate(item.getField("date")) ?? 0;
   const candidateYear = candidate.year || 0;
   const yearDiff = Math.abs(itemYear - candidateYear);
 
@@ -205,12 +210,6 @@ export function shouldRewriteAuthorsForMetadata(
     return false;
   }
 
-  const itemAuthors = item
-    .getCreators()
-    .filter((creator) => creator.creatorType === "author")
-    .map((creator) => creator.lastName || creator.name || "")
-    .filter(Boolean);
-
   const itemDoi = String(item.getField("DOI") ?? "").trim();
   const candidateDoi = candidate.doi?.trim() ?? "";
   const doiMatches =
@@ -219,54 +218,24 @@ export function shouldRewriteAuthorsForMetadata(
     normalizeDoi(itemDoi).toLowerCase() ===
       normalizeDoi(candidateDoi).toLowerCase();
 
-  const candidateTitle = candidate.title?.trim() ?? "";
-  const currentTitle = String(item.getField("title") ?? "").trim();
-  const titleMatches =
-    currentTitle.length > 0 &&
-    candidateTitle.length > 0 &&
-    isExactTitleMatch(currentTitle, candidateTitle);
-
-  if (itemAuthors.length === 0) {
-    if (doiMatches && candidateTitle.length > 0) {
-      return true;
-    }
-
-    const validation = validateMetadataMatch(item, {
-      title: candidateTitle,
-      authors: candidateAuthors,
-      year: candidate.year,
-      doi: candidate.doi,
-      confidence: candidate.confidence ?? 0,
-      source: candidate.source ?? "Metadata",
-    });
-    return validation.accept;
+  // Trust authoritative sources:
+  // 1. DOI match — the identifier uniquely identifies the work
+  if (doiMatches) {
+    return true;
   }
 
-  const overlap = calculateAuthorOverlap(itemAuthors, candidateAuthors);
-  if (overlap.matchCount === 0) {
-    return false;
+  // 2. High confidence (≥0.9) — translator results, exact API matches
+  if ((candidate.confidence ?? 0) >= 0.9) {
+    return true;
   }
 
-  if (Math.abs(itemAuthors.length - candidateAuthors.length) > 5) {
-    return false;
-  }
-
-  if (currentTitle.length > 0 && candidateTitle.length > 0 && !titleMatches) {
-    return false;
-  }
-
-  if (!titleMatches && !doiMatches) {
-    return false;
-  }
-
-  const validation = validateMetadataMatch(item, {
-    title: candidateTitle || currentTitle,
+  // For low-confidence search results, run the full validation
+  return validateMetadataMatch(item, {
+    title: candidate.title ?? "",
     authors: candidateAuthors,
     year: candidate.year,
     doi: candidate.doi,
-    confidence: candidate.confidence ?? (doiMatches ? 0.95 : 0),
+    confidence: candidate.confidence ?? 0,
     source: candidate.source ?? "Metadata",
-  });
-
-  return validation.accept;
+  }).accept;
 }

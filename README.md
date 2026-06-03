@@ -377,11 +377,13 @@ zotero-zotadata/
 The project uses a split structure to separate shared infrastructure from feature-specific code:
 
 **Shared Infrastructure (`src/shared/`)**:
+
 - Core types and error management used across all features
 - Generic services like caching and rate limiting
 - Universal utilities for file, string, URL, and Zotero operations
 
 **Feature-Specific (`src/` root level)**:
+
 - API integrations tailored to specific metadata sources
 - Feature modules with business logic (metadata fetching, arXiv processing)
 - Feature services for download management and Sci-Hub integration

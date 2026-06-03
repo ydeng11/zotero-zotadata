@@ -1,7 +1,8 @@
 import { CrossRefAPI } from "@/features/metadata/apis/CrossRefAPI";
 import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
 import { FileFinder } from "@/modules/FileFinder";
-import { StringUtils } from "@/shared/utils/StringUtils";
+import { extractArxivIdFromItem, normalizeDoi } from "@/utils/itemSearchQuery";
+import { extractYearFromDate } from "@/utils/itemFields";
 import { matchesPreferredLanguage } from "@/utils/locale";
 import { isExactTitleMatch } from "@/utils/similarity";
 import type {
@@ -180,27 +181,7 @@ export class ArxivProcessor {
   }
 
   static extractArxivId(item: Zotero.Item): string | null {
-    const extra = String(item.getField("extra") ?? "");
-    const url = String(item.getField("url") ?? "");
-
-    const fromExtra = extra.match(/arXiv:\s*([^\s]+)/i);
-    if (fromExtra) {
-      return fromExtra[1].replace(/v\d+$/i, "");
-    }
-
-    const fromString = StringUtils.extractArxivId(extra);
-    if (fromString) {
-      return fromString.replace(/v\d+$/i, "");
-    }
-
-    const fromUrl = url.match(
-      /arxiv\.org\/(?:abs|pdf)\/([a-z-]+\/\d+(?:v\d+)?|\d+\.\d+(?:v\d+)?)/i,
-    );
-    if (fromUrl) {
-      return fromUrl[1].replace(/v\d+$/i, "");
-    }
-
-    return null;
+    return extractArxivIdFromItem(item);
   }
 
   private async searchCrossRefByArxivId(
@@ -390,9 +371,9 @@ export class ArxivProcessor {
 
     const date = item.getField("date") as string | undefined;
     if (date) {
-      const y = parseInt(date, 10);
-      if (!Number.isNaN(y)) {
-        query.year = y;
+      const year = extractYearFromDate(date);
+      if (year !== undefined) {
+        query.year = year;
       }
     }
 
@@ -454,7 +435,7 @@ export class ArxivProcessor {
       return false;
     }
 
-    item.setField("DOI", work.DOI);
+    item.setField("DOI", normalizeDoi(work.DOI).toLowerCase());
     item.setField("repository", "");
 
     const title = ArxivProcessor.getPreferredCrossRefTitle(work);

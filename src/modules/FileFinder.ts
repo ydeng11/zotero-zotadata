@@ -14,6 +14,8 @@ import {
   normalizeDoi,
   parseDoiFromExtra,
 } from "@/utils/itemSearchQuery";
+import { extractYearFromDate } from "@/utils/itemFields";
+import { cleanISBN as sharedCleanISBN, isValidCleanISBN } from "@/utils/isbn";
 import type {
   FileFinderResult,
   SearchQuery,
@@ -172,7 +174,7 @@ export class FileFinder {
     }
 
     const url = String(item.getField("url") ?? "");
-    const urlMatch = url.match(/10\.\d{4,}\/[^\s]+/i);
+    const urlMatch = url.match(/10\.\d{4,}\/[^\s?#]+/i);
     if (urlMatch) {
       return normalizeDoi(urlMatch[0]);
     }
@@ -194,12 +196,18 @@ export class FileFinder {
   extractISBN(item: Zotero.Item): string | null {
     const isbnField = String(item.getField("ISBN") ?? "").trim();
     if (isbnField) {
-      return this.cleanISBN(isbnField);
+      const cleaned = sharedCleanISBN(isbnField);
+      return isValidCleanISBN(cleaned) ? cleaned : null;
     }
 
     const extra = String(item.getField("extra") ?? "");
-    const match = extra.match(/ISBN[:\-\s]*([0-9\-xX]{10,17})/i);
-    return match ? this.cleanISBN(match[1]) : null;
+    const match = extra.match(/ISBN[:\-\s]*([0-9xX][0-9xX\-\s]{8,30})/i);
+    if (!match) {
+      return null;
+    }
+
+    const cleaned = sharedCleanISBN(match[1]);
+    return isValidCleanISBN(cleaned) ? cleaned : null;
   }
 
   extractArxivId(item: Zotero.Item): string | null {
@@ -1202,8 +1210,8 @@ export class FileFinder {
 
     const date = item.getField("date") as string | undefined;
     if (date) {
-      const y = parseInt(date, 10);
-      if (!Number.isNaN(y)) query.year = y;
+      const year = extractYearFromDate(date);
+      if (year !== undefined) query.year = year;
     }
 
     const creators = item.getCreators();
@@ -1213,8 +1221,8 @@ export class FileFinder {
       .filter((n) => n.length > 0);
     if (authors.length > 0) query.authors = authors;
 
-    const arxivMatch = extraField.match(/arXiv:\s*([^\s]+)/i);
-    if (arxivMatch) query.arxivId = arxivMatch[1];
+    const arxivId = extractArxivIdFromItem(item);
+    if (arxivId) query.arxivId = arxivId;
 
     return query;
   }
@@ -1275,18 +1283,6 @@ export class FileFinder {
     if (typeof Zotero !== "undefined" && Zotero.log) {
       Zotero.log(`Zotadata FileFinder: ${message}`);
     }
-  }
-
-  private cleanISBN(isbn: string): string {
-    try {
-      if (typeof Zotero !== "undefined" && Zotero.Utilities?.cleanISBN) {
-        return Zotero.Utilities.cleanISBN(isbn);
-      }
-    } catch {
-      return isbn.replace(/[-\s]/g, "");
-    }
-
-    return isbn.replace(/[-\s]/g, "");
   }
 
   private getItemTypeName(item: Zotero.Item): string {

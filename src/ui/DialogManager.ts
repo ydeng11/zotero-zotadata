@@ -45,12 +45,10 @@ export interface DialogResult {
  */
 export class DialogManager {
   private errorManager: ErrorManager;
-  private config: any;
-  private activeDialogs = new Map<string, any>();
+  private activeDialogs = new Map<string, ProgressDialog>();
   private dialogCounter = 0;
 
-  constructor(addonData: any) {
-    this.config = addonData.config;
+  constructor(_options?: { config?: unknown }) {
     this.errorManager = new ErrorManager();
   }
 
@@ -255,8 +253,6 @@ export class DialogManager {
     }
 
     const flags = this.getDialogFlags(type, options.buttons);
-    const defaultButton = options.defaultButton || 0;
-
     try {
       const result = prompt.confirmEx(
         mainWindow,
@@ -402,7 +398,7 @@ export class ProgressDialog {
 
   constructor(
     public readonly id: string,
-    private progressWindow: any,
+    private progressWindow: Zotero.ProgressWindow | null,
     private options: ProgressOptions,
     private onClose: () => void,
   ) {}
@@ -528,7 +524,7 @@ export class BatchProgressDialog {
     this.progressDialog.updateProgress(
       this.processed,
       this.totalItems,
-      message,
+      details ? `${message} - ${details}` : message,
     );
   }
 

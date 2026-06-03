@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MetadataFetcher } from "@/modules/MetadataFetcher";
 import { FileFinder } from "@/modules/FileFinder";
-import { ArxivProcessor } from "@/modules/ArxivProcessor";
 import {
   extractArxivIdFromItem,
   buildCanonicalArxivDoi,
@@ -9,27 +8,30 @@ import {
 } from "@/utils/itemSearchQuery";
 import { isExactTitleMatch } from "@/utils/similarity";
 
-function createMockItem(fields: Record<string, any>): any {
-  const data: Record<string, any> = {
+function createMockItem(fields: Record<string, unknown>): Zotero.Item {
+  const data: Record<string, unknown> = {
     id: Math.floor(Math.random() * 10000),
     itemTypeID: 1, // journalArticle
     ...fields,
   };
 
   return {
-    id: data.id,
-    itemTypeID: data.itemTypeID,
-    getField: (field: string) => data[field],
-    setField: vi.fn((field: string, value: any) => {
+    id: Number(data.id),
+    itemTypeID: Number(data.itemTypeID),
+    getField: (field: string) => String(data[field] ?? ""),
+    setField: vi.fn((field: string, value: string) => {
       data[field] = value;
     }),
-    getCreators: () => data.creators || [],
+    getCreators: () =>
+      Array.isArray(data.creators)
+        ? (data.creators as ReturnType<Zotero.Item["getCreators"]>)
+        : [],
     setCreators: vi.fn(),
     addTag: vi.fn(),
     saveTx: vi.fn(),
     getAttachments: vi.fn(() => []),
     isRegularItem: () => true,
-  };
+  } as unknown as Zotero.Item;
 }
 
 describe("Diagnostic: Generative Adversarial Nets Paper", () => {

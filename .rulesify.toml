@@ -1,0 +1,8 @@
+version = 1
+tools = ["codex"]
+
+[installed_skills.handoff]
+added = "2026-06-02"
+source = "https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff"
+commit_sha = "d54c497aa94400a496d3f2c38be10fa5f284c5a9"
+scope = "project"

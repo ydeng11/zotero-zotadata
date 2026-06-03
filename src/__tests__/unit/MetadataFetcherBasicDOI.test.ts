@@ -15,7 +15,7 @@ function createMockCrossRefAPI() {
     getWorkByDOI: vi.fn(),
     search: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockOpenAlexAPI() {
@@ -25,7 +25,7 @@ function createMockOpenAlexAPI() {
     searchExact: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 function createMockSemanticScholarAPI() {
@@ -36,7 +36,7 @@ function createMockSemanticScholarAPI() {
     searchByArxivId: vi.fn(),
     searchOpenAccess: vi.fn(),
     enforceRateLimit: vi.fn(),
-  } as any;
+  };
 }
 
 describe("MetadataFetcher basic DOI workflow", () => {
@@ -55,15 +55,27 @@ describe("MetadataFetcher basic DOI workflow", () => {
     mockBookMetadata = new BookMetadataService();
 
     const doiDiscovery = new DOIDiscoveryService({
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
     });
 
     const services: MetadataFetcherServices = {
-      crossRefAPI: mockCrossRefAPI,
-      openAlexAPI: mockOpenAlexAPI,
-      semanticScholarAPI: mockSemanticScholarAPI,
+      crossRefAPI: mockCrossRefAPI as unknown as NonNullable<
+        MetadataFetcherServices["crossRefAPI"]
+      >,
+      openAlexAPI: mockOpenAlexAPI as unknown as NonNullable<
+        MetadataFetcherServices["openAlexAPI"]
+      >,
+      semanticScholarAPI: mockSemanticScholarAPI as unknown as NonNullable<
+        MetadataFetcherServices["semanticScholarAPI"]
+      >,
       doiDiscovery,
       metadataUpdate: mockMetadataUpdate,
       bookMetadata: mockBookMetadata,
@@ -190,5 +202,28 @@ describe("MetadataFetcher basic DOI workflow", () => {
 
     expect(result.success).toBe(true);
     expect(item.getField("DOI")).toBe("10.1000/existing.doi");
+  });
+
+  it("stores a normalized DOI when discovery returns a DOI URL", async () => {
+    const item = createMockItem({
+      title: "Discovered DOI Paper",
+      DOI: "",
+      creators: [],
+    });
+
+    vi.spyOn(
+      fetcher.doiDiscoveryService,
+      "resolvePreferredDoiForMetadata",
+    ).mockResolvedValue("HTTPS://DOI.ORG/10.1000/Discovered.DOI.");
+    vi.spyOn(fetcher, "fetchDOIMetadataViaTranslator").mockResolvedValue(false);
+    vi.spyOn(mockMetadataUpdate, "supplementDOIMetadata").mockResolvedValue([]);
+    mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue(null);
+
+    await fetcher.fetchDOIBasedMetadata(item);
+
+    expect(item.getField("DOI")).toBe("10.1000/discovered.doi");
+    expect(mockCrossRefAPI.getCrossRefWorkMessage).toHaveBeenCalledWith(
+      "10.1000/discovered.doi",
+    );
   });
 });

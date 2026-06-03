@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FileFinder } from "@/modules/FileFinder";
 
+interface FileFinderPrivateMethods {
+  itemHasPDF(item: Zotero.Item): Promise<boolean>;
+  findCorePDFByDOI(doi: string): Promise<string | null>;
+  manualDownloadAndImport(
+    item: Zotero.Item,
+    fileUrl: string,
+    title: string,
+  ): Promise<unknown>;
+  extractDOI(item: Zotero.Item): string | null;
+  extractISBN(item: Zotero.Item): string | null;
+  findUnpaywallPDF(doi: string): Promise<string | null>;
+  findArxivPDF(item: Zotero.Item): Promise<string | null>;
+  findFileForItem(item: Zotero.Item): Promise<unknown>;
+}
+
 function makeMockItem(overrides: Record<string, unknown> = {}): Zotero.Item {
   const fields: Record<string, string> = {
     title: "Test Paper Title",
@@ -35,7 +50,14 @@ describe("FileFinder", () => {
     mockOpenAlex = { searchOpenAccess: vi.fn().mockResolvedValue([]) };
     mockS2 = { searchOpenAccess: vi.fn().mockResolvedValue([]) };
 
-    finder = new FileFinder(mockOpenAlex as any, mockS2 as any);
+    finder = new FileFinder(
+      mockOpenAlex as unknown as NonNullable<
+        ConstructorParameters<typeof FileFinder>[0]
+      >,
+      mockS2 as unknown as NonNullable<
+        ConstructorParameters<typeof FileFinder>[1]
+      >,
+    );
   });
 
   it("skips non-regular items", async () => {
@@ -143,6 +165,79 @@ describe("FileFinder", () => {
     vi.unstubAllGlobals();
   });
 
+  it("extracts ISBN values from Extra when digits are separated by spaces", () => {
+    vi.stubGlobal("Zotero", {
+      ...globalThis.Zotero,
+      Utilities: {
+        ...globalThis.Zotero.Utilities,
+        cleanISBN: (isbn: string) => isbn.replace(/[-\s]/g, ""),
+      },
+    });
+
+    const item = makeMockItem({
+      fields: {
+        title: "Book",
+        DOI: "",
+        ISBN: "",
+        extra: "Publisher: Example Press\nISBN: 978 1 4028 9462 6",
+      },
+    });
+
+    expect(finder.extractISBN(item)).toBe("9781402894626");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("ignores malformed ISBN field values", () => {
+    const item = makeMockItem({
+      fields: {
+        title: "Book",
+        DOI: "",
+        ISBN: "not-an-isbn",
+        extra: "",
+      },
+    });
+
+    expect(finder.extractISBN(item)).toBeNull();
+  });
+
+  it("ignores Extra ISBN values with invalid check digits", () => {
+    vi.stubGlobal("Zotero", {
+      ...globalThis.Zotero,
+      Utilities: {
+        ...globalThis.Zotero.Utilities,
+        cleanISBN: (isbn: string) => isbn.replace(/[-\s]/g, ""),
+      },
+    });
+
+    const item = makeMockItem({
+      fields: {
+        title: "Book",
+        DOI: "",
+        ISBN: "",
+        extra: "Publisher: Example Press\nISBN: 978 0 306 40615 8",
+      },
+    });
+
+    expect(finder.extractISBN(item)).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("extracts DOI URLs without query parameters or fragments", () => {
+    const item = makeMockItem({
+      fields: {
+        title: "Test Paper Title",
+        DOI: "",
+        date: "2024",
+        extra: "",
+        url: "https://doi.org/10.5555/example.paper?utm_source=zotero#read",
+      },
+    });
+
+    expect(finder.extractDOI(item)).toBe("10.5555/example.paper");
+  });
+
   it("downloads PDF when OpenAlex returns an OA result", async () => {
     const importFromURL = vi.fn().mockResolvedValue({ id: 200 });
 
@@ -233,7 +328,11 @@ describe("FileFinder", () => {
       status: 404,
       responseText: "{}",
     });
-    (mockOpenAlex as any).getWorkByDOI = vi.fn().mockResolvedValue({
+    (
+      mockOpenAlex as typeof mockOpenAlex & {
+        getWorkByDOI: ReturnType<typeof vi.fn>;
+      }
+    ).getWorkByDOI = vi.fn().mockResolvedValue({
       title: "Completely Different Paper",
       authors: ["Someone Else"],
       year: 2003,
@@ -440,7 +539,9 @@ describe("FileFinder", () => {
       },
     });
 
-    await expect((finder as any).itemHasPDF(item)).resolves.toBe(true);
+    await expect(
+      (finder as unknown as FileFinderPrivateMethods).itemHasPDF(item),
+    ).resolves.toBe(true);
 
     vi.unstubAllGlobals();
   });
@@ -457,7 +558,9 @@ describe("FileFinder", () => {
       HTTP: { request },
     });
 
-    await (finder as any).findCorePDFByDOI("10.1000/example");
+    await (finder as unknown as FileFinderPrivateMethods).findCorePDFByDOI(
+      "10.1000/example",
+    );
 
     expect(request).toHaveBeenCalledWith(
       "GET",
@@ -494,7 +597,9 @@ describe("FileFinder", () => {
       },
     });
 
-    await (finder as any).manualDownloadAndImport(
+    await (
+      finder as unknown as FileFinderPrivateMethods
+    ).manualDownloadAndImport(
       makeMockItem(),
       "https://example.com/paper.pdf",
       "Test Paper Title",
@@ -577,17 +682,20 @@ describe("FileFinder", () => {
       },
     });
 
-    vi.spyOn(finder as any, "extractDOI").mockReturnValue("10.1234/test.2024");
-    vi.spyOn(finder as any, "extractISBN").mockReturnValue(null);
-    vi.spyOn(finder as any, "findUnpaywallPDF").mockResolvedValue(null);
-    vi.spyOn(finder as any, "findArxivPDF").mockResolvedValue(
+    const finderInternals = finder as unknown as FileFinderPrivateMethods;
+    vi.spyOn(finderInternals, "extractDOI").mockReturnValue(
+      "10.1234/test.2024",
+    );
+    vi.spyOn(finderInternals, "extractISBN").mockReturnValue(null);
+    vi.spyOn(finderInternals, "findUnpaywallPDF").mockResolvedValue(null);
+    vi.spyOn(finderInternals, "findArxivPDF").mockResolvedValue(
       "http://arxiv.org/pdf/2301.12345.pdf",
     );
     const coreSpy = vi
-      .spyOn(finder as any, "findCorePDFByDOI")
+      .spyOn(finderInternals, "findCorePDFByDOI")
       .mockResolvedValue("https://core.example.com/paper.pdf");
 
-    const result = await (finder as any).findFileForItem(item);
+    const result = await finderInternals.findFileForItem(item);
 
     expect(result).toEqual({
       url: "http://arxiv.org/pdf/2301.12345.pdf",
@@ -618,6 +726,36 @@ describe("FileFinder", () => {
       expect(query.doi).toBe("10.5555/3295222.3295349");
       expect(query.year).toBe(2017);
       expect(query.authors).toEqual(["Ashish Vaswani"]);
+      expect(query.arxivId).toBe("1706.03762");
+    });
+
+    it("extracts the publication year from human-readable dates", () => {
+      const item = makeMockItem({
+        fields: {
+          title: "Attention Is All You Need",
+          DOI: "",
+          date: "12 June 2017",
+          extra: "",
+        },
+      });
+
+      const query = FileFinder.buildSearchQuery(item);
+
+      expect(query.year).toBe(2017);
+    });
+
+    it("normalizes arXiv IDs from Extra URLs", () => {
+      const item = makeMockItem({
+        fields: {
+          title: "Attention Is All You Need",
+          DOI: "",
+          date: "",
+          extra: "Available at https://arxiv.org/pdf/1706.03762v2.pdf.",
+        },
+      });
+
+      const query = FileFinder.buildSearchQuery(item);
+
       expect(query.arxivId).toBe("1706.03762");
     });
   });

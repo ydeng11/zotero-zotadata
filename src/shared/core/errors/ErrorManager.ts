@@ -24,7 +24,7 @@ export class ErrorManager {
   createError(
     type: ErrorType,
     message: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
   ): ContextualError {
     const error = new Error(message) as ContextualError;
     error.name = "ContextualError";
@@ -73,7 +73,7 @@ export class ErrorManager {
   createFromUnknown(
     unknown: unknown,
     type: ErrorType = ErrorType.ZOTERO_ERROR,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
   ): ContextualError {
     let message = "Unknown error occurred";
 
@@ -97,7 +97,7 @@ export class ErrorManager {
   async wrapAsync<T>(
     operation: () => Promise<T>,
     errorType: ErrorType,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     options: WrapAsyncOptions = {},
   ): Promise<T> {
     try {
@@ -317,7 +317,7 @@ export class ErrorManager {
     );
   }
 
-  private async reportTelemetry(error: ContextualError): Promise<void> {
+  private async reportTelemetry(_error: ContextualError): Promise<void> {
     // Placeholder for telemetry reporting
     // In a real implementation, this would send anonymized error data
     // to help improve the plugin

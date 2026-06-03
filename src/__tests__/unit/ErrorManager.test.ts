@@ -72,15 +72,9 @@ describe("ErrorManager", () => {
   describe("getErrorStats", () => {
     it("should return correct statistics", () => {
       // Create some errors
-      const error1 = errorManager.createError(
-        ErrorType.NETWORK_ERROR,
-        "Error 1",
-      );
-      const error2 = errorManager.createError(
-        ErrorType.NETWORK_ERROR,
-        "Error 2",
-      );
-      const error3 = errorManager.createError(ErrorType.API_ERROR, "Error 3");
+      errorManager.createError(ErrorType.NETWORK_ERROR, "Error 1");
+      errorManager.createError(ErrorType.NETWORK_ERROR, "Error 2");
+      errorManager.createError(ErrorType.API_ERROR, "Error 3");
 
       // Simulate adding to log (private method, so we test through handleError)
       // For now, just test the structure

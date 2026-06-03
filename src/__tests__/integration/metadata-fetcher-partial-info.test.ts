@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MetadataFetcher } from "@/modules/MetadataFetcher";
 import { CrossRefAPI } from "@/features/metadata/apis/CrossRefAPI";
 import { OpenAlexAPI } from "@/features/metadata/apis/OpenAlexAPI";
-import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
 
 describe("MetadataFetcher with Partial Information Test", () => {
   let fetcher: MetadataFetcher;
@@ -183,19 +182,22 @@ describe("MetadataFetcher with Partial Information Test", () => {
   });
 });
 
-function createMockZoteroItem(fields: any): any {
-  const data = { ...fields };
+function createMockZoteroItem(fields: Record<string, unknown>): Zotero.Item {
+  const data: Record<string, unknown> = { ...fields };
   return {
     id: Math.floor(Math.random() * 10000),
-    itemTypeID: data.itemTypeID || 1,
-    getField: (field: string) => data[field],
-    setField: vi.fn((field: string, value: any) => {
+    itemTypeID: Number(data.itemTypeID ?? 1),
+    getField: (field: string) => String(data[field] ?? ""),
+    setField: vi.fn((field: string, value: string) => {
       data[field] = value;
     }),
-    getCreators: () => data.creators || [],
+    getCreators: () =>
+      Array.isArray(data.creators)
+        ? (data.creators as ReturnType<Zotero.Item["getCreators"]>)
+        : [],
     setCreators: vi.fn(),
     addTag: vi.fn(),
     saveTx: vi.fn(),
     isRegularItem: () => true,
-  };
+  } as unknown as Zotero.Item;
 }

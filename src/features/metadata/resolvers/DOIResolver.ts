@@ -1,4 +1,5 @@
 import { IdentifierResolver } from "./IdentifierResolver";
+import { parseDoiFromExtra } from "@/utils/itemSearchQuery";
 
 export class DOIResolver extends IdentifierResolver {
   extract(item: Zotero.Item): string | null {
@@ -9,7 +10,7 @@ export class DOIResolver extends IdentifierResolver {
 
     const url = item.getField("url");
     if (url) {
-      const match = url.match(/10\.\d{4,}\/[^\s]+/);
+      const match = url.match(/10\.\d{4,}\/[^\s?#]+/);
       if (match) {
         return this.cleanDOI(match[0]);
       }
@@ -17,10 +18,7 @@ export class DOIResolver extends IdentifierResolver {
 
     const extra = item.getField("extra");
     if (extra) {
-      const match = extra.match(/DOI[:\-\s]*(10\.\d{4,}\/[^\s]+)/i);
-      if (match) {
-        return this.cleanDOI(match[1]);
-      }
+      return parseDoiFromExtra(extra) ?? null;
     }
 
     return null;

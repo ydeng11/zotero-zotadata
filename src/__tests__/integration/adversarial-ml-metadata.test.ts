@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MetadataFetcher } from "@/modules/MetadataFetcher";
-import { CrossRefAPI } from "@/features/metadata/apis/CrossRefAPI";
-import { OpenAlexAPI } from "@/features/metadata/apis/OpenAlexAPI";
-import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
 
 describe("MetadataFetcher - Adversarial Machine Learning at Scale Test", () => {
   let fetcher: MetadataFetcher;
@@ -104,24 +101,27 @@ describe("MetadataFetcher - Adversarial Machine Learning at Scale Test", () => {
     // Verify the correct DOI was added
     expect(item.setField).toHaveBeenCalledWith(
       "DOI",
-      "10.48550/arXiv.1611.01236",
+      "10.48550/arxiv.1611.01236",
     );
   });
 });
 
-function createMockZoteroItem(fields: any): any {
-  const data = { ...fields };
+function createMockZoteroItem(fields: Record<string, unknown>): Zotero.Item {
+  const data: Record<string, unknown> = { ...fields };
   return {
     id: Math.floor(Math.random() * 10000),
-    itemTypeID: data.itemTypeID || 1,
-    getField: (field: string) => data[field],
-    setField: vi.fn((field: string, value: any) => {
+    itemTypeID: Number(data.itemTypeID ?? 1),
+    getField: (field: string) => String(data[field] ?? ""),
+    setField: vi.fn((field: string, value: string) => {
       data[field] = value;
     }),
-    getCreators: () => data.creators || [],
+    getCreators: () =>
+      Array.isArray(data.creators)
+        ? (data.creators as ReturnType<Zotero.Item["getCreators"]>)
+        : [],
     setCreators: vi.fn(),
     addTag: vi.fn(),
     saveTx: vi.fn(),
     isRegularItem: () => true,
-  };
+  } as unknown as Zotero.Item;
 }

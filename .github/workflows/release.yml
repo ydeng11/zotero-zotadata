@@ -65,26 +65,26 @@ jobs:
         run: |
           VERSION=${{ inputs.version }}
           CHANGELOG_FILE="CHANGELOG.md"
-          
+
           # Create release notes with installation instructions
           cat > /tmp/release_body.txt << 'EOF'
           ### Installation
-          
+
           1. Download the XPI file below
           2. Open Zotero 9
           3. Go to Tools → Add-ons
           4. Click gear icon → Install Add-on From File...
           5. Select the downloaded XPI file
           6. Restart Zotero
-          
+
           ### Compatibility
-          
+
           - Zotero 8.x & 9.x
-          
+
           ---
-          
+
           EOF
-          
+
           if [ -f "$CHANGELOG_FILE" ]; then
             # Extract content for this version (between ## [version] and next ## or ---)
             awk -v ver="$VERSION" '

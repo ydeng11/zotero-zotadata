@@ -1,5 +1,6 @@
 import { ErrorManager, ErrorType } from "@/shared/core";
 import { XUL_NAMESPACE, PLATFORM_VERSION_CREATE_XUL } from "@/constants/Menus";
+import { parseArxivId } from "@/utils/itemSearchQuery";
 
 /**
  * Zotero item type information
@@ -49,8 +50,24 @@ interface ItemValidationResult {
 interface FieldMapping {
   zoteroField: string;
   sourceField: string;
-  transform?: (value: any) => any;
+  transform?: (value: unknown) => string;
   priority: number;
+}
+
+interface MetadataAuthor {
+  given?: string;
+  firstName?: string;
+  family?: string;
+  lastName?: string;
+  name?: string;
+}
+
+interface IdentifierFields {
+  doi?: string;
+  isbn?: string;
+  pmid?: string;
+  arxivId?: string;
+  url?: string;
 }
 
 /**
@@ -80,7 +97,7 @@ export class ZoteroUtils {
     {
       zoteroField: "date",
       sourceField: "year",
-      transform: (year: number) => year?.toString(),
+      transform: (year) => String(year),
       priority: 3,
     },
     { zoteroField: "publicationTitle", sourceField: "journal", priority: 4 },
@@ -186,7 +203,9 @@ export class ZoteroUtils {
       }
     } catch (error) {
       result.valid = false;
-      result.errors.push(`Error validating item: ${error.message}`);
+      result.errors.push(
+        `Error validating item: ${this.getErrorMessage(error)}`,
+      );
     }
 
     return result;
@@ -373,7 +392,7 @@ export class ZoteroUtils {
    */
   static async updateItemMetadata(
     item: Zotero.Item,
-    metadata: Record<string, any>,
+    metadata: Record<string, unknown>,
     options: { overwrite?: boolean; source?: string } = {},
   ): Promise<{ updated: boolean; changes: string[]; errors: string[] }> {
     const result = {
@@ -401,10 +420,9 @@ export class ZoteroUtils {
           }
 
           // Transform value if needed
-          let newValue = sourceValue;
-          if (mapping.transform) {
-            newValue = mapping.transform(sourceValue);
-          }
+          const newValue = mapping.transform
+            ? mapping.transform(sourceValue)
+            : String(sourceValue);
 
           // Only update if value is different
           if (newValue !== currentValue) {
@@ -416,7 +434,7 @@ export class ZoteroUtils {
           }
         } catch (error) {
           result.errors.push(
-            `Failed to update ${mapping.zoteroField}: ${error.message}`,
+            `Failed to update ${mapping.zoteroField}: ${this.getErrorMessage(error)}`,
           );
         }
       }
@@ -427,11 +445,13 @@ export class ZoteroUtils {
           const existingCreators = item.getCreators();
 
           if (existingCreators.length === 0 || overwrite) {
-            const newCreators = metadata.authors.map((author: any) => ({
-              firstName: author.given || author.firstName || "",
-              lastName: author.family || author.lastName || author.name || "",
-              creatorType: "author",
-            }));
+            const newCreators = metadata.authors
+              .filter(this.isMetadataAuthor)
+              .map((author) => ({
+                firstName: author.given || author.firstName || "",
+                lastName: author.family || author.lastName || author.name || "",
+                creatorType: "author",
+              }));
 
             item.setCreators(newCreators);
             result.changes.push(
@@ -440,7 +460,9 @@ export class ZoteroUtils {
             result.updated = true;
           }
         } catch (error) {
-          result.errors.push(`Failed to update authors: ${error.message}`);
+          result.errors.push(
+            `Failed to update authors: ${this.getErrorMessage(error)}`,
+          );
         }
       }
 
@@ -459,7 +481,9 @@ export class ZoteroUtils {
         }
       }
     } catch (error) {
-      result.errors.push(`Failed to update metadata: ${error.message}`);
+      result.errors.push(
+        `Failed to update metadata: ${this.getErrorMessage(error)}`,
+      );
     }
 
     return result;
@@ -515,14 +539,8 @@ export class ZoteroUtils {
   /**
    * Extract identifiers from item
    */
-  static extractIdentifiers(item: Zotero.Item): {
-    doi?: string;
-    isbn?: string;
-    pmid?: string;
-    arxivId?: string;
-    url?: string;
-  } {
-    const identifiers: any = {};
+  static extractIdentifiers(item: Zotero.Item): IdentifierFields {
+    const identifiers: IdentifierFields = {};
 
     try {
       // DOI
@@ -545,10 +563,9 @@ export class ZoteroUtils {
           identifiers.pmid = pmidMatch[1];
         }
 
-        // arXiv ID
-        const arxivMatch = extra.match(/arXiv:\s*([a-z-]+\/\d+|\d+\.\d+)/i);
-        if (arxivMatch) {
-          identifiers.arxivId = arxivMatch[1];
+        const arxivId = parseArxivId(extra);
+        if (arxivId) {
+          identifiers.arxivId = arxivId;
         }
       }
 
@@ -607,7 +624,7 @@ export class ZoteroUtils {
   private static async createTempFile(
     data: ArrayBuffer,
     filename: string,
-  ): Promise<any> {
+  ): Promise<Zotero.FileLike> {
     // This is a simplified implementation
     // In a real plugin, you would use Zotero's file utilities
     try {
@@ -621,7 +638,7 @@ export class ZoteroUtils {
     } catch (error) {
       throw this.errorManager.createError(
         ErrorType.FILE_ERROR,
-        `Failed to create temporary file: ${error.message}`,
+        `Failed to create temporary file: ${this.getErrorMessage(error)}`,
         { filename },
       );
     }
@@ -637,10 +654,9 @@ export class ZoteroUtils {
     attributes: Record<string, string | (() => void)> = {},
   ): Element {
     // Use createXULElement for newer platforms, fallback to createElementNS
-    // Note: createXULElement requires type assertion as it's not in standard DOM types
     const element =
       Zotero.platformMajorVersion >= PLATFORM_VERSION_CREATE_XUL
-        ? (doc as any).createXULElement(tagName)
+        ? doc.createXULElement(tagName)
         : doc.createElementNS(XUL_NAMESPACE, tagName);
 
     // Apply attributes
@@ -654,6 +670,14 @@ export class ZoteroUtils {
     }
 
     return element;
+  }
+
+  private static isMetadataAuthor(value: unknown): value is MetadataAuthor {
+    return typeof value === "object" && value !== null;
+  }
+
+  private static getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   /**

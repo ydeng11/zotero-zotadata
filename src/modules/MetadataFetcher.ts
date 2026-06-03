@@ -16,6 +16,7 @@ import { isExactTitleMatch } from "@/utils/similarity";
 import {
   extractYearFromDate,
   extractAuthorsFromItem,
+  isAuthorCreator,
 } from "@/utils/itemFields";
 import { shouldRewriteAuthorsForMetadata } from "@/utils/authorValidation";
 import { getContainerTitleFieldForItemType } from "@/utils/typeMapping";
@@ -66,6 +67,24 @@ export class MetadataFetcher {
   private metadataUpdate: MetadataUpdateService;
   private config: Partial<AttachmentFinderConfig>;
   private dialogManager: DialogManager;
+
+  private debug(message: string): void {
+    const zoteroDebug = (
+      Zotero as typeof Zotero & { debug?: (msg: string, level: number) => void }
+    ).debug;
+    if (zoteroDebug) {
+      zoteroDebug(`Zotadata MetadataFetcher: ${message}`, 1);
+    } else if (typeof Zotero !== "undefined" && Zotero.log) {
+      Zotero.log(`Zotadata MetadataFetcher: ${message}`);
+    }
+    try {
+      // console.log may not be available in Zotero 7 plugin sandbox
+      // eslint-disable-next-line no-console
+      console.log(`[Zotadata MetadataFetcher] ${message}`);
+    } catch {
+      // Silently ignore — Zotero.debug output is sufficient
+    }
+  }
 
   constructor(
     addonData: {
@@ -151,24 +170,6 @@ export class MetadataFetcher {
     return this.metadataUpdate.updateItemWithMetadata(item, metadata);
   }
 
-  async updateItemAuthors(item: Zotero.Item, authors: string[]): Promise<void> {
-    const creators = item.getCreators();
-    const nonAuthors = creators.filter(
-      (creator) => creator.creatorType !== "author",
-    );
-    const newCreators = authors.map((authorName) => {
-      const parts = authorName.split(" ");
-      const lastName = parts.pop() || "";
-      const firstName = parts.join(" ");
-      return {
-        creatorType: "author" as const,
-        firstName,
-        lastName,
-      };
-    });
-    item.setCreators([...newCreators, ...nonAuthors]);
-  }
-
   async fetchBookMetadata(
     isbn: string,
     item: Zotero.Item,
@@ -195,11 +196,12 @@ export class MetadataFetcher {
     doi: string,
     item: Zotero.Item,
   ): Promise<boolean> {
+    const normalizedDoi = normalizeDoi(doi).toLowerCase();
     return this.applyTranslatorMetadata(
       item,
       {
         itemType: Zotero.ItemTypes.getName(item.itemTypeID),
-        DOI: doi,
+        DOI: normalizedDoi,
       },
       DOI_TRANSLATOR_FIELDS,
       {
@@ -207,7 +209,7 @@ export class MetadataFetcher {
           if (String(item.getField("DOI") ?? "").trim()) {
             return false;
           }
-          item.setField("DOI", doi);
+          item.setField("DOI", normalizedDoi);
           return true;
         },
       },
@@ -297,6 +299,7 @@ export class MetadataFetcher {
     return this.errorManager.wrapAsync(
       async () => {
         const itemType = Zotero.ItemTypes.getName(item.itemTypeID);
+        this.debug(`fetchMetadataForItem: item ${item.id} type="${itemType}"`);
         let legacyResult: LegacyFetchResult | null = null;
 
         if (
@@ -304,8 +307,12 @@ export class MetadataFetcher {
           itemType === "conferencePaper" ||
           itemType === "preprint"
         ) {
+          this.debug(`Trying DOI-based metadata path for item ${item.id}`);
           legacyResult = await this.fetchDOIBasedMetadata(item);
           if (legacyResult.success || legacyResult.changes.length > 0) {
+            this.debug(
+              `DOI-based path returned source="${legacyResult.source}" with ${legacyResult.changes.length} change(s)`,
+            );
             return {
               success: legacyResult.success,
               item,
@@ -314,9 +321,14 @@ export class MetadataFetcher {
               errors: legacyResult.error ? [legacyResult.error] : [],
             };
           }
+          this.debug(`No DOI found or DOI sources exhausted — trying search fallback`);
         } else if (itemType === "book") {
+          this.debug(`Trying ISBN-based metadata path for item ${item.id}`);
           legacyResult = await this.bookMetadata.fetchISBNBasedMetadata(item);
           if (legacyResult) {
+            this.debug(
+              `ISBN-based path returned source="${legacyResult.source}" with ${legacyResult.changes.length} change(s)`,
+            );
             return {
               success: legacyResult.success,
               item,
@@ -329,6 +341,7 @@ export class MetadataFetcher {
 
         const query = this.buildSearchQuery(item);
         if (!isSearchQueryActionable(query)) {
+          this.debug(`Query not actionable for item ${item.id}`);
           return {
             success: false,
             item,
@@ -340,8 +353,12 @@ export class MetadataFetcher {
           };
         }
 
+        this.debug(
+          `Searching multiple APIs for item ${item.id} — query: ${JSON.stringify(query)}`,
+        );
         const searchResults = await this.searchMultipleAPIs(query, options);
         if (searchResults.length === 0) {
+          this.debug(`No search results from any API for item ${item.id}`);
           return {
             success: false,
             item,
@@ -352,6 +369,9 @@ export class MetadataFetcher {
         }
 
         const bestResult = this.selectBestResult(searchResults, options);
+        this.debug(
+          `Best result from "${bestResult.source}" with confidence ${bestResult.confidence}`,
+        );
         const changes = await this.applyMetadataToItem(
           item,
           bestResult,
@@ -418,7 +438,7 @@ export class MetadataFetcher {
     }
 
     const url = String(item.getField("url") ?? "");
-    const urlMatch = url.match(/10\.\d{4,}\/[^\s]+/i);
+    const urlMatch = url.match(/10\.\d{4,}\/[^\s?#]+/i);
     if (urlMatch) {
       return normalizeDoi(urlMatch[0]);
     }
@@ -430,6 +450,8 @@ export class MetadataFetcher {
   async fetchDOIBasedMetadata(item: Zotero.Item): Promise<LegacyFetchResult> {
     const changes: string[] = [];
     const existingDoi = this.extractDOI(item);
+
+    this.debug(`Source: DOIDiscovery — resolving DOI for item ${item.id}`);
     const resolvedDoi = await this.doiDiscovery.resolvePreferredDoiForMetadata(
       item,
       existingDoi,
@@ -440,12 +462,11 @@ export class MetadataFetcher {
       resolvedDoi &&
       normalizeDoi(resolvedDoi) !== normalizeDoi(existingDoi ?? "")
     ) {
-      doi = resolvedDoi;
-      item.setField("DOI", resolvedDoi);
+      doi = normalizeDoi(resolvedDoi).toLowerCase();
+      this.debug(`Writing DOI "${doi}" (resolved from "${existingDoi}")`);
+      item.setField("DOI", doi);
       await item.saveTx();
-      changes.push(
-        `${existingDoi ? "Updated DOI" : "Added DOI"}: ${resolvedDoi}`,
-      );
+      changes.push(`${existingDoi ? "Updated DOI" : "Added DOI"}: ${doi}`);
     }
 
     if (!doi) {
@@ -453,6 +474,7 @@ export class MetadataFetcher {
     }
 
     if (!doi) {
+      this.debug(`No DOI found for item ${item.id}`);
       await item.saveTx();
       return {
         success: false,
@@ -463,11 +485,15 @@ export class MetadataFetcher {
       };
     }
 
+    this.debug(
+      `Source: Zotero Translator — trying DOI ${doi} for item ${item.id}`,
+    );
     const translatorSuccess = await this.fetchDOIMetadataViaTranslator(
       doi,
       item,
     );
     if (translatorSuccess) {
+      this.debug(`Zotero Translator succeeded for DOI ${doi}`);
       item.addTag("Metadata Updated", 1);
       item.addTag("Via Zotero Translator", 1);
       await item.saveTx();
@@ -483,8 +509,12 @@ export class MetadataFetcher {
       };
     }
 
+    this.debug(`Zotero Translator failed — trying CrossRef for DOI ${doi}`);
     const metadata = await this.crossRefAPI.getCrossRefWorkMessage(doi);
     if (!metadata) {
+      this.debug(
+        `CrossRef returned no data for DOI ${doi} — trying OpenAlex supplement`,
+      );
       const supplementalChanges =
         await this.metadataUpdate.supplementDOIMetadata(item, doi);
       if (supplementalChanges.length > 0 || changes.length > 0) {
@@ -501,6 +531,7 @@ export class MetadataFetcher {
         };
       }
 
+      this.debug(`CrossRef and OpenAlex both failed for DOI ${doi}`);
       item.addTag("CrossRef Failed", 1);
       await item.saveTx();
       return {
@@ -512,6 +543,7 @@ export class MetadataFetcher {
       };
     }
 
+    this.debug(`Source: CrossRef — applying metadata from DOI ${doi}`);
     changes.push(
       ...(await this.metadataUpdate.updateItemWithMetadata(item, metadata)),
     );
@@ -520,6 +552,9 @@ export class MetadataFetcher {
     );
 
     if (changes.length === 0) {
+      this.debug(
+        `CrossRef returned data but no changes were needed for item ${item.id}`,
+      );
       return {
         success: false,
         updated: false,
@@ -529,6 +564,9 @@ export class MetadataFetcher {
       };
     }
 
+    this.debug(
+      `CrossRef update complete — ${changes.length} change(s) for item ${item.id}`,
+    );
     item.addTag("Metadata Updated", 1);
     item.addTag("Via CrossRef API", 1);
     await item.saveTx();
@@ -550,6 +588,7 @@ export class MetadataFetcher {
   ): Promise<boolean> {
     const translate = this.createTranslatorSearch();
     if (!translate) {
+      this.debug(`Translator search not available — skipping`);
       return false;
     }
 
@@ -557,35 +596,86 @@ export class MetadataFetcher {
       translate.setIdentifier(identifier);
       const translators = await translate.getTranslators();
       if (!translators.length) {
+        this.debug(
+          `No translator found for identifier: ${JSON.stringify(identifier)}`,
+        );
         return false;
       }
 
+      // Zotero's translator system auto-appends creators to the original item
+      // as a side effect of translate().  Capture the pre-translator state so
+      // we can detect this and restore before our own apply.
+      const preCreators = item.getCreators().map((c) => ({ ...c }));
+
+      this.debug(`Found ${translators.length} translator(s), applying...`);
       translate.setTranslator(translators);
       const [translated] = await translate.translate();
       if (!translated) {
+        this.debug(`Translator returned no result`);
         return false;
       }
 
-      let changed = this.applyTranslatedCreators(
+      // Restore pre-translator creators so our own apply uses setCreators
+      // (replaces) instead of appending to Zotero's auto-added duplicates.
+      const postCreatorCount = item.getCreators().length;
+      if (postCreatorCount > preCreators.length) {
+        this.debug(
+          `Zotero auto-appended ${postCreatorCount - preCreators.length} creator(s) — restoring pre-translator state`,
+        );
+        item.setCreators(preCreators);
+      }
+
+      this.debug(
+        `Translator returned data — applying creators from translator`,
+      );
+
+      const creatorResult = this.applyTranslatedCreators(
         item,
         translated.getCreators(),
         translated,
         identifier,
       );
-      changed = this.applyTranslatedFields(item, translated, fields) || changed;
+      let changed = creatorResult.changed;
+      if (creatorResult.changed) {
+        this.debug(
+          `Wrote creators from translator (${translated.getCreators().length} total)`,
+        );
+      }
+      if (!creatorResult.rejected) {
+        const fieldsChanged = this.applyTranslatedFields(
+          item,
+          translated,
+          fields,
+        );
+        if (fieldsChanged) {
+          this.debug(`Wrote fields ${fields.join(", ")} from translator`);
+        }
+        changed = fieldsChanged || changed;
+      } else {
+        this.debug(
+          `Creator validation rejected — not applying translator fields`,
+        );
+      }
       if (options.finalizeChange?.()) {
+        this.debug(`Finalize change callback triggered`);
         changed = true;
       }
 
       translated.deleted = true;
       await translated.saveTx();
       if (!changed) {
+        this.debug(`Translator applied but no changes detected`);
         return false;
       }
 
+      this.debug(`Translator metadata written to item ${item.id}`);
       await item.saveTx();
       return true;
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : '';
+      this.debug(`Translator threw: ${msg}`);
+      if (stack) this.debug(`Stack (level 3): ${stack.slice(0, 500)} ...`);
       return false;
     }
   }
@@ -609,7 +699,7 @@ export class MetadataFetcher {
     }>,
     translated: TranslatorItem,
     identifier: Record<string, unknown>,
-  ): boolean {
+  ): { changed: boolean; rejected: boolean } {
     const currentCreators = item.getCreators();
 
     const authorsFromTranslation = creators.filter(
@@ -617,14 +707,14 @@ export class MetadataFetcher {
     );
 
     if (authorsFromTranslation.length === 0) {
-      return false;
+      return { changed: false, rejected: false };
     }
 
     const nonAuthorsFromTranslation = creators.filter(
       (c) => c.creatorType && c.creatorType !== "author",
     );
     const existingNonAuthors = currentCreators.filter(
-      (c) => c.creatorType !== "author",
+      (c) => !isAuthorCreator(c),
     );
 
     const newAuthors = authorsFromTranslation.map((creator) => ({
@@ -633,9 +723,16 @@ export class MetadataFetcher {
       lastName: creator.lastName ?? "",
     }));
 
-    const authorNames = newAuthors.map((creator) =>
-      [creator.firstName, creator.lastName].filter(Boolean).join(" ").trim(),
-    );
+    const authorNames = newAuthors
+      .map((creator) =>
+        [creator.firstName, creator.lastName].filter(Boolean).join(" ").trim(),
+      )
+      .filter(Boolean);
+
+    if (authorNames.length === 0) {
+      return { changed: false, rejected: false };
+    }
+
     const identifierDoi =
       typeof identifier.DOI === "string" ? identifier.DOI : undefined;
     const translatedDate = translated.getField("date");
@@ -649,7 +746,7 @@ export class MetadataFetcher {
     });
 
     if (!canRewriteAuthors) {
-      return false;
+      return { changed: false, rejected: true };
     }
 
     const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
@@ -661,8 +758,18 @@ export class MetadataFetcher {
     const finalNonAuthors =
       nonAuthorsFromTranslation.length > 0 ? newNonAuthors : existingNonAuthors;
 
+    this.debug(
+      `setCreators with ${newAuthors.length} authors + ${finalNonAuthors.length} non-authors ` +
+        `(item currently has ${item.getCreators().length} creators total)`,
+    );
+
     item.setCreators([...newAuthors, ...finalNonAuthors]);
-    return true;
+
+    this.debug(
+      `After setCreators: item has ${item.getCreators().length} creators`,
+    );
+
+    return { changed: true, rejected: false };
   }
 
   private applyTranslatedFields(
@@ -703,6 +810,10 @@ export class MetadataFetcher {
       "semanticscholar",
     ];
 
+    this.debug(
+      `searchMultipleAPIs: strategy="${strategy}" apis=[${enabledAPIs.join(",")}]`,
+    );
+
     switch (strategy) {
       case "parallel":
         return this.searchParallel(query, enabledAPIs, options);
@@ -720,6 +831,7 @@ export class MetadataFetcher {
     apis: string[],
     options: FetchOptions,
   ): Promise<MetadataSearchResult[]> {
+    this.debug(`Searching APIs in parallel: ${apis.join(", ")}`);
     const searchPromises = apis.map(async (api) => {
       return this.searchSingleAPI(api, query, options);
     });
@@ -742,16 +854,23 @@ export class MetadataFetcher {
   ): Promise<MetadataSearchResult[]> {
     for (const api of apis) {
       try {
+        this.debug(`Searching API: ${api}`);
         const result = await this.searchSingleAPI(api, query, options);
         if (result.results.length > 0) {
+          this.debug(
+            `API ${api} returned ${result.results.length} result(s) — stopping fallback chain`,
+          );
           return [result];
         }
+        this.debug(`API ${api} returned no results — trying next`);
         await this.delay(100);
       } catch {
+        this.debug(`API ${api} threw — trying next`);
         continue;
       }
     }
 
+    this.debug(`All APIs exhausted — no results found`);
     return [];
   }
 
@@ -829,9 +948,10 @@ export class MetadataFetcher {
           throw new Error(`Unknown API: ${apiName}`);
       }
 
-      if (options.minConfidence) {
+      const minConfidence = options.minConfidence;
+      if (minConfidence) {
         results = results.filter(
-          (result) => result.confidence >= options.minConfidence!,
+          (result) => result.confidence >= minConfidence,
         );
       }
 
@@ -919,6 +1039,13 @@ export class MetadataFetcher {
       const canApplyBibliographicMetadata =
         strongMatch || !currentTitle.trim() || exactTitleMatch;
 
+      this.debug(
+        `Source: ${searchResult.source} (confidence ${searchResult.confidence}) — applying to item ${item.id}`,
+      );
+      this.debug(
+        `  strongMatch=${strongMatch}, exactTitleMatch=${exactTitleMatch}, canApplyBib=${canApplyBibliographicMetadata}`,
+      );
+
       if (
         searchResult.title &&
         (strongMatch ||
@@ -928,6 +1055,9 @@ export class MetadataFetcher {
             searchResult.title,
           ))
       ) {
+        this.debug(
+          `Writing title "${searchResult.title}" (was: "${currentTitle}")`,
+        );
         item.setField("title", searchResult.title);
         changes.push(`Updated title: ${searchResult.title}`);
       }
@@ -937,8 +1067,10 @@ export class MetadataFetcher {
         searchResult.doi &&
         !item.getField("DOI")
       ) {
-        item.setField("DOI", searchResult.doi);
-        changes.push(`Added DOI: ${searchResult.doi}`);
+        const doi = normalizeDoi(searchResult.doi).toLowerCase();
+        this.debug(`Writing DOI "${doi}"`);
+        item.setField("DOI", doi);
+        changes.push(`Added DOI: ${doi}`);
       }
 
       if (
@@ -946,15 +1078,19 @@ export class MetadataFetcher {
         searchResult.year &&
         !item.getField("date")
       ) {
+        this.debug(`Writing date ${searchResult.year}`);
         item.setField("date", searchResult.year.toString());
         changes.push(`Added year: ${searchResult.year}`);
       }
 
       if (searchResult.authors && searchResult.authors.length > 0) {
         if (shouldRewriteAuthorsForMetadata(item, searchResult)) {
+          this.debug(
+            `Writing ${searchResult.authors.length} authors from ${searchResult.source}`,
+          );
           const creators = item.getCreators();
           const nonAuthors = creators.filter(
-            (creator) => creator.creatorType !== "author",
+            (creator) => !isAuthorCreator(creator),
           );
 
           const newCreators = searchResult.authors.map((authorName) => {
@@ -971,6 +1107,10 @@ export class MetadataFetcher {
 
           item.setCreators([...newCreators, ...nonAuthors]);
           changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);
+        } else {
+          this.debug(
+            `Authors from ${searchResult.source} rejected by validation`,
+          );
         }
       }
 
@@ -982,6 +1122,9 @@ export class MetadataFetcher {
           containerField &&
           !item.getField(containerField)
         ) {
+          this.debug(
+            `Writing ${containerField} "${searchResult.containerTitle}"`,
+          );
           item.setField(containerField, searchResult.containerTitle);
           changes.push(
             `Added ${containerField}: ${searchResult.containerTitle}`,
@@ -989,27 +1132,36 @@ export class MetadataFetcher {
         }
 
         if (searchResult.volume && !item.getField("volume")) {
+          this.debug(`Writing volume ${searchResult.volume}`);
           item.setField("volume", searchResult.volume);
           changes.push(`Added volume: ${searchResult.volume}`);
         }
 
         if (searchResult.issue && !item.getField("issue")) {
+          this.debug(`Writing issue ${searchResult.issue}`);
           item.setField("issue", searchResult.issue);
           changes.push(`Added issue: ${searchResult.issue}`);
         }
 
         if (searchResult.pages && !item.getField("pages")) {
+          this.debug(`Writing pages ${searchResult.pages}`);
           item.setField("pages", searchResult.pages);
           changes.push(`Added pages: ${searchResult.pages}`);
         }
 
         if (searchResult.language && !item.getField("language")) {
+          this.debug(`Writing language "${searchResult.language}"`);
           item.setField("language", searchResult.language);
           changes.push(`Added language: ${searchResult.language}`);
         }
+      } else {
+        this.debug(
+          `Bibliographic fields skipped — no strong match and title is populated`,
+        );
       }
 
       if (options.downloadPDFs && searchResult.pdfUrl) {
+        this.debug(`Downloading PDF from ${searchResult.pdfUrl}`);
         try {
           const downloadResult = await this.downloadManager.downloadFile(
             searchResult.pdfUrl,
@@ -1029,15 +1181,20 @@ export class MetadataFetcher {
 
             if (attachment) {
               changes.push(`Downloaded PDF from ${searchResult.source}`);
+              this.debug(`PDF downloaded successfully`);
             }
           }
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           changes.push(`Failed to download PDF: ${msg}`);
+          this.debug(`PDF download failed: ${msg}`);
         }
       }
 
       if (changes.length > 0) {
+        this.debug(
+          `${changes.length} change(s) written to item ${item.id} from ${searchResult.source}`,
+        );
         await item.saveTx();
       }
 
@@ -1058,15 +1215,21 @@ export class MetadataFetcher {
     query: SearchQuery,
     searchResult: SearchResult,
   ): boolean {
-    if (searchResult.confidence >= 0.92) {
-      return true;
-    }
     const q = query.doi ? normalizeDoi(query.doi) : "";
     const r = searchResult.doi ? normalizeDoi(searchResult.doi) : "";
     if (q && r && q === r) {
       return true;
     }
-    return false;
+
+    if (searchResult.confidence < 0.92) {
+      return false;
+    }
+
+    if (!query.title || !searchResult.title) {
+      return true;
+    }
+
+    return isExactTitleMatch(query.title, searchResult.title);
   }
 
   private buildSearchQuery(
