@@ -7,6 +7,8 @@ import {
 import { isExactTitleMatch } from "@/utils/similarity";
 import { calculateAuthorOverlap } from "@/utils/authorValidation";
 import { isAuthorCreator } from "@/utils/itemFields";
+import { copyZoteroCreator } from "@/utils/creatorMapping";
+import type { ZoteroCreatorData } from "@/shared/core/types";
 import type {
   BookMetadataSource,
   LegacyFetchResult,
@@ -711,45 +713,32 @@ export class BookMetadataService {
 
   private applyTranslatedCreators(
     item: Zotero.Item,
-    creators: Array<{
-      creatorType?: string;
-      firstName?: string;
-      lastName?: string;
-    }>,
+    creators: ZoteroCreatorData[],
   ): boolean {
     const currentCreators = item.getCreators();
 
-    const authorsFromTranslation = creators.filter(
-      (c) => c.creatorType === "author" || !c.creatorType,
-    );
+    const translatedCreators = creators
+      .map(copyZoteroCreator)
+      .filter((creator): creator is ZoteroCreatorData => creator !== null);
+    const authorsFromTranslation = translatedCreators.filter(isAuthorCreator);
 
     if (authorsFromTranslation.length === 0) {
       return false;
     }
 
-    const nonAuthorsFromTranslation = creators.filter(
-      (c) => c.creatorType && c.creatorType !== "author",
+    const nonAuthorsFromTranslation = translatedCreators.filter(
+      (creator) => !isAuthorCreator(creator),
     );
     const existingNonAuthors = currentCreators.filter(
       (c) => !isAuthorCreator(c),
     );
 
-    const newAuthors = authorsFromTranslation.map((creator) => ({
-      creatorType: "author" as const,
-      firstName: creator.firstName ?? "",
-      lastName: creator.lastName ?? "",
-    }));
-
-    const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
-      creatorType: creator.creatorType ?? "author",
-      firstName: creator.firstName ?? "",
-      lastName: creator.lastName ?? "",
-    }));
-
     const finalNonAuthors =
-      nonAuthorsFromTranslation.length > 0 ? newNonAuthors : existingNonAuthors;
+      nonAuthorsFromTranslation.length > 0
+        ? nonAuthorsFromTranslation
+        : existingNonAuthors;
 
-    item.setCreators([...newAuthors, ...finalNonAuthors]);
+    item.setCreators([...authorsFromTranslation, ...finalNonAuthors]);
     return true;
   }
 

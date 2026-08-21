@@ -122,7 +122,8 @@ testGlobal.Zotero = {
     getID: (name: string) => ITEM_TYPE_IDS[name] ?? 1,
   },
   CreatorTypes: {
-    getPrimaryIDForType: () => 1,
+    getID: (name: string) => (name === "author" ? 8 : 0),
+    getPrimaryIDForType: () => 8,
   },
   Date: {
     strToDate: (value: string) => ({

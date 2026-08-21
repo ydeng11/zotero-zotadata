@@ -2,7 +2,8 @@ import { CrossRefAPI } from "@/features/metadata/apis/CrossRefAPI";
 import { SemanticScholarAPI } from "@/features/metadata/apis/SemanticScholarAPI";
 import { FileFinder } from "@/modules/FileFinder";
 import { extractArxivIdFromItem, normalizeDoi } from "@/utils/itemSearchQuery";
-import { extractYearFromDate } from "@/utils/itemFields";
+import { extractYearFromDate, isAuthorCreator } from "@/utils/itemFields";
+import { normalizeCrossRefCreators } from "@/utils/creatorMapping";
 import { matchesPreferredLanguage } from "@/utils/locale";
 import { isExactTitleMatch } from "@/utils/similarity";
 import type {
@@ -488,14 +489,13 @@ export class ArxivProcessor {
       return;
     }
 
-    const newAuthors = work.author.map((a) => ({
-      creatorType: "author" as const,
-      firstName: (a.given ?? "").trim(),
-      lastName: (a.family ?? "").trim(),
-    }));
+    const newAuthors = normalizeCrossRefCreators(work.author);
+    if (newAuthors.length === 0) {
+      return;
+    }
 
     const existing = item.getCreators();
-    const nonAuthors = existing.filter((c) => c.creatorType !== "author");
+    const nonAuthors = existing.filter((creator) => !isAuthorCreator(creator));
     item.setCreators([...newAuthors, ...nonAuthors]);
   }
 

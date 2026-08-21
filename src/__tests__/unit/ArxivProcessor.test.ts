@@ -255,4 +255,44 @@ describe("ArxivProcessor legacy compatibility", () => {
 
     expect(item.setField).toHaveBeenCalledWith("DOI", "10.1000/published.doi");
   });
+
+  it("uses the shared CrossRef creator normalization for published versions", async () => {
+    mockCrossRefAPI.getCrossRefWorkMessage.mockResolvedValue({
+      DOI: "10.1000/published.doi",
+      title: ["Published Paper"],
+      type: "journal-article",
+      language: "en",
+      author: [
+        { given: "María José", family: "de la Cruz" },
+        { name: "Global Forecasting Team" },
+        { name: "Hospital, Medical University, City, Country" },
+        { name: "" },
+      ],
+    });
+    const item = createMockItem({
+      title: "Published Paper",
+      publicationTitle: "arXiv",
+      itemTypeID: 4,
+      creators: [
+        { firstName: "Volume", lastName: "Editor", creatorTypeID: 10 },
+      ],
+    });
+
+    await processor.updateItemAsPublishedVersion(item, "10.1000/published.doi");
+
+    expect(item.setCreators).toHaveBeenCalledWith([
+      {
+        creatorType: "author",
+        firstName: "María José",
+        lastName: "de la Cruz",
+      },
+      {
+        creatorType: "author",
+        firstName: "",
+        lastName: "Global Forecasting Team",
+        fieldMode: 1,
+      },
+      { firstName: "Volume", lastName: "Editor", creatorTypeID: 10 },
+    ]);
+  });
 });

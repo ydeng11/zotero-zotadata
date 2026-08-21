@@ -49,6 +49,52 @@ describe("BookMetadataService", () => {
     expect(service.extractISBN(item)).toBeNull();
   });
 
+  it("preserves runtime creator roles and fieldMode from book translators", async () => {
+    const translatedCreators = [
+      {
+        creatorTypeID: 8,
+        fieldMode: 1,
+        firstName: "",
+        lastName: "Oxford University Press Staff",
+      },
+      {
+        creatorTypeID: 10,
+        firstName: "Donald A.",
+        lastName: "Wittman",
+      },
+      {
+        creatorTypeID: 10,
+        firstName: "Barry R.",
+        lastName: "Weingast",
+      },
+    ];
+    const MockTranslateSearch = vi.fn().mockImplementation(() => ({
+      setIdentifier: vi.fn(),
+      getTranslators: vi.fn().mockResolvedValue(["translator"]),
+      setTranslator: vi.fn(),
+      translate: vi.fn().mockResolvedValue([
+        {
+          getCreators: () => translatedCreators,
+          getField: () => "",
+          saveTx: vi.fn().mockResolvedValue(undefined),
+        },
+      ]),
+    }));
+    vi.stubGlobal("Zotero", {
+      ...globalThis.Zotero,
+      Translate: { Search: MockTranslateSearch },
+      log: vi.fn(),
+    });
+    const item = createMockItem({
+      ISBN: "9780199548477",
+      title: "The Oxford Handbook of Political Economy",
+    });
+
+    await service.fetchBookMetadata("9780199548477", item);
+
+    expect(item.setCreators).toHaveBeenCalledWith(translatedCreators);
+  });
+
   it("skips author validation when fetched book authors have no usable names", async () => {
     const item = createMockItem({
       title: "Dune",

@@ -21,8 +21,10 @@ type TestableMetadataFetcher = {
 };
 
 interface MockTranslatorCreator {
-  creatorType: string;
-  firstName: string;
+  creatorType?: string;
+  creatorTypeID?: number;
+  fieldMode?: number;
+  firstName?: string;
   lastName: string;
 }
 
@@ -160,7 +162,10 @@ describe("MetadataFetcher legacy compatibility", () => {
           return 1;
         }),
       },
-      CreatorTypes: { getPrimaryIDForType: vi.fn(() => 1) },
+      CreatorTypes: {
+        getID: vi.fn((name: string) => (name === "author" ? 8 : 0)),
+        getPrimaryIDForType: vi.fn(() => 8),
+      },
       Date: {
         strToDate: (value: string) => ({ year: value.match(/\d{4}/)?.[0] }),
       },
@@ -405,9 +410,7 @@ describe("MetadataFetcher legacy compatibility", () => {
 
     // DOI match + confidence 1 → authors are applied
     expect(item.setCreators).toHaveBeenCalled();
-    expect(changes).toContainEqual(
-      expect.stringContaining("Updated authors"),
-    );
+    expect(changes).toContainEqual(expect.stringContaining("Updated authors"));
   });
 
   it("rewrites authors for a validated search result and preserves non-authors", async () => {
@@ -602,6 +605,114 @@ describe("MetadataFetcher legacy compatibility", () => {
       { creatorType: "author", firstName: "John", lastName: "Smith" },
       { creatorType: "author", firstName: "Jane", lastName: "Doe" },
       { creatorType: "editor", firstName: "Book", lastName: "Editor" },
+    ]);
+  });
+
+  it("preserves runtime creator roles and single-field names from DOI translators", async () => {
+    const item = createMockItem({
+      title: "Translated Article",
+      DOI: "10.1000/test.doi",
+      date: "2020",
+      creators: [{ firstName: "Old", lastName: "Author", creatorTypeID: 8 }],
+    });
+    setupDOITranslatorMock([
+      {
+        creatorTypeID: 8,
+        firstName: "María José",
+        lastName: "de la Cruz",
+      },
+      {
+        creatorTypeID: 8,
+        fieldMode: 1,
+        firstName: "",
+        lastName: "Global Forecasting Team",
+      },
+      {
+        creatorTypeID: 8,
+        fieldMode: 1,
+        firstName: "",
+        lastName:
+          "Beijing Ditan Hospital, Capital Medical University, Beijing, China",
+      },
+      {
+        creatorTypeID: 10,
+        firstName: "Volume",
+        lastName: "Editor",
+      },
+    ]);
+
+    const result = await fetcher.fetchDOIMetadataViaTranslator(
+      "10.1000/test.doi",
+      item,
+    );
+
+    expect(result).toBe(true);
+    expect(item.setCreators).toHaveBeenCalledWith([
+      {
+        creatorTypeID: 8,
+        firstName: "María José",
+        lastName: "de la Cruz",
+      },
+      {
+        creatorTypeID: 8,
+        fieldMode: 1,
+        firstName: "",
+        lastName: "Global Forecasting Team",
+      },
+      {
+        creatorTypeID: 10,
+        firstName: "Volume",
+        lastName: "Editor",
+      },
+    ]);
+  });
+
+  it("uses structured CrossRef creators when applying search results", async () => {
+    const item = createMockItem({
+      itemTypeID: 1,
+      title: "Curated Local Title",
+      DOI: "10.1234/original",
+      creators: [{ firstName: "Old", lastName: "Author", creatorTypeID: 8 }],
+    });
+
+    await (fetcher as unknown as TestableMetadataFetcher).applyMetadataToItem(
+      item,
+      {
+        title: "Curated Local Title",
+        authors: ["María José de la Cruz", "Global Forecasting Team"],
+        creators: [
+          {
+            creatorType: "author",
+            firstName: "María José",
+            lastName: "de la Cruz",
+          },
+          {
+            creatorType: "author",
+            firstName: "",
+            lastName: "Global Forecasting Team",
+            fieldMode: 1,
+          },
+        ],
+        doi: "10.1234/original",
+        confidence: 1,
+        source: "CrossRef",
+      },
+      { title: "Curated Local Title", doi: "10.1234/original" },
+      {},
+    );
+
+    expect(item.setCreators).toHaveBeenCalledWith([
+      {
+        creatorType: "author",
+        firstName: "María José",
+        lastName: "de la Cruz",
+      },
+      {
+        creatorType: "author",
+        firstName: "",
+        lastName: "Global Forecasting Team",
+        fieldMode: 1,
+      },
     ]);
   });
 

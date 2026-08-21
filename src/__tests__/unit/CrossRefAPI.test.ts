@@ -162,6 +162,53 @@ describe("CrossRefAPI", () => {
       expect(results[0].doi).toBe("10.1000/test.doi");
     });
 
+    it("normalizes CrossRef people and organizations in search results", async () => {
+      mockZoteroHTTP.request.mockResolvedValue({
+        status: 200,
+        statusText: "OK",
+        responseText: JSON.stringify({
+          status: "ok",
+          "message-type": "work-list",
+          "message-version": "1.0.0",
+          message: {
+            "total-results": 1,
+            items: [
+              {
+                DOI: "10.1000/test.doi",
+                title: ["Test Paper"],
+                author: [
+                  { given: "María José", family: "de la Cruz" },
+                  { name: "Global Forecasting Team" },
+                  { name: "Hospital, Medical University, City, Country" },
+                  { name: "" },
+                ],
+              },
+            ],
+          },
+        }),
+        getAllResponseHeaders: () => ({}),
+      });
+
+      const results = await crossRefAPI.search({ title: "Test Paper" });
+
+      expect(results[0]).toMatchObject({
+        authors: ["María José de la Cruz", "Global Forecasting Team"],
+        creators: [
+          {
+            creatorType: "author",
+            firstName: "María José",
+            lastName: "de la Cruz",
+          },
+          {
+            creatorType: "author",
+            firstName: "",
+            lastName: "Global Forecasting Team",
+            fieldMode: 1,
+          },
+        ],
+      });
+    });
+
     it("should handle empty search results", async () => {
       const mockResponse = {
         status: 200,

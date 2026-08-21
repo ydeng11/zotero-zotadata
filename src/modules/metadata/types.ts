@@ -1,3 +1,5 @@
+import type { ZoteroCreatorData } from "@/shared/core/types";
+
 export interface DOIDiscoveryOptions {
   ignoreExistingDoi?: boolean;
   publishedOnly?: boolean;
@@ -18,11 +20,7 @@ export interface MetadataUpdateResult {
 
 export interface TranslatorItem {
   deleted?: boolean;
-  getCreators(): Array<{
-    creatorType?: string;
-    firstName?: string;
-    lastName?: string;
-  }>;
+  getCreators(): ZoteroCreatorData[];
   getField(field: string): string;
   saveTx(): Promise<void>;
 }
