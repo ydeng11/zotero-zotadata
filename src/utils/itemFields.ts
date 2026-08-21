@@ -4,6 +4,7 @@ export interface ZoteroCreatorLike {
   name?: string;
   creatorType?: string;
   creatorTypeID?: number;
+  fieldMode?: number;
 }
 
 export function isAuthorCreator(creator: ZoteroCreatorLike): boolean {
@@ -21,9 +22,7 @@ export function isAuthorCreator(creator: ZoteroCreatorLike): boolean {
     };
   };
   const authorTypeID =
-    zoteroWithCreatorTypes.CreatorTypes?.getID?.("author") ??
-    // Zotero 6 fallback: creatorTypeID 1 is always author
-    1;
+    zoteroWithCreatorTypes.CreatorTypes?.getID?.("author") ?? 8;
 
   return (
     typeof authorTypeID === "number" && creator.creatorTypeID === authorTypeID

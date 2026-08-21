@@ -19,6 +19,10 @@ import {
   isAuthorCreator,
 } from "@/utils/itemFields";
 import { shouldRewriteAuthorsForMetadata } from "@/utils/authorValidation";
+import {
+  copyZoteroCreator,
+  getCreatorDisplayName,
+} from "@/utils/creatorMapping";
 import { getContainerTitleFieldForItemType } from "@/utils/typeMapping";
 import {
   BookMetadataService,
@@ -40,6 +44,7 @@ import type {
   SearchResult,
   AttachmentFinderConfig,
   CrossRefWork,
+  ZoteroCreatorData,
 } from "@/shared/core/types";
 
 export type FetchMetadataForItemsOptions = FetchOptions & {
@@ -321,7 +326,9 @@ export class MetadataFetcher {
               errors: legacyResult.error ? [legacyResult.error] : [],
             };
           }
-          this.debug(`No DOI found or DOI sources exhausted — trying search fallback`);
+          this.debug(
+            `No DOI found or DOI sources exhausted — trying search fallback`,
+          );
         } else if (itemType === "book") {
           this.debug(`Trying ISBN-based metadata path for item ${item.id}`);
           legacyResult = await this.bookMetadata.fetchISBNBasedMetadata(item);
@@ -673,7 +680,7 @@ export class MetadataFetcher {
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const stack = err instanceof Error ? err.stack : '';
+      const stack = err instanceof Error ? err.stack : "";
       this.debug(`Translator threw: ${msg}`);
       if (stack) this.debug(`Stack (level 3): ${stack.slice(0, 500)} ...`);
       return false;
@@ -692,41 +699,30 @@ export class MetadataFetcher {
 
   private applyTranslatedCreators(
     item: Zotero.Item,
-    creators: Array<{
-      creatorType?: string;
-      firstName?: string;
-      lastName?: string;
-    }>,
+    creators: ZoteroCreatorData[],
     translated: TranslatorItem,
     identifier: Record<string, unknown>,
   ): { changed: boolean; rejected: boolean } {
     const currentCreators = item.getCreators();
 
-    const authorsFromTranslation = creators.filter(
-      (c) => c.creatorType === "author" || !c.creatorType,
-    );
+    const translatedCreators = creators
+      .map(copyZoteroCreator)
+      .filter((creator): creator is ZoteroCreatorData => creator !== null);
+    const authorsFromTranslation = translatedCreators.filter(isAuthorCreator);
 
     if (authorsFromTranslation.length === 0) {
       return { changed: false, rejected: false };
     }
 
-    const nonAuthorsFromTranslation = creators.filter(
-      (c) => c.creatorType && c.creatorType !== "author",
+    const nonAuthorsFromTranslation = translatedCreators.filter(
+      (creator) => !isAuthorCreator(creator),
     );
     const existingNonAuthors = currentCreators.filter(
       (c) => !isAuthorCreator(c),
     );
 
-    const newAuthors = authorsFromTranslation.map((creator) => ({
-      creatorType: "author" as const,
-      firstName: creator.firstName ?? "",
-      lastName: creator.lastName ?? "",
-    }));
-
-    const authorNames = newAuthors
-      .map((creator) =>
-        [creator.firstName, creator.lastName].filter(Boolean).join(" ").trim(),
-      )
+    const authorNames = authorsFromTranslation
+      .map(getCreatorDisplayName)
       .filter(Boolean);
 
     if (authorNames.length === 0) {
@@ -749,21 +745,17 @@ export class MetadataFetcher {
       return { changed: false, rejected: true };
     }
 
-    const newNonAuthors = nonAuthorsFromTranslation.map((creator) => ({
-      creatorType: creator.creatorType ?? "author",
-      firstName: creator.firstName ?? "",
-      lastName: creator.lastName ?? "",
-    }));
-
     const finalNonAuthors =
-      nonAuthorsFromTranslation.length > 0 ? newNonAuthors : existingNonAuthors;
+      nonAuthorsFromTranslation.length > 0
+        ? nonAuthorsFromTranslation
+        : existingNonAuthors;
 
     this.debug(
-      `setCreators with ${newAuthors.length} authors + ${finalNonAuthors.length} non-authors ` +
+      `setCreators with ${authorsFromTranslation.length} authors + ${finalNonAuthors.length} non-authors ` +
         `(item currently has ${item.getCreators().length} creators total)`,
     );
 
-    item.setCreators([...newAuthors, ...finalNonAuthors]);
+    item.setCreators([...authorsFromTranslation, ...finalNonAuthors]);
 
     this.debug(
       `After setCreators: item has ${item.getCreators().length} creators`,
@@ -1093,17 +1085,23 @@ export class MetadataFetcher {
             (creator) => !isAuthorCreator(creator),
           );
 
-          const newCreators = searchResult.authors.map((authorName) => {
-            const parts = authorName.split(" ");
-            const lastName = parts.pop() || "";
-            const firstName = parts.join(" ");
+          const newCreators = searchResult.creators
+            ? searchResult.creators
+                .map(copyZoteroCreator)
+                .filter(
+                  (creator): creator is ZoteroCreatorData => creator !== null,
+                )
+            : searchResult.authors.map((authorName) => {
+                const parts = authorName.split(" ");
+                const lastName = parts.pop() || "";
+                const firstName = parts.join(" ");
 
-            return {
-              creatorType: "author",
-              firstName,
-              lastName,
-            };
-          });
+                return {
+                  creatorType: "author",
+                  firstName,
+                  lastName,
+                };
+              });
 
           item.setCreators([...newCreators, ...nonAuthors]);
           changes.push(`Updated authors: ${searchResult.authors.join(", ")}`);

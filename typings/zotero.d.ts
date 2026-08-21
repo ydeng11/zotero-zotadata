@@ -32,13 +32,18 @@ declare global {
         firstName?: string;
         lastName: string;
         name?: string;
-        creatorType: string;
+        creatorType?: string;
+        creatorTypeID?: number;
+        fieldMode?: number;
       }>;
       setCreators(
         creators: Array<{
           firstName?: string;
           lastName: string;
-          creatorType: string;
+          name?: string;
+          creatorType?: string;
+          creatorTypeID?: number;
+          fieldMode?: number;
         }>,
       ): void;
       getAttachments(): number[];

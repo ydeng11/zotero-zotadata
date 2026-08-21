@@ -124,9 +124,19 @@ export interface SearchQuery {
   issue?: string;
 }
 
+export interface ZoteroCreatorData {
+  firstName?: string;
+  lastName: string;
+  name?: string;
+  creatorType?: string;
+  creatorTypeID?: number;
+  fieldMode?: number;
+}
+
 export interface SearchResult {
   title: string;
   authors: string[];
+  creators?: ZoteroCreatorData[];
   year?: number;
   doi?: string;
   url?: string;
@@ -183,16 +193,27 @@ export interface AttachmentInfo {
 }
 
 // API-specific types
+export interface CrossRefPersonAuthor {
+  given?: string;
+  family: string;
+  name?: never;
+}
+
+export interface CrossRefOrganizationAuthor {
+  name: string;
+  given?: never;
+  family?: never;
+}
+
+export type CrossRefAuthor = CrossRefPersonAuthor | CrossRefOrganizationAuthor;
+
 export interface CrossRefWork {
   type?: string;
   DOI: string;
   title: string[];
   "original-title"?: string[];
   language?: string;
-  author?: Array<{
-    given?: string;
-    family: string;
-  }>;
+  author?: CrossRefAuthor[];
   published?: {
     "date-parts": number[][];
   };

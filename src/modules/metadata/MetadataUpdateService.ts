@@ -2,8 +2,12 @@ import { ErrorManager } from "@/shared/core";
 import { OpenAlexAPI } from "@/features/metadata/apis";
 import { applyAuthorsToItem, isAuthorCreator } from "@/utils/itemFields";
 import { shouldRewriteAuthorsForMetadata } from "@/utils/authorValidation";
+import {
+  getCreatorDisplayName,
+  normalizeCrossRefCreators,
+} from "@/utils/creatorMapping";
 import { isExactTitleMatch } from "@/utils/similarity";
-import type { CrossRefWork } from "@/shared/core/types";
+import type { CrossRefWork, ZoteroCreatorData } from "@/shared/core/types";
 
 export class MetadataUpdateService {
   private errorManager: ErrorManager;
@@ -29,7 +33,8 @@ export class MetadataUpdateService {
     const metadataTitle = Array.isArray(metadata.title)
       ? metadata.title[0]
       : metadata.title;
-    const metadataAuthors = this.formatCrossRefAuthors(metadata.author ?? []);
+    const crossRefCreators = normalizeCrossRefCreators(metadata.author ?? []);
+    const metadataAuthors = crossRefCreators.map(getCreatorDisplayName);
 
     this.debug(
       `Source: CrossRef — updating item ${item.id} from DOI ${metadata.DOI}`,
@@ -42,7 +47,7 @@ export class MetadataUpdateService {
     }
 
     if (
-      metadata.author?.length &&
+      crossRefCreators.length > 0 &&
       shouldRewriteAuthorsForMetadata(item, {
         title: metadataTitle,
         authors: metadataAuthors,
@@ -52,9 +57,9 @@ export class MetadataUpdateService {
         confidence: 1,
       })
     ) {
-      this.debug(`Writing ${metadata.author.length} authors from CrossRef`);
-      this.applyCrossRefAuthors(item, metadata.author);
-      changes.push(`Updated authors: ${metadata.author.length}`);
+      this.debug(`Writing ${crossRefCreators.length} authors from CrossRef`);
+      this.applyCrossRefAuthors(item, crossRefCreators);
+      changes.push(`Updated authors: ${crossRefCreators.length}`);
     }
 
     if (!this.shouldApplyCrossRefFields(currentTitle, metadataTitle)) {
@@ -194,27 +199,13 @@ export class MetadataUpdateService {
 
   private applyCrossRefAuthors(
     item: Zotero.Item,
-    authors: Array<{ given?: string; family: string }>,
+    authors: ZoteroCreatorData[],
   ): void {
     const existingCreators = item.getCreators();
     const nonAuthors = existingCreators.filter(
       (creator) => !isAuthorCreator(creator),
     );
 
-    const newAuthors = authors.map((author) => ({
-      creatorType: "author" as const,
-      firstName: author.given ?? "",
-      lastName: author.family,
-    }));
-
-    item.setCreators([...newAuthors, ...nonAuthors]);
-  }
-
-  private formatCrossRefAuthors(
-    authors: Array<{ given?: string; family: string }>,
-  ): string[] {
-    return authors.map((author) =>
-      [author.given, author.family].filter(Boolean).join(" ").trim(),
-    );
+    item.setCreators([...authors, ...nonAuthors]);
   }
 }

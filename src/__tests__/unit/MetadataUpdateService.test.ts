@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MetadataUpdateService } from "@/modules/metadata/MetadataUpdateService";
 import { createMockItem } from "../../../tests/__mocks__/zotero-items";
+import type { CrossRefWork } from "@/shared/core/types";
 
 describe("MetadataUpdateService", () => {
   let service: MetadataUpdateService;
@@ -10,7 +11,10 @@ describe("MetadataUpdateService", () => {
     vi.stubGlobal("Zotero", {
       ...globalThis.Zotero,
       log: vi.fn(),
-      CreatorTypes: { getPrimaryIDForType: vi.fn(() => 1) },
+      CreatorTypes: {
+        getID: vi.fn((name: string) => (name === "author" ? 8 : 0)),
+        getPrimaryIDForType: vi.fn(() => 8),
+      },
     });
   });
 
@@ -245,14 +249,14 @@ describe("MetadataUpdateService", () => {
         creators: [],
       });
       item.getCreators = vi.fn(() => [
-        { firstName: "Steffen", lastName: "Rendle", creatorTypeID: 1 },
+        { firstName: "Steffen", lastName: "Rendle", creatorTypeID: 8 },
         {
           firstName: "Christoph",
           lastName: "Freudenthaler",
-          creatorTypeID: 1,
+          creatorTypeID: 8,
         },
-        { firstName: "Zeno", lastName: "Gantner", creatorTypeID: 1 },
-        { firstName: "Lars", lastName: "Schmidt-Thieme", creatorTypeID: 1 },
+        { firstName: "Zeno", lastName: "Gantner", creatorTypeID: 8 },
+        { firstName: "Lars", lastName: "Schmidt-Thieme", creatorTypeID: 8 },
         { firstName: "Program", lastName: "Chair", creatorType: "editor" },
       ]) as Zotero.Item["getCreators"];
 
@@ -285,6 +289,77 @@ describe("MetadataUpdateService", () => {
         },
         { creatorType: "editor", firstName: "Program", lastName: "Chair" },
       ]);
+    });
+
+    it("normalizes structured people and name-only organizations without blank creators", async () => {
+      const item = createMockItem({
+        title: "Respiratory Pathogen Profiles",
+        DOI: "10.46234/ccdcw2025.018",
+        creators: [
+          {
+            firstName: "Volume",
+            lastName: "Editor",
+            creatorTypeID: 10,
+          },
+        ],
+      });
+      const metadata = {
+        DOI: "10.46234/ccdcw2025.018",
+        title: ["Respiratory Pathogen Profiles"],
+        author: [
+          { given: "María José", family: "de la Cruz" },
+          { name: "IHME COVID-19 health service utilization forecasting team" },
+          {
+            name: "Global Burden of Disease, Injuries, and Risk Factors Study",
+          },
+          { name: "Research Team, Inc." },
+          {
+            name: "Beijing Ditan Hospital, Capital Medical University, Beijing, China",
+          },
+          { name: "   " },
+          { given: "Missing family" },
+          { given: 42, family: "Numeric" },
+          null,
+          "invalid contributor",
+        ],
+      } as unknown as CrossRefWork;
+
+      await service.updateItemWithMetadata(item, metadata);
+
+      expect(item.setCreators).toHaveBeenCalledWith([
+        {
+          creatorType: "author",
+          firstName: "María José",
+          lastName: "de la Cruz",
+        },
+        {
+          creatorType: "author",
+          firstName: "",
+          lastName: "IHME COVID-19 health service utilization forecasting team",
+          fieldMode: 1,
+        },
+        {
+          creatorType: "author",
+          firstName: "",
+          lastName: "Research Team, Inc.",
+          fieldMode: 1,
+        },
+        {
+          creatorType: "author",
+          firstName: "",
+          lastName: "Numeric",
+        },
+        {
+          firstName: "Volume",
+          lastName: "Editor",
+          creatorTypeID: 10,
+        },
+      ]);
+      expect(item.getCreators()).not.toContainEqual(
+        expect.objectContaining({
+          lastName: expect.stringContaining("undefined"),
+        }),
+      );
     });
 
     it("overwrites authors from CrossRef when DOI matches despite title mismatch", async () => {

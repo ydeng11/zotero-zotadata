@@ -4,6 +4,8 @@ export interface MockCreator {
   firstName?: string;
   lastName: string;
   creatorType?: string;
+  creatorTypeID?: number;
+  fieldMode?: number;
   name?: string;
 }
 
@@ -83,7 +85,9 @@ let attachmentCounter = 1000;
 function normalizeCreators(creators: MockCreator[] = []): MockCreator[] {
   return creators.map((creator) => ({
     ...creator,
-    creatorType: creator.creatorType ?? "author",
+    ...(creator.creatorType === undefined && creator.creatorTypeID === undefined
+      ? { creatorType: "author" }
+      : {}),
   }));
 }
 
@@ -213,7 +217,10 @@ function createBaseItem(config: MockItemConfig = {}): MockZoteroItem {
     setCreator: vi.fn((index: number, creator: MockCreator) => {
       creators[index] = {
         ...creator,
-        creatorType: creator.creatorType ?? "author",
+        ...(creator.creatorType === undefined &&
+        creator.creatorTypeID === undefined
+          ? { creatorType: "author" }
+          : {}),
       };
     }),
     numCreators: vi.fn(() => creators.length),

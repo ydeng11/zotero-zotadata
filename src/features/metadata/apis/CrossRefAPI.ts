@@ -2,7 +2,12 @@ import { BaseMetadataAPI } from "./BaseMetadataAPI";
 import { normalizeDoi } from "@/utils/itemSearchQuery";
 import { isExactTitleMatch } from "@/utils/similarity";
 import { mapCrossRefTypeToZotero } from "@/utils/typeMapping";
+import {
+  getCreatorDisplayName,
+  normalizeCrossRefCreators,
+} from "@/utils/creatorMapping";
 import type {
+  CrossRefAuthor,
   CrossRefWork,
   SearchQuery,
   SearchResult,
@@ -212,12 +217,11 @@ export class CrossRefAPI extends BaseMetadataAPI {
     originalQuery: SearchQuery,
   ): SearchResult[] {
     return works.map((work) => {
+      const creators = normalizeCrossRefCreators(work.author ?? []);
       const result: SearchResult = {
         title: Array.isArray(work.title) ? work.title[0] : work.title,
-        authors:
-          work.author?.map((author) =>
-            `${author.given || ""} ${author.family}`.trim(),
-          ) || [],
+        authors: creators.map(getCreatorDisplayName),
+        creators,
         year: work.published?.["date-parts"]?.[0]?.[0],
         doi: work.DOI ? this.cleanDOI(work.DOI) : undefined,
         url: work.URL,
@@ -282,7 +286,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
    */
   private calculateAuthorMatch(
     queryAuthors: string[],
-    workAuthors: Array<{ given?: string; family: string }>,
+    workAuthors: CrossRefAuthor[],
   ): number {
     if (queryAuthors.length === 0 || workAuthors.length === 0) {
       return 0;
@@ -295,9 +299,9 @@ export class CrossRefAPI extends BaseMetadataAPI {
         .trim();
 
     const queryNormalized = queryAuthors.map(normalizeAuthor);
-    const workNormalized = workAuthors.map((author) =>
-      normalizeAuthor(`${author.given || ""} ${author.family}`),
-    );
+    const workNormalized = normalizeCrossRefCreators(workAuthors)
+      .map(getCreatorDisplayName)
+      .map(normalizeAuthor);
 
     let matches = 0;
     for (const queryAuthor of queryNormalized) {
@@ -312,7 +316,7 @@ export class CrossRefAPI extends BaseMetadataAPI {
       }
     }
 
-    return matches / Math.max(queryAuthors.length, workAuthors.length);
+    return matches / Math.max(queryAuthors.length, workNormalized.length);
   }
 
   /**
