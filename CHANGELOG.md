@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.5] - 2026-08-21
+
+### Fixed
+
+- **Institution and affiliation creators** — Crossref affiliation rows are no
+  longer written as authors during metadata retrieval.
+- **Corporate authors and editors** — Corporate authors retain Zotero's
+  single-field mode, while editors preserve their editor creator role.
+- **Malformed Crossref contributors** — Invalid or incomplete contributor
+  entries are ignored without producing blank or `undefined` creators.
+
 ## [1.5.4] - 2026-06-03
 
 ### Fixed
