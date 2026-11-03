@@ -402,6 +402,8 @@ export class DownloadManager {
           response,
           onProgress,
           managedDownload.getAbortSignal(),
+          options.maxFileSize,
+          url,
         );
 
         // Validate downloaded content
@@ -506,13 +508,21 @@ export class DownloadManager {
     response: Response,
     onProgress?: (progress: ProgressInfo) => void,
     signal?: AbortSignal,
+    maxFileSize?: number,
+    url?: string,
   ): Promise<ArrayBuffer> {
     const contentLength = response.headers.get("content-length");
     const total = contentLength ? parseInt(contentLength) : 0;
 
-    if (response.arrayBuffer) {
-      // Simple case - read entire response
+    if (total > 0) {
+      this.enforceFileSizeLimit(total, maxFileSize, url);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      // Fallback for host responses that do not expose a readable stream.
       const data = await response.arrayBuffer();
+      this.enforceFileSizeLimit(data.byteLength, maxFileSize, url);
 
       if (onProgress && total > 0) {
         onProgress({
@@ -524,12 +534,6 @@ export class DownloadManager {
       }
 
       return data;
-    }
-
-    // Stream reading with progress (if supported)
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error("Response body not readable");
     }
 
     const chunks: Uint8Array[] = [];
@@ -545,8 +549,13 @@ export class DownloadManager {
 
         if (done) break;
 
+        const nextReceivedLength = receivedLength + value.length;
+        if (maxFileSize !== undefined && nextReceivedLength > maxFileSize) {
+          await reader.cancel();
+          this.enforceFileSizeLimit(nextReceivedLength, maxFileSize, url);
+        }
         chunks.push(value);
-        receivedLength += value.length;
+        receivedLength = nextReceivedLength;
 
         if (onProgress) {
           onProgress({
@@ -570,6 +579,22 @@ export class DownloadManager {
     }
 
     return combinedArray.buffer;
+  }
+
+  private enforceFileSizeLimit(
+    fileSize: number,
+    maxFileSize?: number,
+    url?: string,
+  ): void {
+    if (maxFileSize === undefined || fileSize <= maxFileSize) {
+      return;
+    }
+
+    throw this.errorManager.createError(
+      ErrorType.VALIDATION_ERROR,
+      `File size (${fileSize} bytes) exceeds limit (${maxFileSize} bytes)`,
+      { url, fileSize, limit: maxFileSize },
+    );
   }
 
   /**
