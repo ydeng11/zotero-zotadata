@@ -1,4 +1,4 @@
-// Zotero 8 type definitions
+// Zotero 8–10 type definitions
 // This extends the zotero-types package with additional definitions
 
 declare global {
@@ -241,7 +241,12 @@ declare global {
     function getMainWindow(): Window;
     function getActiveZoteroPane(): {
       getSelectedItems(): Item[];
-      getSelectedCollection(): Collection | null;
+      /**
+       * Zotero 8/9 only. Throws in Zotero 10; use getSelectedCollections().
+       */
+      getSelectedCollection?(): Collection | null;
+      /** Zotero 10+; safe with any selection, including multi-select. */
+      getSelectedCollections?(): Collection[];
     } | null;
     function getTempDirectory(): FileLike;
 

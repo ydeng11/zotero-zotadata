@@ -1,5 +1,5 @@
 /**
- * Bootstrap entry for Zotero 8 (aligned with zotero-plugin-template).
+ * Bootstrap entry for Zotero 8+ (aligned with zotero-plugin-template).
  */
 
 let chromeHandle;

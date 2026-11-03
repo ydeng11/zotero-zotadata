@@ -127,6 +127,36 @@ export class ZoteroUtils {
   }
 
   /**
+   * Get currently selected collections in the collection tree.
+   *
+   * Zotero 10 allows multi-select and replaced `getSelectedCollection()`
+   * (which now throws) with `getSelectedCollections()`. Falls back to the
+   * singular getter on Zotero 8/9.
+   */
+  static getSelectedCollections(): Zotero.Collection[] {
+    try {
+      const zoteroPane = Zotero.getActiveZoteroPane();
+      if (!zoteroPane) {
+        return [];
+      }
+
+      if (typeof zoteroPane.getSelectedCollections === "function") {
+        return zoteroPane.getSelectedCollections() ?? [];
+      }
+
+      if (typeof zoteroPane.getSelectedCollection === "function") {
+        const collection = zoteroPane.getSelectedCollection();
+        return collection ? [collection] : [];
+      }
+
+      return [];
+    } catch (error) {
+      console.error("Failed to get selected collections:", error);
+      return [];
+    }
+  }
+
+  /**
    * Get selected items that can have attachments
    */
   static getSelectedAttachableItems(): Zotero.Item[] {

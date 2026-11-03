@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Zotero 10 support** with updated version constraints (`strict_max_version: "10.*"`)
+
+### Changed
+
+- Collection selection uses `getSelectedCollections()` (required in Zotero 10, which allows multi-select and throws on the old singular getter), with a fallback to `getSelectedCollection()` on Zotero 8/9
+
 ## [1.5.5] - 2026-08-21
 
 ### Fixed

@@ -2,7 +2,7 @@
 
 A Zotero plugin that enhances your research workflow with intelligent metadata discovery and automated file management.
 
-**⚠️ This version is designed for Zotero 8.x and 9.x**
+**⚠️ This version is designed for Zotero 8.x, 9.x, and 10.x**
 
 ## Demo
 
@@ -66,10 +66,10 @@ This diagram was inspired by [this Reddit post](https://www.reddit.com/r/coolgui
 
 ## Installation
 
-### From XPI File (Zotero 8.x/9.x)
+### From XPI File (Zotero 8.x/9.x/10.x)
 
 1. Download the latest release XPI file
-2. In Zotero 8/9, go to `Tools` → `Add-ons`
+2. In Zotero 8/9/10, go to `Tools` → `Add-ons`
 3. Click the gear icon and select "Install Add-on From File..."
 4. Select the downloaded XPI file
 5. Restart Zotero
@@ -357,8 +357,8 @@ zotero-zotadata/
 │   └── plugin.ts                # Plugin implementation
 ├── typings/                     # Custom TypeScript declarations
 ├── addon/                       # Zotero plugin scaffold
-│   ├── bootstrap.js             # Plugin bootstrap for Zotero 8
-│   ├── manifest.json            # Plugin metadata (Zotero 8 format)
+│   ├── bootstrap.js             # Plugin bootstrap for Zotero 8+
+│   ├── manifest.json            # Plugin metadata (Zotero 8+ format)
 │   ├── locale/                  # Localization files (en-US, zh-CN)
 │   └── content/                 # Plugin UI content (XUL, XHTML, icons)
 ├── skin/                        # Plugin assets (icons, legacy CSS)
@@ -394,7 +394,7 @@ The project uses a split structure to separate shared infrastructure from featur
 ### Requirements
 
 - Node.js 22+ (for zotero-plugin-scaffold 0.8.x)
-- Zotero 8.0 or later (supports Zotero 9.x)
+- Zotero 8.0 or later (supports Zotero 9.x and 10.x)
 - TypeScript 5.8+
 - Modern IDE with TypeScript support (VS Code recommended)
 
@@ -499,15 +499,16 @@ This will:
 - Launch Zotero with the plugin loaded
 - Automatically rebuild and reload when files change
 
-## Zotero 8/9 Compatibility
+## Zotero 8/9/10 Compatibility
 
-This version supports both Zotero 8 and Zotero 9:
+This version supports Zotero 8, 9, and 10:
 
 - **Module System**: Bootstrap updated to use ESM modules (`ChromeUtils.importESModule`)
 - **Services Import**: Uses `resource://gre/modules/Services.sys.mjs` instead of JSM
-- **Target Platform**: Built for Firefox 140+ (Zotero 8) and Firefox 115+ (Zotero 9)
-- **Build System**: Uses `zotero-plugin-scaffold` 0.8.6 for modern Node.js support
-- **Version Constraints**: `strict_min_version: "8.0"` and `strict_max_version: "9.*"`
+- **Target Platform**: Built for Firefox 140 ESR (Zotero 8, 9, and 10)
+- **Build System**: Uses `zotero-plugin-scaffold` 0.8.x for modern Node.js support
+- **Version Constraints**: `strict_min_version: "8.0"` and `strict_max_version: "10.*"`
+- **Collection selection**: Uses `getSelectedCollections()` on Zotero 10 (multi-select; the singular getter throws) and falls back to `getSelectedCollection()` on Zotero 8/9
 
 ### Key Changes from Zotero 7
 
@@ -531,7 +532,7 @@ This version supports both Zotero 8 and Zotero 9:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly with Zotero 8
+4. Test thoroughly with Zotero 8, 9, and 10
 5. Submit a pull request
 
 ## License

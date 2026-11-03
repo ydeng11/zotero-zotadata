@@ -13,7 +13,7 @@ export default defineConfig({
     "https://github.com/ydeng11/zotero-zotadata/releases/latest/download/zotadata.xpi",
   version: {
     min: "8.0",
-    max: "9.*",
+    max: "10.*",
   },
   build: {
     assets: ["addon/**/*.*"],

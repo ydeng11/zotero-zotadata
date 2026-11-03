@@ -638,15 +638,7 @@ export class MenuManager {
   }
 
   private hasSelectedCollection(): boolean {
-    try {
-      const zoteroPane = Zotero.getActiveZoteroPane();
-      if (!zoteroPane) return false;
-
-      const selectedCollection = zoteroPane.getSelectedCollection();
-      return !!selectedCollection;
-    } catch {
-      return false;
-    }
+    return ZoteroUtils.getSelectedCollections().length > 0;
   }
 
   /**
