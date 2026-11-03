@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-11-03
+
 ### Added
 
 - **Zotero 10 support** with updated version constraints (`strict_max_version: "10.*"`)
