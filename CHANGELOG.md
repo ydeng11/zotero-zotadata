@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.5.7] - 2026-11-15
+
+### Security
+
+- Upgrade Zotero Plugin Toolkit to 6.0.0 to remove two unused `zotero://` handlers ([#25](https://github.com/ydeng11/zotero-zotadata/issues/25)).
+
 ## [1.5.6] - 2026-11-03
 
 ### Added
