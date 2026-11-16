@@ -17,7 +17,6 @@
   "author": "Zotadata Team",
   "license": "AGPL-3.0-or-later",
   "scripts": {
-    "postinstall": "patch-package",
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
     "build:dev": "zotero-plugin build --dev",
@@ -33,14 +32,13 @@
     "dev:launch": "npm run build && cp .scaffold/dist/zotadata.xpi \"$HOME/Library/Application Support/Zotero/Profiles/1fgc3u0t.default/extensions/zotadata@zotero.org.xpi\" && /Applications/Zotero.app/Contents/MacOS/zotero -purgecaches -ZoteroDebugText -ZoteroDebugLog -jsconsole > $HOME/Desktop/zotero-debug.txt 2>&1"
   },
   "dependencies": {
-    "zotero-plugin-toolkit": "^5.0.0"
+    "zotero-plugin-toolkit": "^6.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.1",
     "@types/node": "^22.15.29",
     "@vitest/coverage-v8": "^1.0.0",
     "eslint": "^9.28.0",
-    "patch-package": "^8.0.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.0",
