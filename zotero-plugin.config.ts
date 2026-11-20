@@ -10,7 +10,7 @@ export default defineConfig({
   updateURL:
     "https://github.com/ydeng11/zotero-zotadata/releases/latest/download/update.json",
   xpiDownloadLink:
-    "https://github.com/ydeng11/zotero-zotadata/releases/latest/download/zotadata.xpi",
+    "https://github.com/ydeng11/zotero-zotadata/releases/download/v{{version}}/zotadata.xpi",
   version: {
     min: "8.0",
     max: "10.*",

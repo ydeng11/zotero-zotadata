@@ -111,8 +111,10 @@ jobs:
           body_path: ${{ steps.changelog.outputs.changelog_file || '/dev/null' }}
           draft: false
           prerelease: ${{ contains(inputs.version, '-') }}
+          fail_on_unmatched_files: true
           files: |
             .scaffold/dist/zotadata.xpi
+            ${{ !contains(inputs.version, '-') && '.scaffold/dist/update.json' || '' }}
 
       - name: Commit version bump
         if: steps.version-check.outputs.needs_update == 'true'
